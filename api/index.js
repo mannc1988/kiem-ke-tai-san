@@ -1,4 +1,3 @@
-
 const mysql = require('mysql2/promise');
 const cors = require('cors')({ origin: true });
 
@@ -16,12 +15,13 @@ const pool = mysql.createPool({
 
 module.exports = async (req, res) => {
     return cors(req, res, async () => {
-        const action = req.query.action || '';
+        // Tự động nhận diện action từ query string (GET) hoặc body (POST)
+        const action = req.query.action || (req.body && req.body.action) || '';
 
         try {
             const connection = await pool.getConnection();
 
-            // Tự động tạo bảng nếu chưa tồn tại
+            // 1. Tự động khởi tạo bảng nếu chưa có
             await connection.execute(`CREATE TABLE IF NOT EXISTS danh_sach_ts (
                 id VARCHAR(50) PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
@@ -42,7 +42,7 @@ module.exports = async (req, res) => {
                 ghiChu TEXT
             )`);
 
-            // Chèn dữ liệu mẫu nếu bảng danh mục trống
+            // Chèn dữ liệu mẫu nếu bảng trống
             const [rows] = await connection.execute("SELECT COUNT(*) as c FROM danh_sach_ts");
             if (rows[0].c === 0) {
                 await connection.execute(`INSERT INTO danh_sach_ts (id, name, room) VALUES 
@@ -56,15 +56,17 @@ module.exports = async (req, res) => {
                 await connection.execute("INSERT INTO dot_kiem_ke (id, name, active) VALUES ('DOT_01', 'Kiểm kê Quý 1/2026', 1)");
             }
 
+            // 2. GET: Lấy toàn bộ dữ liệu cho ứng dụng
             if (req.method === 'GET' && action === 'data') {
                 const [danh_sach] = await connection.execute("SELECT * FROM danh_sach_ts");
                 const [dot_kiem_ke] = await connection.execute("SELECT * FROM dot_kiem_ke");
                 dot_kiem_ke.forEach(d => d.active = Boolean(d.active));
-                const [lich_su] = await connection.execute("SELECT * FROM lich_su_kk");
+                const [lich_su] = await connection.execute("SELECT * FROM lich_su_kk ORDER BY id DESC");
                 connection.release();
                 return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
             }
 
+            // 3. POST: Ghi nhận lịch sử quét QR
             if (req.method === 'POST' && action === 'history') {
                 const { dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu } = req.body;
                 const [existing] = await connection.execute(
@@ -73,7 +75,7 @@ module.exports = async (req, res) => {
                 );
                 if (existing.length > 0) {
                     connection.release();
-                    return res.status(400).json({ success: false, error: 'Tài sản đã được kiểm kê trước đó!' });
+                    return res.status(400).json({ success: false, error: 'Tài sản đã được kiểm kê trước đó trong đợt này!' });
                 }
                 await connection.execute(
                     "INSERT INTO lich_su_kk (dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu) VALUES (?, ?, ?, ?, ?, ?)",
@@ -83,10 +85,43 @@ module.exports = async (req, res) => {
                 return res.json({ success: true });
             }
 
+            // 4. POST: Thêm hoặc Cập nhật danh mục tài sản (CRUD - Save)
+            if (req.method === 'POST' && action === 'save_asset') {
+                const { id, name, room } = req.body;
+                if (!id || !name || !room) {
+                    connection.release();
+                    return res.status(400).json({ success: false, error: 'Vui lòng điền đầy đủ thông tin!' });
+                }
+                await connection.execute(
+                    `INSERT INTO danh_sach_ts (id, name, room) VALUES (?, ?, ?) 
+                     ON DUPLICATE KEY UPDATE name = VALUES(name), room = VALUES(room)`,
+                    [id, name, room]
+                );
+                connection.release();
+                return res.json({ success: true, message: 'Lưu tài sản thành công!' });
+            }
+
+            // 5. POST: Xóa tài sản khỏi danh mục (CRUD - Delete Asset)
+            if (req.method === 'POST' && action === 'delete_asset') {
+                const { id } = req.body;
+                await connection.execute("DELETE FROM danh_sach_ts WHERE id = ?", [id]);
+                connection.release();
+                return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
+            }
+
+            // 6. POST: Xóa lịch sử kiểm kê (CRUD - Delete History)
+            if (req.method === 'POST' && action === 'delete_history') {
+                const { id } = req.body;
+                await connection.execute("DELETE FROM lich_su_kk WHERE id = ?", [id]);
+                connection.release();
+                return res.json({ success: true, message: 'Đã xóa lịch sử thành công!' });
+            }
+
             connection.release();
-            res.status(400).json({ success: false, error: 'Invalid action' });
+            return res.status(400).json({ success: false, error: 'Invalid action or method' });
+
         } catch (err) {
-            res.status(500).json({ success: false, error: err.message });
+            return res.status(500).json({ success: false, error: err.message });
         }
     });
 };
