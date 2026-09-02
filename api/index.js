@@ -20,7 +20,6 @@ module.exports = async (req, res) => {
         try {
             const connection = await pool.getConnection();
 
-            await connection.execute(`DROP TABLE IF EXISTS danh_sach_tai_san`);
             // Khởi tạo bảng danh_sach_tai_san chuẩn mới
             await connection.execute(`CREATE TABLE IF NOT EXISTS danh_sach_tai_san (
     id VARCHAR(50) PRIMARY KEY,
