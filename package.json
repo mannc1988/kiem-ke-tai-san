@@ -1,1 +1,9 @@
 
+{
+  "name": "kiem-ke-aiven",
+  "version": "1.0.0",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "mysql2": "^3.9.0"
+  }
+}
