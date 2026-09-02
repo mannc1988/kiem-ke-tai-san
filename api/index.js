@@ -15,13 +15,12 @@ const pool = mysql.createPool({
 
 module.exports = async (req, res) => {
     return cors(req, res, async () => {
-        // Tự động nhận diện action từ query string (GET) hoặc body (POST)
         const action = req.query.action || (req.body && req.body.action) || '';
 
         try {
             const connection = await pool.getConnection();
 
-            // 1. Tự động khởi tạo bảng nếu chưa có
+            // Tự động khởi tạo bảng nếu chưa có
             await connection.execute(`CREATE TABLE IF NOT EXISTS danh_sach_ts (
                 id VARCHAR(50) PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
@@ -56,7 +55,7 @@ module.exports = async (req, res) => {
                 await connection.execute("INSERT INTO dot_kiem_ke (id, name, active) VALUES ('DOT_01', 'Kiểm kê Quý 1/2026', 1)");
             }
 
-            // 2. GET: Lấy toàn bộ dữ liệu cho ứng dụng
+            // 1. GET: Lấy thông tin chung (Danh sách đợt kiểm kê & cache danh mục tài sản cho việc quét QR)
             if (req.method === 'GET' && action === 'data') {
                 const [danh_sach] = await connection.execute("SELECT * FROM danh_sach_ts");
                 const [dot_kiem_ke] = await connection.execute("SELECT * FROM dot_kiem_ke");
@@ -66,7 +65,70 @@ module.exports = async (req, res) => {
                 return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
             }
 
-            // 3. POST: Ghi nhận lịch sử quét QR
+            // 2. SERVER-SIDE: Xử lý dữ liệu phân trang, tìm kiếm cho Bảng Danh Mục Tài Sản
+            if (req.method === 'GET' && action === 'server_assets') {
+                const draw = parseInt(req.query.draw) || 1;
+                const start = parseInt(req.query.start) || 0;
+                const length = parseInt(req.query.length) || 10;
+                const searchValue = req.query.search && req.query.search.value ? `%${req.query.search.value}%` : '%%';
+
+                // Đếm tổng số bản ghi không điều kiện
+                const [totalRows] = await connection.execute("SELECT COUNT(*) as total FROM danh_sach_ts");
+                const totalRecords = totalRows[0].total;
+
+                // Đếm tổng số bản ghi sau khi tìm kiếm (Filter)
+                const [filteredRows] = await connection.execute(
+                    "SELECT COUNT(*) as total FROM danh_sach_ts WHERE id LIKE ? OR name LIKE ? OR room LIKE ?",
+                    [searchValue, searchValue, searchValue]
+                );
+                const filteredRecords = filteredRows[0].total;
+
+                // Lấy dữ liệu phân trang và tìm kiếm
+                const [data] = await connection.execute(
+                    "SELECT * FROM danh_sach_ts WHERE id LIKE ? OR name LIKE ? OR room LIKE ? LIMIT ? OFFSET ?",
+                    [searchValue, searchValue, searchValue, length, start]
+                );
+
+                connection.release();
+                return res.json({
+                    draw: draw,
+                    recordsTotal: totalRecords,
+                    recordsFiltered: filteredRecords,
+                    data: data
+                });
+            }
+
+            // 3. SERVER-SIDE: Xử lý dữ liệu phân trang, tìm kiếm cho Bảng Lịch Sử Kiểm Kê
+            if (req.method === 'GET' && action === 'server_history') {
+                const draw = parseInt(req.query.draw) || 1;
+                const start = parseInt(req.query.start) || 0;
+                const length = parseInt(req.query.length) || 10;
+                const searchValue = req.query.search && req.query.search.value ? `%${req.query.search.value}%` : '%%';
+
+                const [totalRows] = await connection.execute("SELECT COUNT(*) as total FROM lich_su_kk");
+                const totalRecords = totalRows[0].total;
+
+                const [filteredRows] = await connection.execute(
+                    "SELECT COUNT(*) as total FROM lich_su_kk WHERE tsId LIKE ? OR tsName LIKE ? OR nguoiKK LIKE ? OR ghiChu LIKE ?",
+                    [searchValue, searchValue, searchValue, searchValue]
+                );
+                const filteredRecords = filteredRows[0].total;
+
+                const [data] = await connection.execute(
+                    "SELECT * FROM lich_su_kk WHERE tsId LIKE ? OR tsName LIKE ? OR nguoiKK LIKE ? OR ghiChu LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
+                    [searchValue, searchValue, searchValue, searchValue, length, start]
+                );
+
+                connection.release();
+                return res.json({
+                    draw: draw,
+                    recordsTotal: totalRecords,
+                    recordsFiltered: filteredRecords,
+                    data: data
+                });
+            }
+
+            // 4. POST: Ghi nhận lịch sử quét QR
             if (req.method === 'POST' && action === 'history') {
                 const { dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu } = req.body;
                 const [existing] = await connection.execute(
@@ -85,7 +147,7 @@ module.exports = async (req, res) => {
                 return res.json({ success: true });
             }
 
-            // 4. POST: Thêm hoặc Cập nhật danh mục tài sản (CRUD - Save)
+            // 5. POST: Thêm hoặc Cập nhật danh mục tài sản (CRUD - Save)
             if (req.method === 'POST' && action === 'save_asset') {
                 const { id, name, room } = req.body;
                 if (!id || !name || !room) {
@@ -101,7 +163,7 @@ module.exports = async (req, res) => {
                 return res.json({ success: true, message: 'Lưu tài sản thành công!' });
             }
 
-            // 5. POST: Xóa tài sản khỏi danh mục (CRUD - Delete Asset)
+            // 6. POST: Xóa tài sản khỏi danh mục (CRUD - Delete Asset)
             if (req.method === 'POST' && action === 'delete_asset') {
                 const { id } = req.body;
                 await connection.execute("DELETE FROM danh_sach_ts WHERE id = ?", [id]);
@@ -109,7 +171,7 @@ module.exports = async (req, res) => {
                 return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
             }
 
-            // 6. POST: Xóa lịch sử kiểm kê (CRUD - Delete History)
+            // 7. POST: Xóa lịch sử kiểm kê (CRUD - Delete History)
             if (req.method === 'POST' && action === 'delete_history') {
                 const { id } = req.body;
                 await connection.execute("DELETE FROM lich_su_kk WHERE id = ?", [id]);
