@@ -20,23 +20,24 @@ module.exports = async (req, res) => {
         try {
             const connection = await pool.getConnection();
 
+            await connection.execute(`DROP TABLE IF EXISTS danh_sach_tai_san`);
             // Khởi tạo bảng danh_sach_tai_san chuẩn mới
             await connection.execute(`CREATE TABLE IF NOT EXISTS danh_sach_tai_san (
-                id VARCHAR(50) PRIMARY KEY,
-                ma_tai_san VARCHAR(100),
-                don_vi VARCHAR(255),
-                ten_tai_san TEXT NOT NULL,
-                nhom_tai_san VARCHAR(255),
-                nguyen_gia DECIMAL(15,2) DEFAULT 0,
-                hao_mon_luy_ke DECIMAL(15,2) DEFAULT 0,
-                gia_tri_con_lai DECIMAL(15,2) DEFAULT 0,
-                ngay_dua_vao_sd VARCHAR(50),
-                trang_thai_sd VARCHAR(100),
-                bo_so VARCHAR(100),
-                can_bo_su_dung TEXT,
-                phong_ban_quan_ly TEXT,
-                so_serial VARCHAR(100)
-            )`);
+    id VARCHAR(50) PRIMARY KEY,
+    ma_tai_san TEXT,
+    don_vi TEXT,
+    ten_tai_san TEXT NOT NULL,
+    nhom_tai_san TEXT,
+    nguyen_gia TEXT,
+    hao_mon_luy_ke TEXT,
+    gia_tri_con_lai TEXT,
+    ngay_dua_vao_sd TEXT,
+    trang_thai_sd TEXT,
+    bo_so TEXT,
+    can_bo_su_dung TEXT,
+    phong_ban_quan_ly TEXT,
+    so_serial TEXT
+)`);
 
             await connection.execute(`CREATE TABLE IF NOT EXISTS dot_kiem_ke (
                 id VARCHAR(50) PRIMARY KEY,
