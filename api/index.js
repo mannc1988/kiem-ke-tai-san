@@ -60,64 +60,28 @@ module.exports = async (req, res) => {
                 await connection.execute("INSERT INTO dot_kiem_ke (id, name, active) VALUES ('DOT_01', 'Kiểm kê Quý 1/2026', 1)");
             }
 
-            // UPLOAD ẢNH THẲNG LÊN ONEDRIVE (DÙNG APP FOLDER CHO TÀI KHOẢN CÁ NHÂN/TỔ CHỨC)
-            if (req.method === 'POST' && action === 'upload_onedrive') {
+            // UPLOAD ẢNH THẲNG LÊN GOOGLE DRIVE QUA GOOGLE APPS SCRIPT
+            if (req.method === 'POST' && action === 'upload_drive') {
                 const { fileName, fileData, mimeType } = req.body;
                 
-                // 1. Xin Access Token ngầm từ Microsoft
-                const tokenRes = await fetch(`https://login.microsoftonline.com/${process.env.MS_TENANT_ID}/oauth2/v2.0/token`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({
-                        client_id: process.env.MS_CLIENT_ID,
-                        client_secret: process.env.MS_CLIENT_SECRET,
-                        scope: 'https://graph.microsoft.com/.default',
-                        grant_type: 'client_credentials'
-                    })
-                });
-                const tokenData = await tokenRes.json();
-                if (!tokenData.access_token) {
-                    connection.release();
-                    return res.status(500).json({ success: false, error: 'Lỗi xác thực OneDrive ngầm từ Server!' });
-                }
-
-                // 2. Chuyển đổi Base64 sang Buffer
-                const base64Data = fileData.replace(/^data:image\/\w+;base64,/, '');
-                const buffer = Buffer.from(base64Data, 'base64');
-
-                // 3. Đẩy file trực tiếp vào App Folder trên OneDrive mà không cần dùng User ID
-                const uploadUrl = `https://graph.microsoft.com/v1.0/drive/special/approot:/${fileName}:/content`;
-                
-                const uploadRes = await fetch(uploadUrl, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${tokenData.access_token}`,
-                        'Content-Type': mimeType || 'image/jpeg'
-                    },
-                    body: buffer
-                });
-
-                const uploadResult = await uploadRes.json();
-
-                if (uploadResult.id) {
-                    // 4. Tạo link chia sẻ ẩn danh dạng xem trực tiếp
-                    const shareRes = await fetch(`https://graph.microsoft.com/v1.0/drive/items/${uploadResult.id}/createLink`, {
+                try {
+                    const response = await fetch('https://script.google.com/macros/s/AKfycbygQGHL3kGE9NFDHMGcW4QNU-fDlCkRfsKX6MhDcs8jQWYVgl-h3p5YuE5rriynhgot/exec', {
                         method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${tokenData.access_token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ type: 'view', scope: 'anonymous' })
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fileName, fileData, mimeType })
                     });
-                    const shareData = await shareRes.json();
-                    const webUrl = shareData.link ? shareData.link.webUrl : uploadResult.webUrl;
-                    const directUrl = webUrl.includes('?') ? webUrl + '&download=1' : webUrl + '?download=1';
+                    const result = await response.json();
 
+                    if (result.success) {
+                        connection.release();
+                        return res.json({ success: true, url: result.url });
+                    } else {
+                        connection.release();
+                        return res.status(500).json({ success: false, error: result.error || 'Không thể đẩy file lên Google Drive!' });
+                    }
+                } catch (err) {
                     connection.release();
-                    return res.json({ success: true, url: directUrl });
-                } else {
-                    connection.release();
-                    return res.status(500).json({ success: false, error: uploadResult.error?.message || 'Không thể đẩy file lên OneDrive!' });
+                    return res.status(500).json({ success: false, error: err.message });
                 }
             }
 
