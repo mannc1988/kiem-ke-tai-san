@@ -7,11 +7,11 @@ const SECRET_KEY = 'ManNC@2026_SecureKeyAivenMySQL!';
 
 // Cấu hình kết nối cơ sở dữ liệu Aiven MySQL
 const dbConfig = {
-    host: process.env.DB_HOST || 'your-mysql-host.aivencloud.com',
-    user: process.env.DB_USER || 'avnadmin',
-    password: process.env.DB_PASSWORD || 'your_password',
-    database: process.env.DB_NAME || 'defaultdb',
-    port: process.env.DB_PORT || 16324,
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT,
     ssl: { 
         rejectUnauthorized: true, 
         ca: process.env.DB_CA_CERT 
