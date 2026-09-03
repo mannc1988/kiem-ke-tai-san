@@ -12,7 +12,10 @@ const dbConfig = {
     password: process.env.DB_PASSWORD || 'your_password',
     database: process.env.DB_NAME || 'defaultdb',
     port: process.env.DB_PORT || 16324,
-    ssl: { rejectUnauthorized: false }
+    ssl: { 
+        rejectUnauthorized: true, 
+        ca: process.env.DB_CA_CERT 
+    }
 };
 
 // Cấu hình Google Drive OAuth2
