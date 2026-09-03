@@ -65,31 +65,30 @@ module.exports = async (req, res) => {
             return res.json({ success: true, danh_sach, dot_kiem_ke });
         }
 
-        // 2. PHÂN TRANG DATATABLE CHO DANH MỤC TÀI SẢN
+        // 2. PHÂN TRANG DATATABLE CHO DANH MỤC TÀI SẢN (ĐÃ FIX TRIỆT ĐỂ LỖI 500)
         if (action === 'server_assets') {
             const draw = parseInt(req.query.draw) || 1;
             const start = parseInt(req.query.start) || 0;
             const length = parseInt(req.query.length) || 10;
-            const searchValue = req.query.search && req.query.search.value ? req.query.search.value : '';
+            const searchValue = req.query.search && req.query.search.value ? req.query.search.value.trim() : '';
 
-            let query = 'SELECT * FROM danh_sach_tai_san';
-            let countQuery = 'SELECT COUNT(*) as total FROM danh_sach_tai_san';
+            let baseWhereClause = '';
             let queryParams = [];
 
             if (searchValue) {
-                query += ' WHERE ma_tai_san LIKE ? OR ten_tai_san LIKE ? OR phong_ban_quan_ly LIKE ?';
-                countQuery += ' WHERE ma_tai_san LIKE ? OR ten_tai_san LIKE ? OR phong_ban_quan_ly LIKE ?';
+                baseWhereClause = ' WHERE ma_tai_san LIKE ? OR ten_tai_san LIKE ? OR phong_ban_quan_ly LIKE ?';
                 const searchParam = `%${searchValue}%`;
-                queryParams = [searchParam, searchParam, searchParam];
+                queryParams.push(searchParam, searchParam, searchParam);
             }
 
+            // Đếm tổng số bản ghi
+            const countQuery = `SELECT COUNT(*) as total FROM danh_sach_tai_san${baseWhereClause}`;
             const [countResult] = await connection.execute(countQuery, queryParams);
             const totalRecords = countResult[0].total;
 
-            query += ' ORDER BY id DESC LIMIT ? OFFSET ?';
-            queryParams.push(length, start);
-
-            const [rows] = await connection.query(query, queryParams);
+            // Lấy dữ liệu phân trang (Ép kiểu số nguyên trực tiếp vào câu lệnh SQL để tránh lỗi tham số LIMIT/OFFSET)
+            const dataQuery = `SELECT * FROM danh_sach_tai_san${baseWhereClause} ORDER BY id DESC LIMIT ${parseInt(length)} OFFSET ${parseInt(start)}`;
+            const [rows] = await connection.execute(dataQuery, queryParams);
 
             return res.json({
                 draw: draw,
@@ -108,10 +107,8 @@ module.exports = async (req, res) => {
             const [countResult] = await connection.execute('SELECT COUNT(*) as total FROM lich_su_kiem_ke');
             const totalRecords = countResult[0].total;
 
-            const [rows] = await connection.execute(
-                'SELECT * FROM lich_su_kiem_ke ORDER BY id DESC LIMIT ? OFFSET ?',
-                [length, start]
-            );
+            const dataQuery = `SELECT * FROM lich_su_kiem_ke ORDER BY id DESC LIMIT ${parseInt(length)} OFFSET ${parseInt(start)}`;
+            const [rows] = await connection.execute(dataQuery);
 
             return res.json({
                 draw: draw,
