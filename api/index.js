@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
         try {
             const connection = await pool.getConnection();
 
-            // Khởi tạo bảng danh_sach_tai_san chuẩn kiểu TEXT và LONGTEXT (tự động drop bảng cũ lỗi kiểu dữ liệu)
+            // Khởi tạo bảng chuẩn (tự động drop bảng cũ để tránh xung đột kiểu dữ liệu)
             await connection.execute(`DROP TABLE IF EXISTS danh_sach_tai_san`);
             await connection.execute(`CREATE TABLE IF NOT EXISTS danh_sach_tai_san (
                 id VARCHAR(50) PRIMARY KEY,
@@ -144,7 +144,7 @@ module.exports = async (req, res) => {
                 return res.json({ success: true });
             }
 
-            // 5. POST: Lưu hoặc cập nhật tài sản (Lưu các chuỗi mã hóa AES)
+            // 5. POST: Lưu hoặc cập nhật tài sản
             if (req.method === 'POST' && action === 'save_asset') {
                 const { 
                     id, ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
