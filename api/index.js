@@ -107,7 +107,7 @@ module.exports = async (req, res) => {
             const start = parseInt(req.query.start) || 0;
             const length = parseInt(req.query.length) || 10;
 
-            const [countResult] = await connection.execute('SELECT COUNT(*) as total FROM lich_su_kiem_ke');
+            const [countResult] = await connection.execute('SELECT COUNT(*) as total FROM lich_su_kk');
             const totalRecords = countResult[0].total;
 
             const dataQuery = `SELECT * FROM lich_su_kiem_ke ORDER BY id DESC LIMIT ${parseInt(length)} OFFSET ${parseInt(start)}`;
