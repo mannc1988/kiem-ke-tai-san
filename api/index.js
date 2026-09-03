@@ -81,11 +81,14 @@ module.exports = async (req, res) => {
                     return res.status(500).json({ success: false, error: 'Lỗi xác thực OneDrive ngầm từ Server!' });
                 }
 
-                // 2. Chuyển đổi Base64 sang Buffer để đẩy lên thư mục QuanLyTaiSan_Images trên OneDrive
+                // 2. Chuyển đổi Base64 sang Buffer
                 const base64Data = fileData.replace(/^data:image\/\w+;base64,/, '');
                 const buffer = Buffer.from(base64Data, 'base64');
 
-                const uploadRes = await fetch(`https://graph.microsoft.com/v1.0/users/${process.env.MS_USER_ID}/drive/root:/QuanLyTaiSan_Images/${fileName}:/content`, {
+                // 3. Gọi API đẩy file vào thư mục QuanLyTaiSan_Images trên OneDrive
+                let uploadUrl = `https://graph.microsoft.com/v1.0/users/${process.env.MS_USER_ID}/drive/root:/QuanLyTaiSan_Images/${fileName}:/content`;
+                
+                let uploadRes = await fetch(uploadUrl, {
                     method: 'PUT',
                     headers: {
                         'Authorization': `Bearer ${tokenData.access_token}`,
@@ -93,11 +96,25 @@ module.exports = async (req, res) => {
                     },
                     body: buffer
                 });
+
+                // Fallback nếu User ID cần encode
+                if (!uploadRes.ok) {
+                    uploadUrl = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(process.env.MS_USER_ID)}/drive/root:/QuanLyTaiSan_Images/${fileName}:/content`;
+                    uploadRes = await fetch(uploadUrl, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${tokenData.access_token}`,
+                            'Content-Type': mimeType || 'image/jpeg'
+                        },
+                        body: buffer
+                    });
+                }
+
                 const uploadResult = await uploadRes.json();
 
                 if (uploadResult.id) {
-                    // 3. Tạo link chia sẻ ẩn danh dạng xem trực tiếp
-                    const shareRes = await fetch(`https://graph.microsoft.com/v1.0/users/${process.env.MS_USER_ID}/drive/items/${uploadResult.id}/createLink`, {
+                    // 4. Tạo link chia sẻ ẩn danh dạng xem trực tiếp
+                    const shareRes = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(process.env.MS_USER_ID)}/drive/items/${uploadResult.id}/createLink`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${tokenData.access_token}`,
@@ -113,7 +130,7 @@ module.exports = async (req, res) => {
                     return res.json({ success: true, url: directUrl });
                 } else {
                     connection.release();
-                    return res.status(500).json({ success: false, error: 'Không thể đẩy file lên OneDrive!' });
+                    return res.status(500).json({ success: false, error: uploadResult.error?.message || 'Không thể đẩy file lên OneDrive!' });
                 }
             }
 
