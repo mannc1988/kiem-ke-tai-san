@@ -110,7 +110,7 @@ module.exports = async (req, res) => {
             const [countResult] = await connection.execute('SELECT COUNT(*) as total FROM lich_su_kk');
             const totalRecords = countResult[0].total;
 
-            const dataQuery = `SELECT * FROM lich_su_kiem_ke ORDER BY id DESC LIMIT ${parseInt(length)} OFFSET ${parseInt(start)}`;
+            const dataQuery = `SELECT * FROM lich_su_kk ORDER BY id DESC LIMIT ${parseInt(length)} OFFSET ${parseInt(start)}`;
             const [rows] = await connection.execute(dataQuery);
 
             return res.json({
@@ -178,7 +178,7 @@ module.exports = async (req, res) => {
         if (action === 'history' && req.method === 'POST') {
             const { dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu } = req.body;
             await connection.execute(
-                'INSERT INTO lich_su_kiem_ke (dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu) VALUES (?, ?, ?, ?, ?, ?)',
+                'INSERT INTO lich_su_kk (dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu) VALUES (?, ?, ?, ?, ?, ?)',
                 [dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu]
             );
             return res.json({ success: true, message: 'Đã ghi nhận lịch sử kiểm kê!' });
@@ -187,7 +187,7 @@ module.exports = async (req, res) => {
         // 7. XÓA LỊCH SỬ KIỂM KÊ
         if (action === 'delete_history' && req.method === 'POST') {
             const { id } = req.body;
-            await connection.execute('DELETE FROM lich_su_kiem_ke WHERE id = ?', [id]);
+            await connection.execute('DELETE FROM lich_su_kk WHERE id = ?', [id]);
             return res.json({ success: true, message: 'Đã xóa lịch sử thành công!' });
         }
 
