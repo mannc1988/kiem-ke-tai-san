@@ -60,7 +60,7 @@ module.exports = async (req, res) => {
                 await connection.execute("INSERT INTO dot_kiem_ke (id, name, active) VALUES ('DOT_01', 'Kiểm kê Quý 1/2026', 1)");
             }
 
-            // UPLOAD ẢNH THẲNG LÊN ONEDRIVE (CHẠY NGẦM BẰNG MICROSOFT GRAPH API)
+            // UPLOAD ẢNH THẲNG LÊN ONEDRIVE (DÙNG APP FOLDER CHO TÀI KHOẢN CÁ NHÂN/TỔ CHỨC)
             if (req.method === 'POST' && action === 'upload_onedrive') {
                 const { fileName, fileData, mimeType } = req.body;
                 
@@ -85,10 +85,10 @@ module.exports = async (req, res) => {
                 const base64Data = fileData.replace(/^data:image\/\w+;base64,/, '');
                 const buffer = Buffer.from(base64Data, 'base64');
 
-                // 3. Gọi API đẩy file vào thư mục QuanLyTaiSan_Images trên OneDrive
-                let uploadUrl = `https://graph.microsoft.com/v1.0/users/${process.env.MS_USER_ID}/drive/root:/QuanLyTaiSan_Images/${fileName}:/content`;
+                // 3. Đẩy file trực tiếp vào App Folder trên OneDrive mà không cần dùng User ID
+                const uploadUrl = `https://graph.microsoft.com/v1.0/drive/special/approot:/${fileName}:/content`;
                 
-                let uploadRes = await fetch(uploadUrl, {
+                const uploadRes = await fetch(uploadUrl, {
                     method: 'PUT',
                     headers: {
                         'Authorization': `Bearer ${tokenData.access_token}`,
@@ -97,24 +97,11 @@ module.exports = async (req, res) => {
                     body: buffer
                 });
 
-                // Fallback nếu User ID cần encode
-                if (!uploadRes.ok) {
-                    uploadUrl = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(process.env.MS_USER_ID)}/drive/root:/QuanLyTaiSan_Images/${fileName}:/content`;
-                    uploadRes = await fetch(uploadUrl, {
-                        method: 'PUT',
-                        headers: {
-                            'Authorization': `Bearer ${tokenData.access_token}`,
-                            'Content-Type': mimeType || 'image/jpeg'
-                        },
-                        body: buffer
-                    });
-                }
-
                 const uploadResult = await uploadRes.json();
 
                 if (uploadResult.id) {
                     // 4. Tạo link chia sẻ ẩn danh dạng xem trực tiếp
-                    const shareRes = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(process.env.MS_USER_ID)}/drive/items/${uploadResult.id}/createLink`, {
+                    const shareRes = await fetch(`https://graph.microsoft.com/v1.0/drive/items/${uploadResult.id}/createLink`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${tokenData.access_token}`,
