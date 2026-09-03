@@ -1,9 +1,15 @@
-
 {
-  "name": "kiem-ke-aiven",
+  "name": "kiem-ke-tai-san-backend",
   "version": "1.0.0",
+  "description": "Backend API for Asset Inventory",
+  "main": "index.js",
   "dependencies": {
-    "cors": "^2.8.5",
-    "mysql2": "^3.9.0"
+    "crypto-js": "^4.1.1",
+    "google-auth-library": "^9.0.0",
+    "googleapis": "^126.0.0",
+    "mysql2": "^3.6.0"
+  },
+  "engines": {
+    "node": ">=18.x"
   }
 }
