@@ -1,4 +1,3 @@
-const { google } = require('googleapis');
 const mysql = require('mysql2/promise');
 const CryptoJS = require('crypto-js');
 
