@@ -5,7 +5,7 @@ const CryptoJS = require('crypto-js');
 // Cấu hình khóa bí mật AES (giống bên Frontend)
 const SECRET_KEY = 'ManNC@2026_SecureKeyAivenMySQL!';
 
-// Cấu hình kết nối cơ sở dữ liệu Aiven MySQL (Thay thế thông tin thực tế của bạn)
+// Cấu hình kết nối cơ sở dữ liệu Aiven MySQL
 const dbConfig = {
     host: process.env.DB_HOST || 'your-mysql-host.aivencloud.com',
     user: process.env.DB_USER || 'avnadmin',
@@ -15,7 +15,7 @@ const dbConfig = {
     ssl: { rejectUnauthorized: false }
 };
 
-// Cấu hình Google Drive OAuth2 / Service Account (Sử dụng thông tin xác thực của bạn)
+// Cấu hình Google Drive OAuth2
 const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
@@ -38,21 +38,24 @@ function decryptData(cipherText) {
 }
 
 module.exports = async (req, res) => {
-    // Cấu hình CORS cho phép gọi API từ giao diện Frontend
+    // 1. LUÔN LUÔN THIẾT LẬP CORS ĐẦU TIÊN ĐỂ TRÁNH LỖI TRÌNH DUYỆT CHẶN
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
     res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
     if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
+        return res.status(200).end();
     }
 
     const action = req.query.action;
     let connection;
 
     try {
+        if (!action) {
+            return res.status(400).json({ success: false, error: 'Thiếu tham số action yêu cầu' });
+        }
+
         connection = await mysql.createConnection(dbConfig);
 
         // 1. LẤY DỮ LIỆU BAN ĐẦU & DANH MỤC ĐỢT KIỂM KÊ
@@ -127,14 +130,12 @@ module.exports = async (req, res) => {
                 can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh 
             } = req.body;
 
-            // Kiểm tra xem tài sản đã tồn tại chưa (dựa vào mã tài sản hoặc id)
             const [existing] = await connection.execute(
                 'SELECT id FROM danh_sach_tai_san WHERE id = ? OR ma_tai_san = ?', 
                 [id, ma_tai_san]
             );
 
             if (existing.length > 0) {
-                // Cập nhật tài sản
                 await connection.execute(
                     `UPDATE danh_sach_tai_san SET 
                     ma_tai_san = ?, don_vi = ?, ten_tai_san = ?, nhom_tai_san = ?, 
@@ -150,7 +151,6 @@ module.exports = async (req, res) => {
                     ]
                 );
             } else {
-                // Thêm mới tài sản
                 await connection.execute(
                     `INSERT INTO danh_sach_tai_san 
                     (id, ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh) 
@@ -199,7 +199,7 @@ module.exports = async (req, res) => {
 
             const fileMetadata = {
                 name: fileName,
-                parents: [process.env.GOOGLE_DRIVE_FOLDER_ID] // Thư mục lưu trữ trên Drive của bạn
+                parents: [process.env.GOOGLE_DRIVE_FOLDER_ID]
             };
 
             const media = {
@@ -213,7 +213,6 @@ module.exports = async (req, res) => {
                 fields: 'id, webViewLink, webContentLink'
             });
 
-            // Set quyền public/view cho file để hiển thị trực tiếp trên web
             await drive.permissions.create({
                 fileId: response.data.id,
                 requestBody: { role: 'reader', type: 'anyone' }
@@ -224,7 +223,7 @@ module.exports = async (req, res) => {
             return res.json({ success: true, url: fileUrl, fileId: response.data.id });
         }
 
-        // 9. XÓA ẢNH KHỎI GOOGLE DRIVE KHI NGƯỜI DÙNG LOẠI BỎ TRÊN GIAO DIỆN
+        // 9. XÓA ẢNH KHỎI GOOGLE DRIVE
         if (action === 'delete_drive' && req.method === 'POST') {
             const { fileUrl } = req.body;
             if (!fileUrl) {
@@ -242,18 +241,19 @@ module.exports = async (req, res) => {
                 return res.status(400).json({ success: false, error: 'Không thể trích xuất File ID từ URL' });
             }
 
-            // Thực hiện xóa vĩnh viễn file trên Google Drive
             await drive.files.delete({ fileId: fileId });
 
             return res.json({ success: true, message: 'Đã xóa file thành công trên Google Drive' });
         }
 
-        return res.status(404).json({ success: false, error: 'Action không hợp lệ' });
+        return res.status(404).json({ success: false, error: 'Action không hợp lệ trên hệ thống' });
 
     } catch (error) {
-        console.error('API Error:', error);
+        console.error('API Server Error:', error);
         return res.status(500).json({ success: false, error: error.message });
     } finally {
-        if (connection) await connection.end();
+        if (connection) {
+            try { await connection.end(); } catch (e) {}
+        }
     }
 };
