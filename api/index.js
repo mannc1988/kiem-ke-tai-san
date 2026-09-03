@@ -21,7 +21,6 @@ module.exports = async (req, res) => {
             const connection = await pool.getConnection();
 
             // Khởi tạo bảng chuẩn (tự động drop bảng cũ để tránh xung đột kiểu dữ liệu)
-            await connection.execute(`DROP TABLE IF EXISTS danh_sach_tai_san`);
             await connection.execute(`CREATE TABLE IF NOT EXISTS danh_sach_tai_san (
                 id VARCHAR(50) PRIMARY KEY,
                 ma_tai_san TEXT,
@@ -59,6 +58,63 @@ module.exports = async (req, res) => {
             const [dotRows] = await connection.execute("SELECT COUNT(*) as c FROM dot_kiem_ke");
             if (dotRows[0].c === 0) {
                 await connection.execute("INSERT INTO dot_kiem_ke (id, name, active) VALUES ('DOT_01', 'Kiểm kê Quý 1/2026', 1)");
+            }
+
+            // UPLOAD ẢNH THẲNG LÊN ONEDRIVE (CHẠY NGẦM BẰNG MICROSOFT GRAPH API)
+            if (req.method === 'POST' && action === 'upload_onedrive') {
+                const { fileName, fileData, mimeType } = req.body;
+                
+                // 1. Xin Access Token ngầm từ Microsoft
+                const tokenRes = await fetch(`https://login.microsoftonline.com/${process.env.MS_TENANT_ID}/oauth2/v2.0/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        client_id: process.env.MS_CLIENT_ID,
+                        client_secret: process.env.MS_CLIENT_SECRET,
+                        scope: 'https://graph.microsoft.com/.default',
+                        grant_type: 'client_credentials'
+                    })
+                });
+                const tokenData = await tokenRes.json();
+                if (!tokenData.access_token) {
+                    connection.release();
+                    return res.status(500).json({ success: false, error: 'Lỗi xác thực OneDrive ngầm từ Server!' });
+                }
+
+                // 2. Chuyển đổi Base64 sang Buffer để đẩy lên thư mục QuanLyTaiSan_Images trên OneDrive
+                const base64Data = fileData.replace(/^data:image\/\w+;base64,/, '');
+                const buffer = Buffer.from(base64Data, 'base64');
+
+                const uploadRes = await fetch(`https://graph.microsoft.com/v1.0/users/${process.env.MS_USER_ID}/drive/root:/QuanLyTaiSan_Images/${fileName}:/content`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${tokenData.access_token}`,
+                        'Content-Type': mimeType || 'image/jpeg'
+                    },
+                    body: buffer
+                });
+                const uploadResult = await uploadRes.json();
+
+                if (uploadResult.id) {
+                    // 3. Tạo link chia sẻ ẩn danh dạng xem trực tiếp
+                    const shareRes = await fetch(`https://graph.microsoft.com/v1.0/users/${process.env.MS_USER_ID}/drive/items/${uploadResult.id}/createLink`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${tokenData.access_token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ type: 'view', scope: 'anonymous' })
+                    });
+                    const shareData = await shareRes.json();
+                    const webUrl = shareData.link ? shareData.link.webUrl : uploadResult.webUrl;
+                    const directUrl = webUrl.includes('?') ? webUrl + '&download=1' : webUrl + '?download=1';
+
+                    connection.release();
+                    return res.json({ success: true, url: directUrl });
+                } else {
+                    connection.release();
+                    return res.status(500).json({ success: false, error: 'Không thể đẩy file lên OneDrive!' });
+                }
             }
 
             // 1. GET: Lấy thông tin chung (Cache danh mục & đợt kiểm kê)
