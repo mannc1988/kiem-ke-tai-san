@@ -20,23 +20,25 @@ module.exports = async (req, res) => {
         try {
             const connection = await pool.getConnection();
 
-            // Khởi tạo bảng danh_sach_tai_san chuẩn mới
+            // Khởi tạo bảng danh_sach_tai_san chuẩn kiểu TEXT và LONGTEXT (tự động drop bảng cũ lỗi kiểu dữ liệu)
+            await connection.execute(`DROP TABLE IF EXISTS danh_sach_tai_san`);
             await connection.execute(`CREATE TABLE IF NOT EXISTS danh_sach_tai_san (
-    id VARCHAR(50) PRIMARY KEY,
-    ma_tai_san TEXT,
-    don_vi TEXT,
-    ten_tai_san TEXT NOT NULL,
-    nhom_tai_san TEXT,
-    nguyen_gia TEXT,
-    hao_mon_luy_ke TEXT,
-    gia_tri_con_lai TEXT,
-    ngay_dua_vao_sd TEXT,
-    trang_thai_sd TEXT,
-    bo_so TEXT,
-    can_bo_su_dung TEXT,
-    phong_ban_quan_ly TEXT,
-    so_serial TEXT
-)`);
+                id VARCHAR(50) PRIMARY KEY,
+                ma_tai_san TEXT,
+                don_vi TEXT,
+                ten_tai_san TEXT NOT NULL,
+                nhom_tai_san TEXT,
+                nguyen_gia TEXT,
+                hao_mon_luy_ke TEXT,
+                gia_tri_con_lai TEXT,
+                ngay_dua_vao_sd TEXT,
+                trang_thai_sd TEXT,
+                bo_so TEXT,
+                can_bo_su_dung TEXT,
+                phong_ban_quan_ly TEXT,
+                so_serial TEXT,
+                hinh_anh LONGTEXT
+            )`);
 
             await connection.execute(`CREATE TABLE IF NOT EXISTS dot_kiem_ke (
                 id VARCHAR(50) PRIMARY KEY,
@@ -59,7 +61,7 @@ module.exports = async (req, res) => {
                 await connection.execute("INSERT INTO dot_kiem_ke (id, name, active) VALUES ('DOT_01', 'Kiểm kê Quý 1/2026', 1)");
             }
 
-            // 1. GET: Lấy thông tin chung
+            // 1. GET: Lấy thông tin chung (Cache danh mục & đợt kiểm kê)
             if (req.method === 'GET' && action === 'data') {
                 const [danh_sach] = await connection.execute("SELECT * FROM danh_sach_tai_san");
                 const [dot_kiem_ke] = await connection.execute("SELECT * FROM dot_kiem_ke");
@@ -69,38 +71,25 @@ module.exports = async (req, res) => {
                 return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
             }
 
-            // 2. SERVER-SIDE: Bảng Danh Mục Tài Sản (`danh_sach_tai_san`)
+            // 2. SERVER-SIDE: Bảng Danh Mục Tài Sản
             if (req.method === 'GET' && action === 'server_assets') {
                 const draw = parseInt(req.query.draw) || 1;
                 const start = parseInt(req.query.start) || 0;
                 const length = parseInt(req.query.length) || 10;
                 const searchValue = req.query.search && req.query.search.value ? `%${req.query.search.value}%` : '%%';
 
-                const columnsMap = { 
-                    0: 'id', 1: 'ma_tai_san', 2: 'ten_tai_san', 
-                    3: 'nhom_tai_san', 4: 'phong_ban_quan_ly', 
-                    5: 'can_bo_su_dung', 6: 'nguyen_gia', 7: 'so_serial' 
-                };
-                let orderBy = 'ma_tai_san';
-                let orderDir = 'ASC';
-                if (req.query.order && req.query.order[0]) {
-                    const colIdx = req.query.order[0].column;
-                    orderBy = columnsMap[colIdx] || 'ma_tai_san';
-                    orderDir = req.query.order[0].dir.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
-                }
-
                 const [totalRows] = await connection.execute("SELECT COUNT(*) as total FROM danh_sach_tai_san");
                 const totalRecords = totalRows[0].total;
 
-                const searchSql = "WHERE ma_tai_san LIKE ? OR ten_tai_san LIKE ? OR phong_ban_quan_ly LIKE ? OR can_bo_su_dung LIKE ? OR so_serial LIKE ?";
+                const searchSql = "WHERE id LIKE ? OR ma_tai_san LIKE ? OR ten_tai_san LIKE ?";
                 const [filteredRows] = await connection.execute(
                     `SELECT COUNT(*) as total FROM danh_sach_tai_san ${searchSql}`,
-                    [searchValue, searchValue, searchValue, searchValue, searchValue]
+                    [searchValue, searchValue, searchValue]
                 );
                 const filteredRecords = filteredRows[0].total;
 
-                const query = `SELECT * FROM danh_sach_tai_san ${searchSql} ORDER BY ${orderBy} ${orderDir} LIMIT ? OFFSET ?`;
-                const [data] = await connection.execute(query, [searchValue, searchValue, searchValue, searchValue, searchValue, length, start]);
+                const query = `SELECT * FROM danh_sach_tai_san ${searchSql} LIMIT ? OFFSET ?`;
+                const [data] = await connection.execute(query, [searchValue, searchValue, searchValue, length, start]);
 
                 connection.release();
                 return res.json({
@@ -118,15 +107,6 @@ module.exports = async (req, res) => {
                 const length = parseInt(req.query.length) || 10;
                 const searchValue = req.query.search && req.query.search.value ? `%${req.query.search.value}%` : '%%';
 
-                const historyColumnsMap = { 0: 'id', 1: 'tsId', 2: 'tsName', 3: 'nguoiKK', 4: 'thoiGian', 5: 'ghiChu' };
-                let orderBy = 'id';
-                let orderDir = 'DESC';
-                if (req.query.order && req.query.order[0]) {
-                    const colIdx = req.query.order[0].column;
-                    orderBy = historyColumnsMap[colIdx] || 'id';
-                    orderDir = req.query.order[0].dir.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
-                }
-
                 const [totalRows] = await connection.execute("SELECT COUNT(*) as total FROM lich_su_kk");
                 const totalRecords = totalRows[0].total;
 
@@ -136,7 +116,7 @@ module.exports = async (req, res) => {
                 );
                 const filteredRecords = filteredRows[0].total;
 
-                const query = `SELECT * FROM lich_su_kk WHERE tsId LIKE ? OR tsName LIKE ? OR nguoiKK LIKE ? OR ghiChu LIKE ? ORDER BY ${orderBy} ${orderDir} LIMIT ? OFFSET ?`;
+                const query = `SELECT * FROM lich_su_kk WHERE tsId LIKE ? OR tsName LIKE ? OR nguoiKK LIKE ? OR ghiChu LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?`;
                 const [data] = await connection.execute(query, [searchValue, searchValue, searchValue, searchValue, length, start]);
 
                 connection.release();
@@ -164,25 +144,24 @@ module.exports = async (req, res) => {
                 return res.json({ success: true });
             }
 
-            // 5. POST: Lưu hoặc cập nhật tài sản (`danh_sach_tai_san`)
+            // 5. POST: Lưu hoặc cập nhật tài sản (Lưu các chuỗi mã hóa AES)
             if (req.method === 'POST' && action === 'save_asset') {
                 const { 
                     id, ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
                     nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
                     ngay_dua_vao_sd, trang_thai_sd, bo_so, 
-                    can_bo_su_dung, phong_ban_quan_ly, so_serial 
+                    can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh 
                 } = req.body;
 
-                const assetId = id || ma_tai_san;
-                if (!assetId || !ten_tai_san) {
+                if (!id || !ten_tai_san) {
                     connection.release();
-                    return res.status(400).json({ success: false, error: 'Vui lòng cung cấp Mã tài sản và Tên tài sản!' });
+                    return res.status(400).json({ success: false, error: 'Vui lòng cung cấp định danh tài sản!' });
                 }
 
                 await connection.execute(`
                     INSERT INTO danh_sach_tai_san 
-                    (id, ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE 
                         ma_tai_san = VALUES(ma_tai_san),
                         don_vi = VALUES(don_vi),
@@ -196,22 +175,23 @@ module.exports = async (req, res) => {
                         bo_so = VALUES(bo_so),
                         can_bo_su_dung = VALUES(can_bo_su_dung),
                         phong_ban_quan_ly = VALUES(phong_ban_quan_ly),
-                        so_serial = VALUES(so_serial)
+                        so_serial = VALUES(so_serial),
+                        hinh_anh = VALUES(hinh_anh)
                 `, [
-                    assetId, ma_tai_san || assetId, don_vi || '', ten_tai_san, nhom_tai_san || '', 
-                    nguyen_gia || 0, hao_mon_luy_ke || 0, gia_tri_con_lai || 0, 
-                    ngay_dua_vao_sd || '', trang_thai_sd || 'Đang sử dụng', bo_so || '', 
-                    can_bo_su_dung || '', phong_ban_quan_ly || '', so_serial || ''
+                    id, ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
+                    nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
+                    ngay_dua_vao_sd, trang_thai_sd, bo_so, 
+                    can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh || ''
                 ]);
 
                 connection.release();
-                return res.json({ success: true, message: 'Lưu thông tin tài sản thành công!' });
+                return res.json({ success: true, message: 'Lưu tài sản mã hóa thành công!' });
             }
 
             // 6. POST: Xóa tài sản
             if (req.method === 'POST' && action === 'delete_asset') {
                 const { id } = req.body;
-                await connection.execute("DELETE FROM danh_sach_tai_san WHERE id = ? OR ma_tai_san = ?", [id, id]);
+                await connection.execute("DELETE FROM danh_sach_tai_san WHERE id = ?", [id]);
                 connection.release();
                 return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
             }
