@@ -150,9 +150,12 @@ module.exports = async (req, res) => {
                 [ma_tai_san]
             );
 
-            if (matchedExistingDbKey || existingExact.length > 0) {
+            // Kiểm tra xem ô Mã Tài Sản có đang chỉnh sửa bản ghi cũ hay thêm mới
+            // Nếu mã đã tồn tại và khớp chính xác hoặc trùng giá trị giải mã:
+            // Bạn có thể phân biệt dựa vào việc bản ghi đã có sẵn trong DB hay chưa. 
+            // Nếu muốn chặn tuyệt đối khi thêm mới bị trùng:
+            if (matchedExistingDbKey && existingExact.length > 0) {
                 // Trường hợp Sửa (Update) bản ghi đã có sẵn
-                const targetKey = matchedExistingDbKey || ma_tai_san;
                 await connection.execute(
                     `UPDATE danh_sach_tai_san SET 
                     don_vi = ?, ten_tai_san = ?, nhom_tai_san = ?, 
@@ -164,11 +167,12 @@ module.exports = async (req, res) => {
                         don_vi, ten_tai_san, nhom_tai_san, 
                         nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
                         ngay_dua_vao_sd, trang_thai_sd, bo_so, 
-                        can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at, targetKey
+                        can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at, matchedExistingDbKey
                     ]
                 );
                 return res.json({ success: true, message: 'Cập nhật tài sản thành công!' });
             } else {
+                // Nếu đã tồn tại giá trị giải mã nhưng mã cipher khác (nghĩa là trùng mã tài sản khi thêm mới) -> Báo lỗi chặn lại
                 if (matchedExistingDbKey) {
                     return res.status(400).json({ 
                         success: false, 
@@ -176,7 +180,7 @@ module.exports = async (req, res) => {
                     });
                 }
 
-                // Tiến hành Thêm mới (Insert)
+                // Tiến hành Thêm mới (Insert) vì chưa tồn tại
                 await connection.execute(
                     `INSERT INTO danh_sach_tai_san 
                     (ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at) 
