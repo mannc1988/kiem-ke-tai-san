@@ -121,13 +121,13 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 4. LƯU / CẬP NHẬT TÀI SẢN (Dựa vào ma_tai_san làm khóa chính)
+        // 4. LƯU / CẬP NHẬT TÀI SẢN (Bổ sung cột import_at)
         if (action === 'save_asset' && req.method === 'POST') {
             const { 
                 ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
                 nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
                 ngay_dua_vao_sd, trang_thai_sd, bo_so, 
-                can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh 
+                can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at 
             } = req.body;
 
             const [existing] = await connection.execute(
@@ -141,25 +141,25 @@ module.exports = async (req, res) => {
                     don_vi = ?, ten_tai_san = ?, nhom_tai_san = ?, 
                     nguyen_gia = ?, hao_mon_luy_ke = ?, gia_tri_con_lai = ?, 
                     ngay_dua_vao_sd = ?, trang_thai_sd = ?, bo_so = ?, 
-                    can_bo_su_dung = ?, phong_ban_quan_ly = ?, so_serial = ?, hinh_anh = ? 
+                    can_bo_su_dung = ?, phong_ban_quan_ly = ?, so_serial = ?, hinh_anh = ?, import_at = ? 
                     WHERE ma_tai_san = ?`,
                     [
                         don_vi, ten_tai_san, nhom_tai_san, 
                         nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
                         ngay_dua_vao_sd, trang_thai_sd, bo_so, 
-                        can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, ma_tai_san
+                        can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at, ma_tai_san
                     ]
                 );
             } else {
                 await connection.execute(
                     `INSERT INTO danh_sach_tai_san 
-                    (ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
                         nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
                         ngay_dua_vao_sd, trang_thai_sd, bo_so, 
-                        can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh
+                        can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at
                     ]
                 );
             }
