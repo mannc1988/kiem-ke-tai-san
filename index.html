@@ -112,7 +112,7 @@
         <!-- PHẦN 1: QUẢN LÝ DANH MỤC TÀI SẢN -->
         <div class="card shadow-sm">
             <div class="card-header bg-success text-white d-flex justify-content-between align-items-center py-3">
-                <h5 class="mb-0"><i class="fa-solid fa-laptop me-2"></i> 1. Quản Lý Danh Mục Tài Sản (Đầy đủ tất cả các trường dữ liệu)</h5>
+                <h5 class="mb-0"><i class="fa-solid fa-laptop me-2"></i> 1. Quản Lý Danh Mục Tài Sản (Đầy đủ tất cả các trường & Import At)</h5>
                 <div>
                     <label for="excelFile" class="btn btn-light btn-sm text-success fw-bold mb-0 cursor-pointer shadow-sm">
                         <i class="fa-solid fa-file-excel me-1"></i> Import Excel Mới
@@ -192,7 +192,7 @@
                     </div>
                 </form>
 
-                <!-- Bảng hiển thị đầy đủ tất cả các cột -->
+                <!-- Bảng hiển thị đầy đủ tất cả các cột bao gồm import_at -->
                 <div class="table-responsive">
                     <table id="assetsTable" class="table table-striped table-hover align-middle w-100">
                         <thead class="table-light">
@@ -212,6 +212,7 @@
                                 <th>Cán Bộ SD</th>
                                 <th>Phòng Ban</th>
                                 <th>Serial</th>
+                                <th>Thời Gian Thêm (Import At)</th>
                                 <th class="text-center">Thao Tác</th>
                             </tr>
                         </thead>
@@ -524,6 +525,7 @@
                     { data: 'can_bo_su_dung', render: data => decryptData(data) },
                     { data: 'phong_ban_quan_ly', render: data => decryptData(data) },
                     { data: 'so_serial', render: data => `<span class="badge bg-light text-dark border">${decryptData(data)}</span>` },
+                    { data: 'import_at', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
                     { 
                         data: 'ma_tai_san', 
                         className: 'text-center align-middle',
@@ -542,9 +544,10 @@
                             let pB = decryptData(row.phong_ban_quan_ly).replace(/'/g, "\\'");
                             let sS = decryptData(row.so_serial);
                             let hA = decryptData(row.hinh_anh);
+                            let iAt = decryptData(row.import_at);
 
                             return `
-                                <button class="btn btn-warning btn-sm text-white me-1" onclick="editAsset('${mAs}', '${dV}', '${tTs}', '${nTs}', '${nG}', '${hM}', '${gCL}', '${nSD}', '${tT}', '${bS}', '${cB}', '${pB}', '${sS}', '${hA}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
+                                <button class="btn btn-warning btn-sm text-white me-1" onclick="editAsset('${mAs}', '${dV}', '${tTs}', '${nTs}', '${nG}', '${hM}', '${gCL}', '${nSD}', '${tT}', '${bS}', '${cB}', '${pB}', '${sS}', '${hA}', '${iAt}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
                                 <button class="btn btn-danger btn-sm" onclick="deleteAsset('${mAs}')" title="Xóa"><i class="fa-solid fa-trash"></i></button>
                             `;
                         }
@@ -705,6 +708,7 @@
             const finalGia = rawNguyenGia === '' ? 0 : Number(rawNguyenGia);
             const finalHaoMon = rawHaoMon === '' ? 0 : Number(rawHaoMon);
             const finalConLai = rawConLai === '' ? 0 : Number(rawConLai);
+            const currentTimestamp = new Date().toLocaleString('vi-VN');
 
             const payload = {
                 ma_tai_san: encryptData(ma_tai_san),
@@ -720,7 +724,8 @@
                 can_bo_su_dung: encryptData(rawCanBo),
                 phong_ban_quan_ly: encryptData(rawPhong),
                 so_serial: encryptData(rawSerial),
-                hinh_anh: encryptData(finalImageUrlString)
+                hinh_anh: encryptData(finalImageUrlString),
+                import_at: encryptData(currentTimestamp)
             };
 
             try {
@@ -751,7 +756,7 @@
             });
         }
 
-        function editAsset(ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh) {
+        function editAsset(ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at) {
             document.getElementById('ma_tai_san').value = ma_tai_san;
             document.getElementById('ma_tai_san').readOnly = true; 
             document.getElementById('don_vi').value = don_vi;
@@ -922,7 +927,8 @@
                     "can_bo_su_dung": "Lê Duy Phúc", 
                     "phong_ban_quan_ly": "340 - TRUNG TÂM XỬ LÝ NỢ", 
                     "so_serial": "4CE514BGHZ",
-                    "hinh_anh": "" 
+                    "hinh_anh": "",
+                    "import_at": "06/06/2026, 16:00:00"
                 }
             ];
             const ws = XLSX.utils.json_to_sheet(templateData);
@@ -982,6 +988,7 @@
                         let ng = Number(row['nguyen_gia'] || row['Nguyên Giá'] || 0);
                         let hm = Number(row['hao_mon_luy_ke'] || row['Hao Mòn Lũy Kế'] || 0);
                         let cl = ng - hm;
+                        let importTime = row['import_at'] || row['Import At'] || new Date().toLocaleString('vi-VN');
 
                         const payload = {
                             ma_tai_san: encryptData(ma_tai_san),
@@ -997,7 +1004,8 @@
                             can_bo_su_dung: encryptData(row['can_bo_su_dung'] || row['Cán Bộ Sử Dụng'] || ''),
                             phong_ban_quan_ly: encryptData(rawPhong),
                             so_serial: encryptData(String(row['so_serial'] || row['Số Serial'] || '')),
-                            hinh_anh: encryptData(String(row['hinh_anh'] || row['Hình Ảnh'] || ''))
+                            hinh_anh: encryptData(String(row['hinh_anh'] || row['Hình Ảnh'] || '')),
+                            import_at: encryptData(importTime)
                         };
 
                         try {
