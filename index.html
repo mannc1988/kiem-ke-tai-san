@@ -980,22 +980,20 @@
                     }
 
                     Swal.fire({
-                        title: 'Đang kiểm tra toàn diện lỗi các cột & đồng bộ...',
-                        text: `Đang xử lý ${rows.length} dòng dữ liệu từ file Excel. Vui lòng chờ...`,
+                        title: 'Đang kiểm tra toàn diện tất cả các cột...',
+                        text: `Đang quét cấu trúc ${rows.length} dòng dữ liệu từ file Excel. Vui lòng chờ...`,
                         allowOutsideClick: false,
                         didOpen: () => { Swal.showLoading(); }
                     });
 
-                    let successCount = 0;
-                    let skipCount = 0;
-                    let failCount = 0;
+                    let validPayloads = [];
                     let errorDetails = [];
 
+                    // 1. KIỂM TRA HẾT TẤT CẢ CÁC LỖI CỦA TẤT CẢ CÁC CỘT TRƯỚC KHI ĐỒNG BỘ
                     for (let i = 0; i < rows.length; i++) {
                         let row = rows[i];
                         let rowIndex = i + 2; 
 
-                        // 1. Lấy dữ liệu các cột từ Excel (hỗ trợ cả key tiếng Anh lẫn tiếng Việt có dấu)
                         const ma_tai_san = String(row['ma_tai_san'] || row['Mã Tài Sản'] || '').trim();
                         const don_vi = String(row['don_vi'] || row['Đơn Vị'] || '00745 - ĐB SÔNG CỬU LONG').trim();
                         const ten_tai_san = String(row['ten_tai_san'] || row['Tên Tài Sản'] || '').trim();
@@ -1013,41 +1011,35 @@
                         const hinh_anh = String(row['hinh_anh'] || row['Hình Ảnh'] || '').trim();
                         const import_at = String(row['import_at'] || row['Import At'] || new Date().toLocaleString('vi-VN')).trim();
 
-                        // 2. Kiểm tra lỗi toàn diện từng cột
                         let rowErrors = [];
                         if (!ma_tai_san) rowErrors.push('Cột [Mã tài sản] bị trống');
                         if (!ten_tai_san) rowErrors.push('Cột [Tên tài sản] bị trống');
                         if (!phong_ban_quan_ly) rowErrors.push('Cột [Phòng ban quản lý] bị trống');
 
-                        // Kiểm tra định dạng số nguyên giá
                         if (isNaN(ng)) {
-                            rowErrors.push('Cột [Nguyên giá] không phải là số hợp lệ');
+                            rowErrors.push('Cột [Nguyên giá] không phải số hợp lệ');
                         } else if (ng < 0) {
-                            rowErrors.push('Cột [Nguyên giá] không được nhỏ hơn 0');
+                            rowErrors.push('Cột [Nguyên giá] nhỏ hơn 0');
                         }
 
-                        // Kiểm tra định dạng số hao mòn lũy kế
                         if (isNaN(hm)) {
-                            rowErrors.push('Cột [Hao mòn lũy kế] không phải là số hợp lệ');
+                            rowErrors.push('Cột [Hao mòn lũy kế] không phải số hợp lệ');
                         } else if (hm < 0) {
-                            rowErrors.push('Cột [Hao mòn lũy kế] không được nhỏ hơn 0');
+                            rowErrors.push('Cột [Hao mòn lũy kế] nhỏ hơn 0');
                         }
 
-                        // Kiểm tra logic tài chính
                         if (!isNaN(ng) && !isNaN(hm) && hm > ng) {
                             rowErrors.push('Lỗi logic: [Hao mòn lũy kế] lớn hơn [Nguyên giá]');
                         }
 
                         if (rowErrors.length > 0) {
-                            failCount++;
                             errorDetails.push(`Dòng ${rowIndex} [Mã: ${ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
                             continue;
                         }
 
-                        // Tự tính lại giá trị còn lại cho chuẩn xác
                         let gia_tri_con_lai = ng - hm;
 
-                        const payload = {
+                        validPayloads.push({
                             ma_tai_san: encryptData(ma_tai_san),
                             don_vi: encryptData(don_vi),
                             ten_tai_san: encryptData(ten_tai_san),
@@ -1064,8 +1056,20 @@
                             hinh_anh: encryptData(hinh_anh),
                             import_at: encryptData(import_at),
                             duplicateAction: duplicateAction
-                        };
+                        });
+                    }
 
+                    // 2. ĐỒNG BỘ DỮ LIỆU HỢP LỆ LÊN SERVER
+                    Swal.update({
+                        title: 'Đang đồng bộ dữ liệu hợp lệ...',
+                        text: `Phát hiện ${errorDetails.length} dòng lỗi cấu trúc cột. Đang đẩy ${validPayloads.length} dòng hợp lệ lên server...`
+                    });
+
+                    let successCount = 0;
+                    let skipCount = 0;
+                    let serverFailCount = 0;
+
+                    for (let payload of validPayloads) {
                         try {
                             const response = await fetch(`${API_URL}?action=save_asset`, {
                                 method: 'POST',
@@ -1081,46 +1085,58 @@
                                     successCount++; 
                                 }
                             } else { 
-                                failCount++; 
-                                errorDetails.push(`Dòng ${rowIndex} [Mã: ${ma_tai_san}]: ${result.error || 'Lỗi máy chủ'}`); 
+                                serverFailCount++; 
+                                errorDetails.push(`Lỗi Server: ${result.error || 'Không thể lưu dòng dữ liệu'}`); 
                             }
                         } catch (err) { 
-                            failCount++; 
-                            errorDetails.push(`Dòng ${rowIndex} [Mã: ${ma_tai_san}]: Không thể kết nối máy chủ`);
+                            serverFailCount++; 
+                            errorDetails.push(`Lỗi kết nối máy chủ khi đồng bộ.`);
                         }
                     }
 
                     document.getElementById('excelFile').value = '';
                     refreshData();
 
+                    let totalFailCount = errorDetails.length;
                     let htmlMsg = `Thành công: <b>${successCount}</b> tài sản.<br>`;
                     if (skipCount > 0) htmlMsg += `Đã bỏ qua (trùng mã): <b>${skipCount}</b> dòng.<br>`;
-                    if (failCount > 0) {
-                        htmlMsg += `<span class="text-danger">Thất bại/Lỗi cấu trúc cột: <b>${failCount}</b> dòng</span><br>`;
-                        htmlMsg += `<div class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
+                    
+                    if (totalFailCount > 0) {
+                        htmlMsg += `<span class="text-danger">Tổng số lỗi ghi nhận: <b>${totalFailCount}</b> lỗi (Cột & Server)</span><br>`;
+                        htmlMsg += `<div id="errorListContainer" class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
                     }
 
+                    // 3. HIỂN THỊ KẾT QUẢ VÀ TÍCH HỢP NÚT TẮT HIỂN THỊ LỖI
                     Swal.fire({
-                        icon: failCount === 0 ? 'success' : 'warning',
-                        title: 'Hoàn tất kiểm tra chi tiết & nhập lô!',
+                        icon: totalFailCount === 0 ? 'success' : 'warning',
+                        title: 'Hoàn tất kiểm tra toàn diện!',
                         html: htmlMsg,
                         width: '600px',
                         showConfirmButton: true,
                         confirmButtonText: 'Đóng',
-                        footer: failCount > 0 ? '<button id="downloadErrorBtn" class="btn btn-outline-danger btn-sm mt-2"><i class="fa-solid fa-download me-1"></i> Tải báo cáo lỗi (.txt)</button>' : ''
+                        showDenyButton: totalFailCount > 0,
+                        denyButtonText: '<i class="fa-solid fa-eye-slash me-1"></i> Tắt hiển thị lỗi',
+                        footer: totalFailCount > 0 ? '<button id="downloadErrorBtn" class="btn btn-outline-danger btn-sm mt-2"><i class="fa-solid fa-download me-1"></i> Tải file log báo cáo lỗi (.txt)</button>' : ''
+                    }).then((result) => {
+                        if (result.isDenied) {
+                            const errorContainer = document.getElementById('errorListContainer');
+                            if (errorContainer) {
+                                errorContainer.style.display = 'none';
+                            }
+                        }
                     });
 
-                    if (failCount > 0) {
+                    if (totalFailCount > 0) {
                         setTimeout(() => {
                             const btn = document.getElementById('downloadErrorBtn');
                             if (btn) {
                                 btn.onclick = function() {
-                                    const errorContent = `=== BÁO CÁO LỖI KIỂM TRA CỘT IMPORT EXCEL (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi: ${failCount} dòng\n\n` + errorDetails.join('\n');
+                                    const errorContent = `=== BÁO CÁO LỖI KIỂM TRA EXCEL (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi phát hiện: ${totalFailCount}\n\n` + errorDetails.join('\n');
                                     const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
-                                    a.download = `Log_Loi_ChiTiet_${Date.now()}.txt`;
+                                    a.download = `Log_Loi_KiemTra_TatCaCot_${Date.now()}.txt`;
                                     document.body.appendChild(a);
                                     a.click();
                                     document.body.removeChild(a);
