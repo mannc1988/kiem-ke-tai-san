@@ -121,7 +121,7 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 4. LƯU / CẬP NHẬT TÀI SẢN (Hỗ trợ tùy chọn trùng lặp: update, skip, error và kiểm tra dữ liệu)
+        // 4. LƯU / CẬP NHẬT TÀI SẢN (Hỗ trợ tùy chọn trùng lặp: update, skip, error)
         if (action === 'save_asset' && req.method === 'POST') {
             const { 
                 ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
