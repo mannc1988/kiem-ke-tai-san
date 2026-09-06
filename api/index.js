@@ -140,20 +140,18 @@ module.exports = async (req, res) => {
             for (let row of allAssets) {
                 const decryptedExistingMaTS = decryptData(row.ma_tai_san);
                 if (decryptedExistingMaTS === decryptedNewMaTS) {
-                    matchedExistingDbKey = row.ma_tai_san; // Lấy khóa cipher gốc trong DB nếu muốn update
+                    matchedExistingDbKey = row.ma_tai_san; 
                     break;
                 }
             }
 
-            // Kiểm tra theo 2 trường hợp (Cập nhật nếu đã tồn tại bản ghi / Báo lỗi nếu trùng khi thêm mới)
-            // Hoặc nếu bạn muốn chặn lỗi trùng hoàn toàn (báo lỗi khi thêm mới mã đã tồn tại):
             const [existingExact] = await connection.execute(
                 'SELECT ma_tai_san FROM danh_sach_tai_san WHERE ma_tai_san = ?', 
                 [ma_tai_san]
             );
 
             if (matchedExistingDbKey || existingExact.length > 0) {
-                // Nếu trường hợp là Sửa (Update) một bản ghi đã có sẵn:
+                // Trường hợp Sửa (Update) bản ghi đã có sẵn
                 const targetKey = matchedExistingDbKey || ma_tai_san;
                 await connection.execute(
                     `UPDATE danh_sach_tai_san SET 
@@ -171,7 +169,6 @@ module.exports = async (req, res) => {
                 );
                 return res.json({ success: true, message: 'Cập nhật tài sản thành công!' });
             } else {
-                // Kiểm tra kỹ lại giá trị giải mã để ngăn chặn tuyệt đối việc trùng lặp khóa chính mã hóa khác chuỗi cipher nhưng cùng giá trị cleartext
                 if (matchedExistingDbKey) {
                     return res.status(400).json({ 
                         success: false, 
