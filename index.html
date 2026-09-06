@@ -16,25 +16,19 @@
     <!-- Viewer.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.css">
     
-    <!-- jQuery (BẮT BUỘC ĐỨNG ĐẦU TIÊN) -->
+    <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-    
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
     <!-- DataTables JS -->
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-    
     <!-- Viewer.js JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.js"></script>
-
     <!-- Crypto-JS dùng để mã hóa AES -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-
     <!-- Thư viện SheetJS đọc file Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
     <!-- QR Scanner Library -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -43,7 +37,6 @@
         .card { border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 1.5rem; }
         .card-header { border-radius: 12px 12px 0 0 !important; font-weight: 600; }
         
-        /* --- KÍCH THƯỚC CAMERA QUÉT QR --- */
         #reader { 
             border: 2px dashed #0d6efd; 
             border-radius: 8px; 
@@ -71,7 +64,6 @@
             white-space: nowrap;
         }
 
-        /* --- TÙY CHỈNH KÍCH THƯỚC POPUP VIEWER.JS VỪA VẮN VÀ CĂN GIỮA --- */
         .viewer-container {
             background-color: rgba(0, 0, 0, 0.85) !important;
             display: flex !important;
@@ -91,7 +83,6 @@
             border-radius: 6px;
         }
 
-        /* --- DANH SÁCH FILE ẢNH TẠM DẠNG DETAIL --- */
         .file-detail-item {
             display: flex;
             align-items: center;
@@ -141,8 +132,12 @@
                             <input type="text" id="ten_tai_san" class="form-control form-control-sm" placeholder="VD: Switch CISCO" required>
                         </div>
                         <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Nhóm Tài Sản:</label>
+                            <input type="text" id="nhom_tai_san" class="form-control form-control-sm" placeholder="VD: TB chuyển mạch">
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label fw-semibold small">Phòng Ban Quản Lý <span class="text-danger">*</span>:</label>
-                            <input type="text" id="phong_ban_quan_ly" class="form-control form-control-sm" placeholder="VD: 340 - TRUNG TÂM..." required>
+                            <input type="text" id="phong_ban_quan_ly" class="form-control form-control-sm" placeholder="VD: TRUNG TÂM..." required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small">Cán Bộ Sử Dụng:</label>
@@ -156,6 +151,10 @@
                             <label class="form-label fw-semibold small">Số Serial:</label>
                             <input type="text" id="so_serial" class="form-control form-control-sm" placeholder="Serial máy">
                         </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Trạng Thái SD:</label>
+                            <input type="text" id="trang_thai_sd" class="form-control form-control-sm" value="Đang sử dụng">
+                        </div>
                         <div class="col-md-4">
                             <label class="form-label fw-semibold small">Quản Lý Ảnh Đính Kèm (CRUD):</label>
                             <input type="file" id="imageFiles" class="form-control form-control-sm mb-1" accept="image/*" multiple onchange="handleTempImagesSelect(event)">
@@ -164,7 +163,7 @@
                             <div id="imageDetailList" class="mt-2"></div>
                             <input type="hidden" id="hinh_anh_url" value="">
                         </div>
-                        <div class="col-md-2 text-end d-flex align-items-end justify-content-end">
+                        <div class="col-md-8 text-end d-flex align-items-end justify-content-end">
                             <button type="button" class="btn btn-secondary btn-sm px-3 me-2" onclick="resetForm()"><i class="fa-solid fa-rotate-left me-1"></i> Làm mới</button>
                             <button type="submit" class="btn btn-success btn-sm px-4"><i class="fa-solid fa-floppy-disk me-1"></i> Lưu & Đẩy Drive</button>
                         </div>
@@ -176,14 +175,15 @@
                         <thead class="table-light">
                             <tr>
                                 <th>STT</th>
-                                <th>Ảnh (Danh sách tên tệp)</th>
+                                <th>Ảnh Đính Kèm</th>
                                 <th>Mã Tài Sản</th>
-                                <th>Tên Tài Sản (Giải Mã)</th>
+                                <th>Tên Tài Sản</th>
                                 <th>Nhóm Tài Sản</th>
-                                <th>Phòng Ban (Giải Mã)</th>
-                                <th>Cán Bộ SD (Giải Mã)</th>
+                                <th>Phòng Ban</th>
+                                <th>Cán Bộ SD</th>
                                 <th>Nguyên Giá</th>
                                 <th>Serial</th>
+                                <th>Trạng Thái</th>
                                 <th class="text-center">Thao Tác</th>
                             </tr>
                         </thead>
@@ -240,10 +240,10 @@
                             <tr>
                                 <th>STT</th>
                                 <th>Mã Tài Sản</th>
-                                <th>Tên Tài Sản (Giải Mã)</th>
+                                <th>Tên Tài Sản</th>
                                 <th>Cán Bộ KK</th>
                                 <th>Thời Gian</th>
-                                <th>Ghi Chú (Giải Mã)</th>
+                                <th>Ghi Chú</th>
                                 <th class="text-center">Xóa</th>
                             </tr>
                         </thead>
@@ -255,7 +255,7 @@
 
     </div>
 
-    <!-- Container ẩn để Viewer.js gom nhóm và hiển thị toàn bộ ảnh khi bấm xem -->
+    <!-- Container ẩn cho Viewer.js -->
     <div id="viewerContainer" style="display: none;"></div>
 
     <!-- SweetAlert2 & Eruda Console Debug -->
@@ -271,11 +271,10 @@
         let danhSachTS = [];
         let isScanning = true;
         let assetsTable, historyTable;
-        let tempFilesList = []; // Mảng chứa file tạm mới
-        let tempBase64List = []; // Mảng base64 file tạm
-        let existingDriveUrls = []; // Mảng URL ảnh cũ từ Google Drive
+        let tempFilesList = []; 
+        let tempBase64List = []; 
+        let existingDriveUrls = []; 
 
-        // Mã hóa & Giải mã AES
         function encryptData(plainText) {
             if (plainText === undefined || plainText === null || plainText === '') return '';
             return CryptoJS.AES.encrypt(plainText.toString(), SECRET_KEY).toString();
@@ -292,7 +291,6 @@
             }
         }
 
-        // Chọn ảnh tạm mới
         async function handleTempImagesSelect(event) {
             const files = event.target.files;
             if (!files || files.length === 0) return;
@@ -306,7 +304,6 @@
             event.target.value = '';
         }
 
-        // Hiển thị danh sách CRUD ảnh chi tiết
         function renderImageDetailList() {
             const container = document.getElementById('imageDetailList');
             container.innerHTML = '';
@@ -316,7 +313,6 @@
                 return;
             }
 
-            // Hiển thị ảnh cũ từ Google Drive (có nút xóa)
             if (existingDriveUrls.length > 0) {
                 const headerDrive = document.createElement('div');
                 headerDrive.className = 'text-primary fw-semibold small mb-1';
@@ -340,7 +336,6 @@
                 });
             }
 
-            // Hiển thị ảnh mới chọn tạm
             if (tempFilesList.length > 0) {
                 const headerTemp = document.createElement('div');
                 headerTemp.className = 'd-flex justify-content-between align-items-center mt-2 mb-1';
@@ -463,12 +458,12 @@
                             let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
                             if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có ảnh</span>';
 
-                            let htmlList = '<div style="max-width: 220px;">';
+                            let htmlList = '<div style="max-width: 200px;">';
                             urls.forEach((url, idx) => {
                                 let fName = url.split('/').pop().split('?')[0] || `Asset_Img_${idx + 1}.jpg`;
                                 htmlList += `
                                     <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 mb-1 shadow-sm">
-                                        <span class="text-truncate me-2 small text-secondary" style="max-width: 140px;" title="${fName}">
+                                        <span class="text-truncate me-2 small text-secondary" style="max-width: 120px;" title="${fName}">
                                             <i class="fa-solid fa-image text-primary me-1"></i> ${fName}
                                         </span>
                                         <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="showViewer('${decrypted}')" title="Xem ảnh">
@@ -488,13 +483,26 @@
                     { data: 'can_bo_su_dung', render: data => decryptData(data) },
                     { data: 'nguyen_gia', render: data => { let v = decryptData(data); return v ? Number(v).toLocaleString('vi-VN') + ' đ' : '0'; } },
                     { data: 'so_serial', render: data => `<span class="badge bg-light text-dark border">${decryptData(data)}</span>` },
+                    { data: 'trang_thai_sd', render: data => `<span class="badge bg-success-subtle text-success border">${decryptData(data)}</span>` },
                     { 
-                        data: 'id', 
+                        data: 'ma_tai_san', 
                         className: 'text-center align-middle',
-                        render: (data, type, row) => `
-                            <button class="btn btn-warning btn-sm text-white me-1" onclick="editAsset('${row.id}', '${decryptData(row.ma_tai_san)}', '${decryptData(row.ten_tai_san)}', '${decryptData(row.phong_ban_quan_ly)}', '${decryptData(row.can_bo_su_dung)}', '${decryptData(row.nguyen_gia)}', '${decryptData(row.so_serial)}', '${decryptData(row.hinh_anh)}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteAsset('${row.id}')" title="Xóa"><i class="fa-solid fa-trash"></i></button>
-                        `
+                        render: (data, type, row) => {
+                            let mAs = decryptData(row.ma_tai_san);
+                            let tTs = decryptData(row.ten_tai_san).replace(/'/g, "\\'");
+                            let nTs = decryptData(row.nhom_tai_san).replace(/'/g, "\\'");
+                            let pB = decryptData(row.phong_ban_quan_ly).replace(/'/g, "\\'");
+                            let cB = decryptData(row.can_bo_su_dung).replace(/'/g, "\\'");
+                            let nG = decryptData(row.nguyen_gia);
+                            let sS = decryptData(row.so_serial);
+                            let tT = decryptData(row.trang_thai_sd);
+                            let hA = decryptData(row.hinh_anh);
+
+                            return `
+                                <button class="btn btn-warning btn-sm text-white me-1" onclick="editAsset('${mAs}', '${tTs}', '${nTs}', '${pB}', '${cB}', '${nG}', '${sS}', '${tT}', '${hA}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteAsset('${mAs}')" title="Xóa"><i class="fa-solid fa-trash"></i></button>
+                            `;
+                        }
                     }
                 ],
                 language: {
@@ -568,9 +576,6 @@
             loadInitialCache();
         }
 
-        let editingId = null;
-
-        // Kiểm tra lỗi dữ liệu đơn lẻ (Validation)
         function validateAssetData(maTS, tenTS, phongBan, nguyenGia) {
             if (!maTS) {
                 Swal.fire('Lỗi dữ liệu', 'Mã tài sản không được để trống!', 'warning');
@@ -595,15 +600,16 @@
             return true;
         }
 
-        // Lưu tài sản (Xóa ảnh bị loại bỏ khỏi Drive, đẩy ảnh mới lên Drive, lưu DB)
         async function saveAsset(e) {
             e.preventDefault();
             const ma_tai_san = document.getElementById('ma_tai_san').value.trim();
             const rawTen = document.getElementById('ten_tai_san').value.trim();
+            const rawNhom = document.getElementById('nhom_tai_san').value.trim();
             const rawPhong = document.getElementById('phong_ban_quan_ly').value.trim();
             const rawCanBo = document.getElementById('can_bo_su_dung').value.trim();
             const rawNguyenGia = document.getElementById('nguyen_gia').value;
             const rawSerial = document.getElementById('so_serial').value.trim();
+            const rawTrangThai = document.getElementById('trang_thai_sd').value.trim() || 'Đang sử dụng';
 
             if (!validateAssetData(ma_tai_san, rawTen, rawPhong, rawNguyenGia)) {
                 return;
@@ -616,12 +622,10 @@
                 didOpen: () => { Swal.showLoading(); }
             });
 
-            // Xác định ảnh nào bị xóa khỏi Google Drive
             const originalDriveUrlString = document.getElementById('hinh_anh_url').value;
             let originalDriveUrls = originalDriveUrlString ? originalDriveUrlString.split(',').map(s => s.trim()).filter(Boolean) : [];
             let deletedDriveUrls = originalDriveUrls.filter(url => !existingDriveUrls.includes(url));
 
-            // Gửi lệnh xóa ảnh khỏi Drive lên server
             for (let deleteUrl of deletedDriveUrls) {
                 try {
                     await fetch(`${API_URL}?action=delete_drive`, {
@@ -632,7 +636,6 @@
                 } catch (err) {}
             }
 
-            // Đẩy ảnh mới chọn lên Google Drive
             let finalImageUrls = [...existingDriveUrls];
             for (let file of tempFilesList) {
                 try {
@@ -657,20 +660,19 @@
             const finalGia = rawNguyenGia === '' ? 0 : Number(rawNguyenGia);
 
             const payload = {
-                id: editingId || ma_tai_san,
                 ma_tai_san: encryptData(ma_tai_san),
                 don_vi: encryptData("00745 - ĐB SÔNG CỬU LONG"),
                 ten_tai_san: encryptData(rawTen),
-                nhom_tai_san: encryptData("403010301 - Quản lý tài sản"),
+                nhom_tai_san: encryptData(rawNhom),
                 nguyen_gia: encryptData(finalGia),
                 hao_mon_luy_ke: encryptData(0),
                 gia_tri_con_lai: encryptData(finalGia),
                 ngay_dua_vao_sd: encryptData(new Date().toISOString().split('T')[0]),
-                trang_thai_sd: encryptData("Đang sử dụng"),
+                trang_thai_sd: encryptData(rawTrangThai),
                 bo_so: encryptData("BIDV_CCLD"),
                 can_bo_su_dung: encryptData(rawCanBo),
                 phong_ban_quan_ly: encryptData(rawPhong),
-                so_serial: encryptData(so_serial),
+                so_serial: encryptData(rawSerial),
                 hinh_anh: encryptData(finalImageUrlString)
             };
 
@@ -702,14 +704,16 @@
             });
         }
 
-        async function editAsset(id, ma_tai_san, ten_tai_san, phong_ban_quan_ly, can_bo_su_dung, nguyen_gia, so_serial, hinh_anh) {
-            editingId = id;
+        function editAsset(ma_tai_san, ten_tai_san, nhom_tai_san, phong_ban_quan_ly, can_bo_su_dung, nguyen_gia, so_serial, trang_thai_sd, hinh_anh) {
             document.getElementById('ma_tai_san').value = ma_tai_san;
+            document.getElementById('ma_tai_san').readOnly = true; // Không cho sửa khóa chính
             document.getElementById('ten_tai_san').value = ten_tai_san;
+            document.getElementById('nhom_tai_san').value = nhom_tai_san;
             document.getElementById('phong_ban_quan_ly').value = phong_ban_quan_ly;
             document.getElementById('can_bo_su_dung').value = can_bo_su_dung;
             document.getElementById('nguyen_gia').value = nguyen_gia;
             document.getElementById('so_serial').value = so_serial;
+            document.getElementById('trang_thai_sd').value = trang_thai_sd;
             
             document.getElementById('hinh_anh_url').value = hinh_anh;
             existingDriveUrls = hinh_anh ? hinh_anh.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -723,19 +727,19 @@
 
         function resetForm() {
             document.getElementById('assetForm').reset();
+            document.getElementById('ma_tai_san').readOnly = false;
             tempFilesList = [];
             tempBase64List = [];
             existingDriveUrls = [];
             document.getElementById('hinh_anh_url').value = '';
             document.getElementById('imageFiles').value = '';
             renderImageDetailList();
-            editingId = null;
         }
 
-        async function deleteAsset(id) {
+        async function deleteAsset(ma_tai_san) {
             const confirmRes = await Swal.fire({
                 title: 'Xác nhận xóa?',
-                text: `Bạn có chắc muốn xóa tài sản này?`,
+                text: `Bạn có chắc muốn xóa tài sản mã ${ma_tai_san}?`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
@@ -749,7 +753,7 @@
                     const response = await fetch(`${API_URL}?action=delete_asset`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id })
+                        body: JSON.stringify({ ma_tai_san })
                     });
                     const result = await response.json();
                     if (result.success) {
@@ -792,7 +796,6 @@
             }
         }
 
-        // Quét QR Code
         async function onScanSuccess(decodedText) {
             if (!isScanning) return;
             isScanning = false;
@@ -801,11 +804,11 @@
             const dotId = document.getElementById('selectDot').value;
             const nguoiKK = document.getElementById('txtNguoiKK').value || 'Nhân viên';
 
-            const asset = danhSachTS.find(t => t.ma_tai_san === scannedCode || t.id === scannedCode);
+            const asset = danhSachTS.find(t => t.ma_tai_san === scannedCode);
             const rawTsName = asset ? asset.ten_tai_san : `Tài sản quét (${scannedCode})`;
             const thoiGian = new Date().toLocaleString('vi-VN');
 
-            const tsId = asset ? (asset.ma_tai_san || asset.id) : scannedCode;
+            const tsId = scannedCode;
             const tsName = encryptData(rawTsName);
             const ghiChu = encryptData('Quét QR hệ thống');
 
@@ -847,7 +850,6 @@
         );
         html5QrcodeScanner.render(onScanSuccess, (err) => {});
 
-        // Tải mẫu Excel
         function downloadTemplate(e) {
             e.preventDefault();
             const templateData = [
@@ -874,7 +876,6 @@
             XLSX.writeFile(wb, "Template_KiemKe_TaiSan.xlsx");
         }
 
-        // Import Excel có kiểm tra lỗi từng dòng
         async function importExcelData(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -936,7 +937,6 @@
                         }
 
                         const payload = {
-                            id: ma_tai_san,
                             ma_tai_san: encryptData(ma_tai_san),
                             don_vi: encryptData(row['don_vi'] || row['Đơn Vị'] || ''),
                             ten_tai_san: encryptData(rawTen),
