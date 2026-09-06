@@ -121,7 +121,7 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 4. LƯU / CẬP NHẬT TÀI SẢN (Hỗ trợ tùy chọn trùng lặp: update, skip, error)
+        // 4. LƯU / CẬP NHẬT TÀI SẢN (Hỗ trợ tùy chọn trùng lặp: update, skip, error và kiểm tra toàn diện dữ liệu)
         if (action === 'save_asset' && req.method === 'POST') {
             const { 
                 ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
@@ -131,10 +131,18 @@ module.exports = async (req, res) => {
                 duplicateAction // Tùy chọn xử lý khi trùng: 'update', 'skip', hoặc mặc định
             } = req.body;
 
-            // Giải mã mã tài sản do client gửi lên để lấy giá trị thực tế
+            // Kiểm tra các trường bắt buộc ngay tại backend để đảm bảo an toàn dữ liệu
+            if (!ma_tai_san || !ten_tai_san || !phong_ban_quan_ly) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Dữ liệu thiếu các trường bắt buộc (Mã tài sản, Tên tài sản hoặc Phòng ban quản lý)!' 
+                });
+            }
+
+            // Giải mã mã tài sản do client gửi lên để lấy giá trị thực tế đối chiếu
             const decryptedNewMaTS = decryptData(ma_tai_san);
 
-            // Lấy toàn bộ mã tài sản trong DB để đối chiếu giá trị sau khi giải mã
+            // Lấy toàn bộ mã tài sản trong DB để đối chiếu giá trị sau khi giải mã AES
             const [allAssets] = await connection.execute('SELECT ma_tai_san FROM danh_sach_tai_san');
 
             let matchedExistingDbKey = null;
@@ -178,7 +186,7 @@ module.exports = async (req, res) => {
                     return res.json({ success: true, message: 'Cập nhật tài sản thành công!' });
                 }
 
-                // Mặc định báo lỗi nếu cấu hình là chặn (error)
+                // Mặc định báo lỗi (mã 400) nếu cấu hình là chặn (error)
                 return res.status(400).json({ 
                     success: false, 
                     error: `Mã tài sản "${decryptedNewMaTS}" đã tồn tại trong hệ thống (trùng khóa chính)!` 
