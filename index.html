@@ -989,7 +989,7 @@
                     let validPayloads = [];
                     let errorDetails = [];
 
-                    // 1. KIỂM TRA HẾT TẤT CẢ CÁC LỖI CỦA TẤT CẢ CÁC CỘT TRƯỚC KHI ĐỒNG BỘ
+                    // KIỂM TRA TOÀN DIỆN TẤT CẢ CÁC CỘT TRƯỚC KHI ĐỒNG BỘ
                     for (let i = 0; i < rows.length; i++) {
                         let row = rows[i];
                         let rowIndex = i + 2; 
@@ -1002,6 +1002,9 @@
                         let ng = Number(row['nguyen_gia'] || row['Nguyên Giá'] || 0);
                         let hm = Number(row['hao_mon_luy_ke'] || row['Hao Mòn Lũy Kế'] || 0);
                         
+                        let rawGCL = row['gia_tri_con_lai'] !== undefined ? row['gia_tri_con_lai'] : (row['Giá Trị Còn Lại'] !== undefined ? row['Giá Trị Còn Lại'] : '');
+                        let gcl = rawGCL !== '' && rawGCL !== null ? Number(rawGCL) : (ng - hm);
+
                         const ngay_dua_vao_sd = String(row['ngay_dua_vao_sd'] || row['Ngày Đưa Vào SD'] || '').trim();
                         const trang_thai_sd = String(row['trang_thai_sd'] || row['Trạng Thái SD'] || 'Đang sử dụng').trim();
                         const bo_so = String(row['bo_so'] || row['Bộ Sổ'] || 'BIDV_CCLD').trim();
@@ -1028,6 +1031,12 @@
                             rowErrors.push('Cột [Hao mòn lũy kế] nhỏ hơn 0');
                         }
 
+                        if (isNaN(gcl)) {
+                            rowErrors.push('Cột [Giá trị còn lại] không phải số hợp lệ');
+                        } else if (gcl < 0) {
+                            rowErrors.push('Cột [Giá trị còn lại] nhỏ hơn 0');
+                        }
+
                         if (!isNaN(ng) && !isNaN(hm) && hm > ng) {
                             rowErrors.push('Lỗi logic: [Hao mòn lũy kế] lớn hơn [Nguyên giá]');
                         }
@@ -1037,8 +1046,6 @@
                             continue;
                         }
 
-                        let gia_tri_con_lai = ng - hm;
-
                         validPayloads.push({
                             ma_tai_san: encryptData(ma_tai_san),
                             don_vi: encryptData(don_vi),
@@ -1046,7 +1053,7 @@
                             nhom_tai_san: encryptData(nhom_tai_san),
                             nguyen_gia: encryptData(ng),
                             hao_mon_luy_ke: encryptData(hm),
-                            gia_tri_con_lai: encryptData(gia_tri_con_lai >= 0 ? gia_tri_con_lai : 0),
+                            gia_tri_con_lai: encryptData(gcl),
                             ngay_dua_vao_sd: encryptData(ngay_dua_vao_sd),
                             trang_thai_sd: encryptData(trang_thai_sd),
                             bo_so: encryptData(bo_so),
@@ -1059,7 +1066,7 @@
                         });
                     }
 
-                    // 2. ĐỒNG BỘ DỮ LIỆU HỢP LỆ LÊN SERVER
+                    // ĐỒNG BỘ DỮ LIỆU HỢP LỆ LÊN SERVER
                     Swal.update({
                         title: 'Đang đồng bộ dữ liệu hợp lệ...',
                         text: `Phát hiện ${errorDetails.length} dòng lỗi cấu trúc cột. Đang đẩy ${validPayloads.length} dòng hợp lệ lên server...`
@@ -1106,7 +1113,6 @@
                         htmlMsg += `<div id="errorListContainer" class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
                     }
 
-                    // 3. HIỂN THỊ KẾT QUẢ VÀ TÍCH HỢP NÚT TẮT HIỂN THỊ LỖI
                     Swal.fire({
                         icon: totalFailCount === 0 ? 'success' : 'warning',
                         title: 'Hoàn tất kiểm tra toàn diện!',
