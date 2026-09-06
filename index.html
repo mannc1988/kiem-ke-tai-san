@@ -735,12 +735,14 @@
                     body: JSON.stringify(payload)
                 });
                 const result = await response.json();
-                if (result.success) {
+                
+                // Đảm bảo bắt chính xác phản hồi HTTP thành công và dữ liệu trả về hợp lệ
+                if (response.ok && result.success) {
                     Swal.fire({ icon: 'success', title: 'Thành công!', text: 'Đã lưu tài sản thành công.', timer: 1500, showConfirmButton: false });
                     resetForm();
                     refreshData();
                 } else {
-                    Swal.fire('Lỗi', result.error, 'error');
+                    Swal.fire('Cảnh báo trùng lặp', result.error || 'Đã có lỗi xảy ra từ máy chủ!', 'warning');
                 }
             } catch (err) {
                 Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
@@ -1015,11 +1017,11 @@
                                 body: JSON.stringify(payload)
                             });
                             const result = await response.json();
-                            if (result.success) { 
+                            if (response.ok && result.success) { 
                                 successCount++; 
                             } else { 
                                 failCount++; 
-                                errorDetails.push(`Dòng ${rowIndex}: Lỗi máy chủ - ${result.error}`);
+                                errorDetails.push(`Dòng ${rowIndex}: ${result.error || 'Lỗi máy chủ'}`); 
                             }
                         } catch (err) { 
                             failCount++; 
