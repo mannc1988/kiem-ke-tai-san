@@ -145,15 +145,15 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small">Nguyên Giá:</label>
-                            <input type="number" id="nguyen_gia" class="form-control form-control-sm" min="0" placeholder="0" oninput="calculateResidual()">
+                            <input type="text" id="nguyen_gia" class="form-control form-control-sm" placeholder="0" oninput="formatCurrencyInput(this); calculateResidual();">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small">Hao Mòn Lũy Kế:</label>
-                            <input type="number" id="hao_mon_luy_ke" class="form-control form-control-sm" min="0" value="0" placeholder="0" oninput="calculateResidual()">
+                            <input type="text" id="hao_mon_luy_ke" class="form-control form-control-sm" value="0" placeholder="0" oninput="formatCurrencyInput(this); calculateResidual();">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small">Giá Trị Còn Lại:</label>
-                            <input type="number" id="gia_tri_con_lai" class="form-control form-control-sm bg-light" readonly placeholder="0">
+                            <input type="text" id="gia_tri_con_lai" class="form-control form-control-sm bg-light" readonly placeholder="0">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small">Ngày Đưa Vào SD:</label>
@@ -320,11 +320,28 @@
             }
         }
 
+        // Định dạng dấu chấm phân cách phần ngàn khi gõ
+        function formatCurrencyInput(input) {
+            let value = input.value.replace(/\D/g, '');
+            if (!value) {
+                input.value = '';
+                return;
+            }
+            input.value = Number(value).toLocaleString('vi-VN');
+        }
+
+        // Lấy giá trị số thực từ chuỗi đã format dấu chấm
+        function getCleanNumber(elementId) {
+            let val = document.getElementById(elementId).value;
+            if (!val) return 0;
+            return Number(val.replace(/\./g, '')) || 0;
+        }
+
         function calculateResidual() {
-            let nguyenGia = Number(document.getElementById('nguyen_gia').value) || 0;
-            let haoMon = Number(document.getElementById('hao_mon_luy_ke').value) || 0;
+            let nguyenGia = getCleanNumber('nguyen_gia');
+            let haoMon = getCleanNumber('hao_mon_luy_ke');
             let conLai = nguyenGia - haoMon;
-            document.getElementById('gia_tri_con_lai').value = conLai >= 0 ? conLai : 0;
+            document.getElementById('gia_tri_con_lai').value = (conLai >= 0 ? conLai : 0).toLocaleString('vi-VN');
         }
 
         async function handleTempImagesSelect(event) {
@@ -649,9 +666,11 @@
             const rawDonVi = document.getElementById('don_vi').value.trim();
             const rawTen = document.getElementById('ten_tai_san').value.trim();
             const rawNhom = document.getElementById('nhom_tai_san').value.trim();
-            const rawNguyenGia = document.getElementById('nguyen_gia').value;
-            const rawHaoMon = document.getElementById('hao_mon_luy_ke').value;
-            const rawConLai = document.getElementById('gia_tri_con_lai').value;
+            
+            const finalGia = getCleanNumber('nguyen_gia');
+            const finalHaoMon = getCleanNumber('hao_mon_luy_ke');
+            const finalConLai = getCleanNumber('gia_tri_con_lai');
+
             const rawNgaySD = document.getElementById('ngay_dua_vao_sd').value;
             const rawTrangThai = document.getElementById('trang_thai_sd').value.trim() || 'Đang sử dụng';
             const rawBoSo = document.getElementById('bo_so').value.trim();
@@ -705,9 +724,6 @@
             }
 
             const finalImageUrlString = finalImageUrls.join(',');
-            const finalGia = rawNguyenGia === '' ? 0 : Number(rawNguyenGia);
-            const finalHaoMon = rawHaoMon === '' ? 0 : Number(rawHaoMon);
-            const finalConLai = rawConLai === '' ? 0 : Number(rawConLai);
             const currentTimestamp = new Date().toLocaleString('vi-VN');
 
             const payload = {
@@ -763,9 +779,11 @@
             document.getElementById('don_vi').value = don_vi;
             document.getElementById('ten_tai_san').value = ten_tai_san;
             document.getElementById('nhom_tai_san').value = nhom_tai_san;
-            document.getElementById('nguyen_gia').value = nguyen_gia;
-            document.getElementById('hao_mon_luy_ke').value = hao_mon_luy_ke;
-            document.getElementById('gia_tri_con_lai').value = gia_tri_con_lai;
+            
+            document.getElementById('nguyen_gia').value = nguyen_gia ? Number(nguyen_gia).toLocaleString('vi-VN') : '';
+            document.getElementById('hao_mon_luy_ke').value = hao_mon_luy_ke ? Number(hao_mon_luy_ke).toLocaleString('vi-VN') : '0';
+            document.getElementById('gia_tri_con_lai').value = gia_tri_con_lai ? Number(gia_tri_con_lai).toLocaleString('vi-VN') : '0';
+
             document.getElementById('ngay_dua_vao_sd').value = ngay_dua_vao_sd;
             document.getElementById('trang_thai_sd').value = trang_thai_sd;
             document.getElementById('bo_so').value = bo_so;
