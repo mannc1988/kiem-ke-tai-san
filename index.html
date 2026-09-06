@@ -145,11 +145,13 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small">Nguyên Giá:</label>
-                            <input type="text" id="nguyen_gia" class="form-control form-control-sm" placeholder="0" oninput="formatCurrencyInput(this); calculateResidual();">
+                            <input type="text" id="nguyen_gia" class="form-control form-control-sm" placeholder="0" 
+                                   onfocus="removeFormat(this)" onblur="formatCurrencyInput(this)" oninput="calculateResidual()">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small">Hao Mòn Lũy Kế:</label>
-                            <input type="text" id="hao_mon_luy_ke" class="form-control form-control-sm" value="0" placeholder="0" oninput="formatCurrencyInput(this); calculateResidual();">
+                            <input type="text" id="hao_mon_luy_ke" class="form-control form-control-sm" value="0" placeholder="0" 
+                                   onfocus="removeFormat(this)" onblur="formatCurrencyInput(this)" oninput="calculateResidual()">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small">Giá Trị Còn Lại:</label>
@@ -320,17 +322,23 @@
             }
         }
 
-        // Định dạng phân cách phần ngàn khi thêm mới
+        // Khi click/focus vào ô input -> Bỏ dấu chấm để hiện số thô dễ sửa
+        function removeFormat(input) {
+            let value = input.value.replace(/\./g, '');
+            input.value = value === '0' ? '' : value;
+        }
+
+        // Khi rời khỏi ô input (blur) -> Định dạng lại có dấu chấm phân cách phần ngàn
         function formatCurrencyInput(input) {
             let value = input.value.replace(/\D/g, '');
             if (!value) {
-                input.value = '';
+                input.value = '0';
                 return;
             }
             input.value = Number(value).toLocaleString('vi-VN');
         }
 
-        // Lấy giá trị số thô từ input
+        // Lấy giá trị số thô thực tế từ ô input
         function getCleanNumber(elementId) {
             let val = document.getElementById(elementId).value;
             if (!val) return 0;
@@ -773,7 +781,6 @@
             });
         }
 
-        // Khi ở chế độ chỉnh sửa, hiển thị dạng số thô không phân cách phần ngàn
         function editAsset(ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at) {
             document.getElementById('ma_tai_san').value = ma_tai_san;
             document.getElementById('ma_tai_san').readOnly = true; 
@@ -781,9 +788,9 @@
             document.getElementById('ten_tai_san').value = ten_tai_san;
             document.getElementById('nhom_tai_san').value = nhom_tai_san;
             
-            document.getElementById('nguyen_gia').value = nguyen_gia || '';
-            document.getElementById('hao_mon_luy_ke').value = hao_mon_luy_ke || '0';
-            document.getElementById('gia_tri_con_lai').value = gia_tri_con_lai || '0';
+            document.getElementById('nguyen_gia').value = nguyen_gia ? Number(nguyen_gia).toLocaleString('vi-VN') : '';
+            document.getElementById('hao_mon_luy_ke').value = hao_mon_luy_ke ? Number(hao_mon_luy_ke).toLocaleString('vi-VN') : '0';
+            document.getElementById('gia_tri_con_lai').value = gia_tri_con_lai ? Number(gia_tri_con_lai).toLocaleString('vi-VN') : '0';
 
             document.getElementById('ngay_dua_vao_sd').value = ngay_dua_vao_sd;
             document.getElementById('trang_thai_sd').value = trang_thai_sd;
