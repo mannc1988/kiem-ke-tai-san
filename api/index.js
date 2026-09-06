@@ -173,7 +173,7 @@ module.exports = async (req, res) => {
             } else {
                 // Kiểm tra kỹ lại giá trị giải mã để ngăn chặn tuyệt đối việc trùng lặp khóa chính mã hóa khác chuỗi cipher nhưng cùng giá trị cleartext
                 if (matchedExistingDbKey) {
-                    return.status(400).json({ 
+                    return res.status(400).json({ 
                         success: false, 
                         error: `Mã tài sản "${decryptedNewMaTS}" đã tồn tại trong hệ thống (trùng khóa chính)!` 
                     });
