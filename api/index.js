@@ -121,7 +121,7 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 4. LƯU / CẬP NHẬT TÀI SẢN (Hỗ trợ tùy chọn trùng lặp: update, skip, error và kiểm tra toàn diện dữ liệu)
+        // 4. LƯU / CẬP NHẬT TÀI SẢN (Hỗ trợ tùy chọn trùng lặp: update, skip, error và kiểm tra dữ liệu)
         if (action === 'save_asset' && req.method === 'POST') {
             const { 
                 ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
@@ -131,7 +131,6 @@ module.exports = async (req, res) => {
                 duplicateAction // Tùy chọn xử lý khi trùng: 'update', 'skip', hoặc mặc định
             } = req.body;
 
-            // Kiểm tra các trường bắt buộc ngay tại backend để đảm bảo an toàn dữ liệu
             if (!ma_tai_san || !ten_tai_san || !phong_ban_quan_ly) {
                 return res.status(400).json({ 
                     success: false, 
@@ -139,10 +138,7 @@ module.exports = async (req, res) => {
                 });
             }
 
-            // Giải mã mã tài sản do client gửi lên để lấy giá trị thực tế đối chiếu
             const decryptedNewMaTS = decryptData(ma_tai_san);
-
-            // Lấy toàn bộ mã tài sản trong DB để đối chiếu giá trị sau khi giải mã AES
             const [allAssets] = await connection.execute('SELECT ma_tai_san FROM danh_sach_tai_san');
 
             let matchedExistingDbKey = null;
@@ -162,12 +158,10 @@ module.exports = async (req, res) => {
             if (matchedExistingDbKey || existingExact.length > 0) {
                 const targetKey = matchedExistingDbKey || ma_tai_san;
 
-                // Nếu cấu hình là bỏ qua (skip) khi import trùng
                 if (duplicateAction === 'skip') {
                     return res.json({ success: true, skipped: true, message: 'Đã bỏ qua do trùng mã tài sản!' });
                 }
 
-                // Trường hợp Cập nhật (Update) khi trùng mã hoặc sửa thông tin trực tiếp trên form
                 if (duplicateAction === 'update' || !duplicateAction) {
                     await connection.execute(
                         `UPDATE danh_sach_tai_san SET 
@@ -186,13 +180,11 @@ module.exports = async (req, res) => {
                     return res.json({ success: true, message: 'Cập nhật tài sản thành công!' });
                 }
 
-                // Mặc định báo lỗi (mã 400) nếu cấu hình là chặn (error)
                 return res.status(400).json({ 
                     success: false, 
                     error: `Mã tài sản "${decryptedNewMaTS}" đã tồn tại trong hệ thống (trùng khóa chính)!` 
                 });
             } else {
-                // Tiến hành Thêm mới (Insert) vì chưa tồn tại
                 await connection.execute(
                     `INSERT INTO danh_sach_tai_san 
                     (ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at) 
@@ -208,7 +200,7 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 5. XÓA TÀI SẢN (Xóa theo ma_tai_san)
+        // 5. XÓA TÀI SẢN
         if (action === 'delete_asset' && req.method === 'POST') {
             const { ma_tai_san } = req.body;
             await connection.execute('DELETE FROM danh_sach_tai_san WHERE ma_tai_san = ?', [ma_tai_san]);
