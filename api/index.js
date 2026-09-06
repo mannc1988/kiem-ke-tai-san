@@ -121,13 +121,14 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 4. LƯU / CẬP NHẬT TÀI SẢN (Kiểm tra trùng khóa chính sau khi giải mã)
+        // 4. LƯU / CẬP NHẬT TÀI SẢN (Hỗ trợ tùy chọn trùng lặp: update, skip, error)
         if (action === 'save_asset' && req.method === 'POST') {
             const { 
                 ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
                 nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
                 ngay_dua_vao_sd, trang_thai_sd, bo_so, 
-                can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at 
+                can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at,
+                duplicateAction // Tùy chọn xử lý khi trùng: 'update', 'skip', hoặc mặc định
             } = req.body;
 
             // Giải mã mã tài sản do client gửi lên để lấy giá trị thực tế
@@ -150,36 +151,39 @@ module.exports = async (req, res) => {
                 [ma_tai_san]
             );
 
-            // Kiểm tra xem ô Mã Tài Sản có đang chỉnh sửa bản ghi cũ hay thêm mới
-            // Nếu mã đã tồn tại và khớp chính xác hoặc trùng giá trị giải mã:
-            // Bạn có thể phân biệt dựa vào việc bản ghi đã có sẵn trong DB hay chưa. 
-            // Nếu muốn chặn tuyệt đối khi thêm mới bị trùng:
-            if (matchedExistingDbKey && existingExact.length > 0) {
-                // Trường hợp Sửa (Update) bản ghi đã có sẵn
-                await connection.execute(
-                    `UPDATE danh_sach_tai_san SET 
-                    don_vi = ?, ten_tai_san = ?, nhom_tai_san = ?, 
-                    nguyen_gia = ?, hao_mon_luy_ke = ?, gia_tri_con_lai = ?, 
-                    ngay_dua_vao_sd = ?, trang_thai_sd = ?, bo_so = ?, 
-                    can_bo_su_dung = ?, phong_ban_quan_ly = ?, so_serial = ?, hinh_anh = ?, import_at = ? 
-                    WHERE ma_tai_san = ?`,
-                    [
-                        don_vi, ten_tai_san, nhom_tai_san, 
-                        nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
-                        ngay_dua_vao_sd, trang_thai_sd, bo_so, 
-                        can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at, matchedExistingDbKey
-                    ]
-                );
-                return res.json({ success: true, message: 'Cập nhật tài sản thành công!' });
-            } else {
-                // Nếu đã tồn tại giá trị giải mã nhưng mã cipher khác (nghĩa là trùng mã tài sản khi thêm mới) -> Báo lỗi chặn lại
-                if (matchedExistingDbKey) {
-                    return res.status(400).json({ 
-                        success: false, 
-                        error: `Mã tài sản "${decryptedNewMaTS}" đã tồn tại trong hệ thống (trùng khóa chính)!` 
-                    });
+            if (matchedExistingDbKey || existingExact.length > 0) {
+                const targetKey = matchedExistingDbKey || ma_tai_san;
+
+                // Nếu cấu hình là bỏ qua (skip) khi import trùng
+                if (duplicateAction === 'skip') {
+                    return res.json({ success: true, skipped: true, message: 'Đã bỏ qua do trùng mã tài sản!' });
                 }
 
+                // Trường hợp Cập nhật (Update) khi trùng mã hoặc sửa thông tin trực tiếp trên form
+                if (duplicateAction === 'update' || !duplicateAction) {
+                    await connection.execute(
+                        `UPDATE danh_sach_tai_san SET 
+                        don_vi = ?, ten_tai_san = ?, nhom_tai_san = ?, 
+                        nguyen_gia = ?, hao_mon_luy_ke = ?, gia_tri_con_lai = ?, 
+                        ngay_dua_vao_sd = ?, trang_thai_sd = ?, bo_so = ?, 
+                        can_bo_su_dung = ?, phong_ban_quan_ly = ?, so_serial = ?, hinh_anh = ?, import_at = ? 
+                        WHERE ma_tai_san = ?`,
+                        [
+                            don_vi, ten_tai_san, nhom_tai_san, 
+                            nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
+                            ngay_dua_vao_sd, trang_thai_sd, bo_so, 
+                            can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at, targetKey
+                        ]
+                    );
+                    return res.json({ success: true, message: 'Cập nhật tài sản thành công!' });
+                }
+
+                // Mặc định báo lỗi nếu cấu hình là chặn (error)
+                return res.status(400).json({ 
+                    success: false, 
+                    error: `Mã tài sản "${decryptedNewMaTS}" đã tồn tại trong hệ thống (trùng khóa chính)!` 
+                });
+            } else {
                 // Tiến hành Thêm mới (Insert) vì chưa tồn tại
                 await connection.execute(
                     `INSERT INTO danh_sach_tai_san 
