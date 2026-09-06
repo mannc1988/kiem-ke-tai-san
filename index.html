@@ -980,7 +980,7 @@
                     }
 
                     Swal.fire({
-                        title: 'Đang kiểm tra kỹ từng dòng & đồng bộ...',
+                        title: 'Đang kiểm tra toàn diện lỗi các cột & đồng bộ...',
                         text: `Đang xử lý ${rows.length} dòng dữ liệu từ file Excel. Vui lòng chờ...`,
                         allowOutsideClick: false,
                         didOpen: () => { Swal.showLoading(); }
@@ -995,20 +995,48 @@
                         let row = rows[i];
                         let rowIndex = i + 2; 
 
+                        // 1. Lấy dữ liệu các cột từ Excel (hỗ trợ cả key tiếng Anh lẫn tiếng Việt có dấu)
                         const ma_tai_san = String(row['ma_tai_san'] || row['Mã Tài Sản'] || '').trim();
-                        const rawTen = String(row['ten_tai_san'] || row['Tên Tài Sản'] || '').trim();
-                        const rawPhong = String(row['phong_ban_quan_ly'] || row['Phòng Ban Quản Lý'] || '').trim();
+                        const don_vi = String(row['don_vi'] || row['Đơn Vị'] || '00745 - ĐB SÔNG CỬU LONG').trim();
+                        const ten_tai_san = String(row['ten_tai_san'] || row['Tên Tài Sản'] || '').trim();
+                        const nhom_tai_san = String(row['nhom_tai_san'] || row['Nhóm Tài Sản'] || '').trim();
                         
-                        let rowErrors = [];
-                        if (!ma_tai_san) rowErrors.push('Thiếu mã tài sản');
-                        if (!rawTen) rowErrors.push('Thiếu tên tài sản');
-                        if (!rawPhong) rowErrors.push('Thiếu phòng ban quản lý');
-
                         let ng = Number(row['nguyen_gia'] || row['Nguyên Giá'] || 0);
                         let hm = Number(row['hao_mon_luy_ke'] || row['Hao Mòn Lũy Kế'] || 0);
                         
-                        if (isNaN(ng) || ng < 0) rowErrors.push('Nguyên giá không hợp lệ');
-                        if (isNaN(hm) || hm < 0) rowErrors.push('Hao mòn lũy kế không hợp lệ');
+                        const ngay_dua_vao_sd = String(row['ngay_dua_vao_sd'] || row['Ngày Đưa Vào SD'] || '').trim();
+                        const trang_thai_sd = String(row['trang_thai_sd'] || row['Trạng Thái SD'] || 'Đang sử dụng').trim();
+                        const bo_so = String(row['bo_so'] || row['Bộ Sổ'] || 'BIDV_CCLD').trim();
+                        const can_bo_su_dung = String(row['can_bo_su_dung'] || row['Cán Bộ Sử Dụng'] || '').trim();
+                        const phong_ban_quan_ly = String(row['phong_ban_quan_ly'] || row['Phòng Ban Quản Lý'] || '').trim();
+                        const so_serial = String(row['so_serial'] || row['Số Serial'] || '').trim();
+                        const hinh_anh = String(row['hinh_anh'] || row['Hình Ảnh'] || '').trim();
+                        const import_at = String(row['import_at'] || row['Import At'] || new Date().toLocaleString('vi-VN')).trim();
+
+                        // 2. Kiểm tra lỗi toàn diện từng cột
+                        let rowErrors = [];
+                        if (!ma_tai_san) rowErrors.push('Cột [Mã tài sản] bị trống');
+                        if (!ten_tai_san) rowErrors.push('Cột [Tên tài sản] bị trống');
+                        if (!phong_ban_quan_ly) rowErrors.push('Cột [Phòng ban quản lý] bị trống');
+
+                        // Kiểm tra định dạng số nguyên giá
+                        if (isNaN(ng)) {
+                            rowErrors.push('Cột [Nguyên giá] không phải là số hợp lệ');
+                        } else if (ng < 0) {
+                            rowErrors.push('Cột [Nguyên giá] không được nhỏ hơn 0');
+                        }
+
+                        // Kiểm tra định dạng số hao mòn lũy kế
+                        if (isNaN(hm)) {
+                            rowErrors.push('Cột [Hao mòn lũy kế] không phải là số hợp lệ');
+                        } else if (hm < 0) {
+                            rowErrors.push('Cột [Hao mòn lũy kế] không được nhỏ hơn 0');
+                        }
+
+                        // Kiểm tra logic tài chính
+                        if (!isNaN(ng) && !isNaN(hm) && hm > ng) {
+                            rowErrors.push('Lỗi logic: [Hao mòn lũy kế] lớn hơn [Nguyên giá]');
+                        }
 
                         if (rowErrors.length > 0) {
                             failCount++;
@@ -1016,25 +1044,25 @@
                             continue;
                         }
 
-                        let cl = ng - hm;
-                        let importTime = row['import_at'] || row['Import At'] || new Date().toLocaleString('vi-VN');
+                        // Tự tính lại giá trị còn lại cho chuẩn xác
+                        let gia_tri_con_lai = ng - hm;
 
                         const payload = {
                             ma_tai_san: encryptData(ma_tai_san),
-                            don_vi: encryptData(row['don_vi'] || row['Đơn Vị'] || '00745 - ĐB SÔNG CỬU LONG'),
-                            ten_tai_san: encryptData(rawTen),
-                            nhom_tai_san: encryptData(row['nhom_tai_san'] || row['Nhóm Tài Sản'] || ''),
+                            don_vi: encryptData(don_vi),
+                            ten_tai_san: encryptData(ten_tai_san),
+                            nhom_tai_san: encryptData(nhom_tai_san),
                             nguyen_gia: encryptData(ng),
                             hao_mon_luy_ke: encryptData(hm),
-                            gia_tri_con_lai: encryptData(cl >= 0 ? cl : 0),
-                            ngay_dua_vao_sd: encryptData(row['ngay_dua_vao_sd'] || row['Ngày Đưa Vào SD'] || ''),
-                            trang_thai_sd: encryptData(row['trang_thai_sd'] || row['Trạng Thái SD'] || 'Đang sử dụng'),
-                            bo_so: encryptData(row['bo_so'] || row['Bộ Sổ'] || 'BIDV_CCLD'),
-                            can_bo_su_dung: encryptData(row['can_bo_su_dung'] || row['Cán Bộ Sử Dụng'] || ''),
-                            phong_ban_quan_ly: encryptData(rawPhong),
-                            so_serial: encryptData(String(row['so_serial'] || row['Số Serial'] || '')),
-                            hinh_anh: encryptData(String(row['hinh_anh'] || row['Hình Ảnh'] || '')),
-                            import_at: encryptData(importTime),
+                            gia_tri_con_lai: encryptData(gia_tri_con_lai >= 0 ? gia_tri_con_lai : 0),
+                            ngay_dua_vao_sd: encryptData(ngay_dua_vao_sd),
+                            trang_thai_sd: encryptData(trang_thai_sd),
+                            bo_so: encryptData(bo_so),
+                            can_bo_su_dung: encryptData(can_bo_su_dung),
+                            phong_ban_quan_ly: encryptData(phong_ban_quan_ly),
+                            so_serial: encryptData(so_serial),
+                            hinh_anh: encryptData(hinh_anh),
+                            import_at: encryptData(import_at),
                             duplicateAction: duplicateAction
                         };
 
@@ -1068,15 +1096,15 @@
                     let htmlMsg = `Thành công: <b>${successCount}</b> tài sản.<br>`;
                     if (skipCount > 0) htmlMsg += `Đã bỏ qua (trùng mã): <b>${skipCount}</b> dòng.<br>`;
                     if (failCount > 0) {
-                        htmlMsg += `<span class="text-danger">Thất bại/Lỗi: <b>${failCount}</b> dòng</span><br>`;
-                        htmlMsg += `<div class="mt-2 text-start small border p-2 bg-light" style="max-height: 120px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
+                        htmlMsg += `<span class="text-danger">Thất bại/Lỗi cấu trúc cột: <b>${failCount}</b> dòng</span><br>`;
+                        htmlMsg += `<div class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
                     }
 
                     Swal.fire({
                         icon: failCount === 0 ? 'success' : 'warning',
-                        title: 'Hoàn tất kiểm tra & nhập lô!',
+                        title: 'Hoàn tất kiểm tra chi tiết & nhập lô!',
                         html: htmlMsg,
-                        width: '580px',
+                        width: '600px',
                         showConfirmButton: true,
                         confirmButtonText: 'Đóng',
                         footer: failCount > 0 ? '<button id="downloadErrorBtn" class="btn btn-outline-danger btn-sm mt-2"><i class="fa-solid fa-download me-1"></i> Tải báo cáo lỗi (.txt)</button>' : ''
@@ -1087,12 +1115,12 @@
                             const btn = document.getElementById('downloadErrorBtn');
                             if (btn) {
                                 btn.onclick = function() {
-                                    const errorContent = `=== BÁO CÁO LỖI IMPORT EXCEL (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi: ${failCount} dòng\n\n` + errorDetails.join('\n');
+                                    const errorContent = `=== BÁO CÁO LỖI KIỂM TRA CỘT IMPORT EXCEL (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi: ${failCount} dòng\n\n` + errorDetails.join('\n');
                                     const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
-                                    a.download = `Log_Loi_Import_${Date.now()}.txt`;
+                                    a.download = `Log_Loi_ChiTiet_${Date.now()}.txt`;
                                     document.body.appendChild(a);
                                     a.click();
                                     document.body.removeChild(a);
