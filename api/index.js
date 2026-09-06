@@ -63,12 +63,12 @@ module.exports = async (req, res) => {
 
         // 1. LẤY DỮ LIỆU BAN ĐẦU & DANH MỤC ĐỢT KIỂM KÊ
         if (action === 'data') {
-            const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY id DESC');
+            const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
             const [dot_kiem_ke] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
             return res.json({ success: true, danh_sach, dot_kiem_ke });
         }
 
-        // 2. PHÂN TRANG DATATABLE CHO DANH MỤC TÀI SẢN (ĐÃ FIX TRIỆT ĐỂ LỖI 500)
+        // 2. PHÂN TRANG DATATABLE CHO DANH MỤC TÀI SẢN (Sắp xếp theo ma_tai_san)
         if (action === 'server_assets') {
             const draw = parseInt(req.query.draw) || 1;
             const start = parseInt(req.query.start) || 0;
@@ -89,8 +89,8 @@ module.exports = async (req, res) => {
             const [countResult] = await connection.execute(countQuery, queryParams);
             const totalRecords = countResult[0].total;
 
-            // Lấy dữ liệu phân trang (Ép kiểu số nguyên trực tiếp vào câu lệnh SQL để tránh lỗi tham số LIMIT/OFFSET)
-            const dataQuery = `SELECT * FROM danh_sach_tai_san${baseWhereClause} ORDER BY id DESC LIMIT ${parseInt(length)} OFFSET ${parseInt(start)}`;
+            // Lấy dữ liệu phân trang
+            const dataQuery = `SELECT * FROM danh_sach_tai_san${baseWhereClause} ORDER BY ma_tai_san DESC LIMIT ${parseInt(length)} OFFSET ${parseInt(start)}`;
             const [rows] = await connection.execute(dataQuery, queryParams);
 
             return res.json({
@@ -121,42 +121,42 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 4. LƯU / CẬP NHẬT TÀI SẢN
+        // 4. LƯU / CẬP NHẬT TÀI SẢN (Dựa vào ma_tai_san làm khóa chính)
         if (action === 'save_asset' && req.method === 'POST') {
             const { 
-                id, ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
+                ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
                 nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
                 ngay_dua_vao_sd, trang_thai_sd, bo_so, 
                 can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh 
             } = req.body;
 
             const [existing] = await connection.execute(
-                'SELECT id FROM danh_sach_tai_san WHERE id = ? OR ma_tai_san = ?', 
-                [id, ma_tai_san]
+                'SELECT ma_tai_san FROM danh_sach_tai_san WHERE ma_tai_san = ?', 
+                [ma_tai_san]
             );
 
             if (existing.length > 0) {
                 await connection.execute(
                     `UPDATE danh_sach_tai_san SET 
-                    ma_tai_san = ?, don_vi = ?, ten_tai_san = ?, nhom_tai_san = ?, 
+                    don_vi = ?, ten_tai_san = ?, nhom_tai_san = ?, 
                     nguyen_gia = ?, hao_mon_luy_ke = ?, gia_tri_con_lai = ?, 
                     ngay_dua_vao_sd = ?, trang_thai_sd = ?, bo_so = ?, 
                     can_bo_su_dung = ?, phong_ban_quan_ly = ?, so_serial = ?, hinh_anh = ? 
-                    WHERE id = ?`,
+                    WHERE ma_tai_san = ?`,
                     [
-                        ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
+                        don_vi, ten_tai_san, nhom_tai_san, 
                         nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
                         ngay_dua_vao_sd, trang_thai_sd, bo_so, 
-                        can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, existing[0].id
+                        can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, ma_tai_san
                     ]
                 );
             } else {
                 await connection.execute(
                     `INSERT INTO danh_sach_tai_san 
-                    (id, ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
-                        id, ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
+                        ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
                         nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
                         ngay_dua_vao_sd, trang_thai_sd, bo_so, 
                         can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh
@@ -167,10 +167,10 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: 'Lưu tài sản thành công!' });
         }
 
-        // 5. XÓA TÀI SẢN
+        // 5. XÓA TÀI SẢN (Xóa theo ma_tai_san)
         if (action === 'delete_asset' && req.method === 'POST') {
-            const { id } = req.body;
-            await connection.execute('DELETE FROM danh_sach_tai_san WHERE id = ?', [id]);
+            const { ma_tai_san } = req.body;
+            await connection.execute('DELETE FROM danh_sach_tai_san WHERE ma_tai_san = ?', [ma_tai_san]);
             return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
         }
 
