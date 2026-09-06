@@ -736,7 +736,6 @@
                 });
                 const result = await response.json();
                 
-                // Đảm bảo bắt chính xác phản hồi HTTP thành công và dữ liệu trả về hợp lệ
                 if (response.ok && result.success) {
                     Swal.fire({ icon: 'success', title: 'Thành công!', text: 'Đã lưu tài sản thành công.', timer: 1500, showConfirmButton: false });
                     resetForm();
@@ -943,6 +942,29 @@
             const file = event.target.files[0];
             if (!file) return;
 
+            const actionResult = await Swal.fire({
+                title: 'Tùy chọn xử lý khi trùng mã',
+                text: 'Bạn muốn xử lý thế nào khi file Excel chứa mã tài sản đã tồn tại trên hệ thống?',
+                icon: 'question',
+                showDenyButton: true,
+                showCancelButton: true,
+                confirmButtonText: 'Cập nhật (Ghi đè)',
+                denyButtonText: 'Bỏ qua dòng trùng',
+                cancelButtonText: 'Hủy bỏ'
+            });
+
+            if (actionResult.isDismissed) {
+                document.getElementById('excelFile').value = '';
+                return;
+            }
+
+            let duplicateAction = 'update';
+            if (actionResult.isConfirmed) {
+                duplicateAction = 'update';
+            } else if (actionResult.isDenied) {
+                duplicateAction = 'skip';
+            }
+
             const reader = new FileReader();
             reader.onload = async function(e) {
                 try {
@@ -958,13 +980,14 @@
                     }
 
                     Swal.fire({
-                        title: 'Đang kiểm tra lỗi & đồng bộ dữ liệu...',
-                        text: `Đang quét ${rows.length} dòng từ file Excel. Vui lòng chờ...`,
+                        title: 'Đang kiểm tra kỹ từng dòng & đồng bộ...',
+                        text: `Đang xử lý ${rows.length} dòng dữ liệu từ file Excel. Vui lòng chờ...`,
                         allowOutsideClick: false,
                         didOpen: () => { Swal.showLoading(); }
                     });
 
                     let successCount = 0;
+                    let skipCount = 0;
                     let failCount = 0;
                     let errorDetails = [];
 
@@ -979,16 +1002,20 @@
                         let rowErrors = [];
                         if (!ma_tai_san) rowErrors.push('Thiếu mã tài sản');
                         if (!rawTen) rowErrors.push('Thiếu tên tài sản');
-                        if (!rawPhong) rowErrors.push('Thiếu phòng ban');
-
-                        if (rowErrors.length > 0) {
-                            failCount++;
-                            errorDetails.push(`Dòng ${rowIndex} (${ma_tai_san || 'Không mã'}): ${rowErrors.join(', ')}`);
-                            continue;
-                        }
+                        if (!rawPhong) rowErrors.push('Thiếu phòng ban quản lý');
 
                         let ng = Number(row['nguyen_gia'] || row['Nguyên Giá'] || 0);
                         let hm = Number(row['hao_mon_luy_ke'] || row['Hao Mòn Lũy Kế'] || 0);
+                        
+                        if (isNaN(ng) || ng < 0) rowErrors.push('Nguyên giá không hợp lệ');
+                        if (isNaN(hm) || hm < 0) rowErrors.push('Hao mòn lũy kế không hợp lệ');
+
+                        if (rowErrors.length > 0) {
+                            failCount++;
+                            errorDetails.push(`Dòng ${rowIndex} [Mã: ${ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
+                            continue;
+                        }
+
                         let cl = ng - hm;
                         let importTime = row['import_at'] || row['Import At'] || new Date().toLocaleString('vi-VN');
 
@@ -1007,7 +1034,8 @@
                             phong_ban_quan_ly: encryptData(rawPhong),
                             so_serial: encryptData(String(row['so_serial'] || row['Số Serial'] || '')),
                             hinh_anh: encryptData(String(row['hinh_anh'] || row['Hình Ảnh'] || '')),
-                            import_at: encryptData(importTime)
+                            import_at: encryptData(importTime),
+                            duplicateAction: duplicateAction
                         };
 
                         try {
@@ -1017,15 +1045,20 @@
                                 body: JSON.stringify(payload)
                             });
                             const result = await response.json();
+                            
                             if (response.ok && result.success) { 
-                                successCount++; 
+                                if (result.skipped) {
+                                    skipCount++;
+                                } else {
+                                    successCount++; 
+                                }
                             } else { 
                                 failCount++; 
-                                errorDetails.push(`Dòng ${rowIndex}: ${result.error || 'Lỗi máy chủ'}`); 
+                                errorDetails.push(`Dòng ${rowIndex} [Mã: ${ma_tai_san}]: ${result.error || 'Lỗi máy chủ'}`); 
                             }
                         } catch (err) { 
                             failCount++; 
-                            errorDetails.push(`Dòng ${rowIndex}: Không thể kết nối máy chủ`);
+                            errorDetails.push(`Dòng ${rowIndex} [Mã: ${ma_tai_san}]: Không thể kết nối máy chủ`);
                         }
                     }
 
@@ -1033,6 +1066,7 @@
                     refreshData();
 
                     let htmlMsg = `Thành công: <b>${successCount}</b> tài sản.<br>`;
+                    if (skipCount > 0) htmlMsg += `Đã bỏ qua (trùng mã): <b>${skipCount}</b> dòng.<br>`;
                     if (failCount > 0) {
                         htmlMsg += `<span class="text-danger">Thất bại/Lỗi: <b>${failCount}</b> dòng</span><br>`;
                         htmlMsg += `<div class="mt-2 text-start small border p-2 bg-light" style="max-height: 120px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
@@ -1042,8 +1076,31 @@
                         icon: failCount === 0 ? 'success' : 'warning',
                         title: 'Hoàn tất kiểm tra & nhập lô!',
                         html: htmlMsg,
-                        width: '500px'
+                        width: '580px',
+                        showConfirmButton: true,
+                        confirmButtonText: 'Đóng',
+                        footer: failCount > 0 ? '<button id="downloadErrorBtn" class="btn btn-outline-danger btn-sm mt-2"><i class="fa-solid fa-download me-1"></i> Tải báo cáo lỗi (.txt)</button>' : ''
                     });
+
+                    if (failCount > 0) {
+                        setTimeout(() => {
+                            const btn = document.getElementById('downloadErrorBtn');
+                            if (btn) {
+                                btn.onclick = function() {
+                                    const errorContent = `=== BÁO CÁO LỖI IMPORT EXCEL (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi: ${failCount} dòng\n\n` + errorDetails.join('\n');
+                                    const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `Log_Loi_Import_${Date.now()}.txt`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                };
+                            }
+                        }, 200);
+                    }
 
                 } catch (error) {
                     Swal.fire('Lỗi', 'Không thể đọc cấu trúc file Excel này!', 'error');
