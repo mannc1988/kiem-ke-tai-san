@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Kiểm Kê Tài Sản QR Pro (Viewer.js & Google Drive)</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- SweetAlert2 CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <!-- DataTables Bootstrap 5 CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <!-- Viewer.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.css">
+    
+    <!-- jQuery (BẮT BUỘC ĐỨNG ĐẦU TIÊN) -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    
+    <!-- Viewer.js JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.js"></script>
+
+    <!-- Crypto-JS dùng để mã hóa AES -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+    <!-- Thư viện SheetJS đọc file Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- QR Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 1.5rem; }
+        .card-header { border-radius: 12px 12px 0 0 !important; font-weight: 600; }
+        
+        /* --- KÍCH THƯỚC CAMERA QUÉT QR --- */
+        #reader { 
+            border: 2px dashed #0d6efd; 
+            border-radius: 8px; 
+            background: #fff; 
+            width: 100% !important; 
+            max-width: 100% !important;
+            margin: auto;
+        }
+        #reader video {
+            width: 100% !important;
+            max-height: 350px !important;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+        
+        .table thead th {
+            background-color: #f1f5f9;
+            color: #334155;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.5px;
+            padding: 10px;
+            border-bottom: 2px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        /* --- TÙY CHỈNH KÍCH THƯỚC POPUP VIEWER.JS VỪA VẮN VÀ CĂN GIỮA --- */
+        .viewer-container {
+            background-color: rgba(0, 0, 0, 0.85) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        .viewer-canvas {
+            max-width: 70vw !important;
+            max-height: 70vh !important;
+            margin: auto !important;
+        }
+        .viewer-canvas > img {
+            max-width: 100% !important;
+            max-height: 100% !important;
+            object-fit: contain !important;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.5);
+            border-radius: 6px;
+        }
+
+        /* --- DANH SÁCH FILE ẢNH TẠM DẠNG DETAIL --- */
+        .file-detail-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body class="py-4">
+
+    <div class="container-fluid px-4">
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <h2 class="fw-bold text-primary"><i class="fa-solid fa-boxes-stacked me-2"></i>QUẢN LÝ & KIỂM KẾ TÀI SẢN (AES & GOOGLE DRIVE)</h2>
+            <p class="text-muted">Hệ thống bảo mật dữ liệu đầu cuối & lưu trữ ảnh trực tiếp lên Google Drive</p>
+        </div>
+
+        <!-- PHẦN 1: QUẢN LÝ DANH MỤC TÀI SẢN -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center py-3">
+                <h5 class="mb-0"><i class="fa-solid fa-laptop me-2"></i> 1. Quản Lý Danh Mục Tài Sản</h5>
+                <div>
+                    <label for="excelFile" class="btn btn-light btn-sm text-success fw-bold mb-0 cursor-pointer shadow-sm">
+                        <i class="fa-solid fa-file-excel me-1"></i> Import Excel Mới
+                    </label>
+                    <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="d-none" onchange="importExcelData(event)">
+                    <a href="#" onclick="downloadTemplate(event)" class="btn btn-outline-light btn-sm ms-1" title="Tải file mẫu Excel">
+                        <i class="fa-solid fa-download"></i> Tải Mẫu
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Form thêm/sửa tài sản -->
+                <form id="assetForm" onsubmit="saveAsset(event)" class="mb-4 pb-3 border-bottom">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Mã Tài Sản <span class="text-danger">*</span>:</label>
+                            <input type="text" id="ma_tai_san" class="form-control form-control-sm" placeholder="VD: CC00000144981" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Tên Tài Sản <span class="text-danger">*</span>:</label>
+                            <input type="text" id="ten_tai_san" class="form-control form-control-sm" placeholder="VD: Switch CISCO" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Phòng Ban Quản Lý <span class="text-danger">*</span>:</label>
+                            <input type="text" id="phong_ban_quan_ly" class="form-control form-control-sm" placeholder="VD: 340 - TRUNG TÂM..." required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Cán Bộ Sử Dụng:</label>
+                            <input type="text" id="can_bo_su_dung" class="form-control form-control-sm" placeholder="VD: Nguyễn Văn A">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Nguyên Giá:</label>
+                            <input type="number" id="nguyen_gia" class="form-control form-control-sm" min="0" placeholder="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Số Serial:</label>
+                            <input type="text" id="so_serial" class="form-control form-control-sm" placeholder="Serial máy">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small">Quản Lý Ảnh Đính Kèm (CRUD):</label>
+                            <input type="file" id="imageFiles" class="form-control form-control-sm mb-1" accept="image/*" multiple onchange="handleTempImagesSelect(event)">
+                            
+                            <!-- Danh sách chi tiết CRUD ảnh -->
+                            <div id="imageDetailList" class="mt-2"></div>
+                            <input type="hidden" id="hinh_anh_url" value="">
+                        </div>
+                        <div class="col-md-2 text-end d-flex align-items-end justify-content-end">
+                            <button type="button" class="btn btn-secondary btn-sm px-3 me-2" onclick="resetForm()"><i class="fa-solid fa-rotate-left me-1"></i> Làm mới</button>
+                            <button type="submit" class="btn btn-success btn-sm px-4"><i class="fa-solid fa-floppy-disk me-1"></i> Lưu & Đẩy Drive</button>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="table-responsive">
+                    <table id="assetsTable" class="table table-striped table-hover align-middle w-100">
+                        <thead class="table-light">
+                            <tr>
+                                <th>STT</th>
+                                <th>Ảnh (Danh sách tên tệp)</th>
+                                <th>Mã Tài Sản</th>
+                                <th>Tên Tài Sản (Giải Mã)</th>
+                                <th>Nhóm Tài Sản</th>
+                                <th>Phòng Ban (Giải Mã)</th>
+                                <th>Cán Bộ SD (Giải Mã)</th>
+                                <th>Nguyên Giá</th>
+                                <th>Serial</th>
+                                <th class="text-center">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PHẦN 2: QUÉT QR KIỂM KÊ -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white py-3">
+                <h5 class="mb-0"><i class="fa-solid fa-camera me-2"></i> 2. Quét QR Kiểm Kê Tài Sản</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-lg-5 mb-4 mb-lg-0">
+                        <div class="p-3 border rounded bg-light h-100">
+                            <h5 class="card-title fw-bold text-dark mb-3"><i class="fa-solid fa-sliders me-1 text-primary"></i> Thiết Lập Quét</h5>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold text-secondary">Đợt Kiểm Kê:</label>
+                                <select id="selectDot" class="form-select border-primary-subtle"></select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold text-secondary">Cán Bộ Kiểm Kê:</label>
+                                <input type="text" id="txtNguoiKK" class="form-control border-primary-subtle" value="Nguyễn Cao Mẫn">
+                            </div>
+                            <div class="alert alert-info py-2 small mb-0">
+                                <i class="fa-solid fa-circle-info me-1"></i> Dữ liệu quét mã QR sẽ tự động đối soát và mã hóa lịch sử.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-7">
+                        <div class="p-3 border rounded bg-light text-center">
+                            <h5 class="card-title fw-bold text-dark mb-3"><i class="fa-solid fa-qrcode me-1 text-success"></i> Camera Quét Liên Tục</h5>
+                            <div id="reader" style="width: 100%; max-width: 380px; margin: auto;" class="p-2"></div>
+                            <div id="scan-result" class="mt-3 fw-bold fs-6 p-2 rounded"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PHẦN 3: LỊCH SỬ KIỂM KÊ -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+                <h5 class="mb-0"><i class="fa-solid fa-clock-rotate-left me-2"></i> 3. Lịch Sử Đã Kiểm Kê</h5>
+                <button class="btn btn-light btn-sm fw-semibold" onclick="refreshData()"><i class="fa-solid fa-rotate me-1"></i> Làm mới</button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="historyTable" class="table table-striped table-hover align-middle w-100">
+                        <thead class="table-light">
+                            <tr>
+                                <th>STT</th>
+                                <th>Mã Tài Sản</th>
+                                <th>Tên Tài Sản (Giải Mã)</th>
+                                <th>Cán Bộ KK</th>
+                                <th>Thời Gian</th>
+                                <th>Ghi Chú (Giải Mã)</th>
+                                <th class="text-center">Xóa</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Container ẩn để Viewer.js gom nhóm và hiển thị toàn bộ ảnh khi bấm xem -->
+    <div id="viewerContainer" style="display: none;"></div>
+
+    <!-- SweetAlert2 & Eruda Console Debug -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
+
+    <!-- Script Logic ứng dụng -->
+    <script>
+        const API_URL = 'https://kiem-ke-tai-san-vercel.vercel.app/api';
+        const SECRET_KEY = 'ManNC@2026_SecureKeyAivenMySQL!'; 
+        
+        let danhSachTS = [];
+        let isScanning = true;
+        let assetsTable, historyTable;
+        let tempFilesList = []; // Mảng chứa file tạm mới
+        let tempBase64List = []; // Mảng base64 file tạm
+        let existingDriveUrls = []; // Mảng URL ảnh cũ từ Google Drive
+
+        // Mã hóa & Giải mã AES
+        function encryptData(plainText) {
+            if (plainText === undefined || plainText === null || plainText === '') return '';
+            return CryptoJS.AES.encrypt(plainText.toString(), SECRET_KEY).toString();
+        }
+
+        function decryptData(cipherText) {
+            if (!cipherText) return '';
+            try {
+                const bytes = CryptoJS.AES.decrypt(cipherText, SECRET_KEY);
+                const originalText = bytes.toString(CryptoJS.enc.Utf8);
+                return originalText || cipherText; 
+            } catch (e) {
+                return cipherText; 
+            }
+        }
+
+        // Chọn ảnh tạm mới
+        async function handleTempImagesSelect(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+
+            for (let i = 0; i < files.length; i++) {
+                tempFilesList.push(files[i]);
+                let b64 = await toBase64(files[i]);
+                tempBase64List.push(b64);
+            }
+            renderImageDetailList();
+            event.target.value = '';
+        }
+
+        // Hiển thị danh sách CRUD ảnh chi tiết
+        function renderImageDetailList() {
+            const container = document.getElementById('imageDetailList');
+            container.innerHTML = '';
+
+            if (tempFilesList.length === 0 && existingDriveUrls.length === 0) {
+                container.innerHTML = `<span class="text-muted small fst-italic">Chưa có ảnh đính kèm nào.</span>`;
+                return;
+            }
+
+            // Hiển thị ảnh cũ từ Google Drive (có nút xóa)
+            if (existingDriveUrls.length > 0) {
+                const headerDrive = document.createElement('div');
+                headerDrive.className = 'text-primary fw-semibold small mb-1';
+                headerDrive.innerHTML = `<i class="fa-solid fa-cloud-arrow-up me-1"></i> Ảnh trên Drive (${existingDriveUrls.length}):`;
+                container.appendChild(headerDrive);
+
+                existingDriveUrls.forEach((url, index) => {
+                    let fName = url.split('/').pop().split('?')[0] || `Drive_Img_${index + 1}.jpg`;
+                    const div = document.createElement('div');
+                    div.className = 'file-detail-item';
+                    div.innerHTML = `
+                        <span class="text-truncate me-2 text-primary" style="max-width: 170px;" title="${fName}">
+                            <i class="fa-solid fa-image me-1"></i> ${fName}
+                        </span>
+                        <div>
+                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showViewer('${url}')" title="Xem ảnh"><i class="fa-solid fa-eye"></i></button>
+                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeExistingDriveImage(${index})" title="Xóa ảnh cũ"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+
+            // Hiển thị ảnh mới chọn tạm
+            if (tempFilesList.length > 0) {
+                const headerTemp = document.createElement('div');
+                headerTemp.className = 'd-flex justify-content-between align-items-center mt-2 mb-1';
+                headerTemp.innerHTML = `
+                    <span class="text-success fw-semibold small"><i class="fa-solid fa-circle-plus me-1"></i> Ảnh mới chọn (${tempFilesList.length}):</span>
+                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllTempImages()" title="Xóa hết ảnh mới">
+                        <i class="fa-solid fa-trash-can me-1"></i> Xóa hết
+                    </button>
+                `;
+                container.appendChild(headerTemp);
+
+                tempFilesList.forEach((file, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'file-detail-item';
+                    div.innerHTML = `
+                        <span class="text-truncate me-2" style="max-width: 170px;" title="${file.name}">
+                            <i class="fa-solid fa-image text-success me-1"></i> ${file.name}
+                        </span>
+                        <div>
+                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showSingleTempViewer(${index})" title="Xem ảnh"><i class="fa-solid fa-eye"></i></button>
+                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeTempFile(${index})" title="Xóa"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+        }
+
+        function showSingleTempViewer(index) {
+            const container = document.getElementById('viewerContainer');
+            container.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = tempBase64List[index];
+            container.appendChild(img);
+
+            const viewer = new Viewer(container, {
+                inline: false,
+                button: true,
+                navbar: false,
+                title: false,
+                toolbar: true,
+                hidden: function () { viewer.destroy(); }
+            });
+            viewer.show();
+        }
+
+        function removeExistingDriveImage(index) {
+            existingDriveUrls.splice(index, 1);
+            renderImageDetailList();
+        }
+
+        function removeTempFile(index) {
+            tempFilesList.splice(index, 1);
+            tempBase64List.splice(index, 1);
+            renderImageDetailList();
+        }
+
+        function clearAllTempImages() {
+            tempFilesList = [];
+            tempBase64List = [];
+            document.getElementById('imageFiles').value = '';
+            renderImageDetailList();
+        }
+
+        function showViewer(urlsString) {
+            const container = document.getElementById('viewerContainer');
+            container.innerHTML = ''; 
+
+            let urls = urlsString.split(',').map(s => s.trim()).filter(Boolean);
+            if (urls.length === 0) return;
+
+            urls.forEach(url => {
+                const img = document.createElement('img');
+                img.src = url;
+                container.appendChild(img);
+            });
+
+            const viewer = new Viewer(container, {
+                inline: false,
+                button: true,
+                navbar: urls.length > 1, 
+                title: false, 
+                toolbar: true,
+                hidden: function () { viewer.destroy(); }
+            });
+            viewer.show();
+        }
+
+        function playBeep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 800;
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.15);
+            } catch (e) {}
+        }
+
+        $(document).ready(function() {
+            assetsTable = $('#assetsTable').DataTable({
+                serverSide: true,
+                processing: true,
+                ajax: {
+                    url: `${API_URL}?action=server_assets`,
+                    type: 'GET'
+                },
+                columns: [
+                    { data: null, render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 },
+                    { 
+                        data: 'hinh_anh', 
+                        className: 'align-middle',
+                        render: data => {
+                            let decrypted = decryptData(data);
+                            if (!decrypted) return '<span class="text-muted small fst-italic">Không có ảnh</span>';
+                            let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
+                            if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có ảnh</span>';
+
+                            let htmlList = '<div style="max-width: 220px;">';
+                            urls.forEach((url, idx) => {
+                                let fName = url.split('/').pop().split('?')[0] || `Asset_Img_${idx + 1}.jpg`;
+                                htmlList += `
+                                    <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 mb-1 shadow-sm">
+                                        <span class="text-truncate me-2 small text-secondary" style="max-width: 140px;" title="${fName}">
+                                            <i class="fa-solid fa-image text-primary me-1"></i> ${fName}
+                                        </span>
+                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="showViewer('${decrypted}')" title="Xem ảnh">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </button>
+                                    </div>
+                                `;
+                            });
+                            htmlList += '</div>';
+                            return htmlList;
+                        }
+                    },
+                    { data: 'ma_tai_san', render: data => `<span class="badge bg-secondary">${decryptData(data)}</span>` },
+                    { data: 'ten_tai_san', render: data => `<span class="fw-semibold text-dark">${decryptData(data)}</span>` },
+                    { data: 'nhom_tai_san', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
+                    { data: 'phong_ban_quan_ly', render: data => decryptData(data) },
+                    { data: 'can_bo_su_dung', render: data => decryptData(data) },
+                    { data: 'nguyen_gia', render: data => { let v = decryptData(data); return v ? Number(v).toLocaleString('vi-VN') + ' đ' : '0'; } },
+                    { data: 'so_serial', render: data => `<span class="badge bg-light text-dark border">${decryptData(data)}</span>` },
+                    { 
+                        data: 'id', 
+                        className: 'text-center align-middle',
+                        render: (data, type, row) => `
+                            <button class="btn btn-warning btn-sm text-white me-1" onclick="editAsset('${row.id}', '${decryptData(row.ma_tai_san)}', '${decryptData(row.ten_tai_san)}', '${decryptData(row.phong_ban_quan_ly)}', '${decryptData(row.can_bo_su_dung)}', '${decryptData(row.nguyen_gia)}', '${decryptData(row.so_serial)}', '${decryptData(row.hinh_anh)}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteAsset('${row.id}')" title="Xóa"><i class="fa-solid fa-trash"></i></button>
+                        `
+                    }
+                ],
+                language: {
+                    search: "Tìm kiếm:",
+                    lengthMenu: "Hiển thị _MENU_ dòng",
+                    info: "Hiển thị _START_ đến _END_ của _TOTAL_ dòng",
+                    paginate: { first: "Đầu", last: "Cuối", next: "Sau", previous: "Trước" },
+                    zeroRecords: "Không tìm thấy dữ liệu",
+                    processing: "Đang tải dữ liệu..."
+                }
+            });
+
+            historyTable = $('#historyTable').DataTable({
+                serverSide: true,
+                processing: true,
+                ajax: {
+                    url: `${API_URL}?action=server_history`,
+                    type: 'GET'
+                },
+                columns: [
+                    { data: null, render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 },
+                    { data: 'tsId', render: data => `<span class="badge bg-secondary">${data}</span>` },
+                    { data: 'tsName', render: data => `<span class="fw-semibold text-dark">${decryptData(data)}</span>` },
+                    { data: 'nguoiKK' },
+                    { data: 'thoiGian', render: data => `<span class="text-muted small">${data}</span>` },
+                    { data: 'ghiChu', render: data => `<span class="badge bg-success-subtle text-success border border-success-subtle">${decryptData(data)}</span>` },
+                    { 
+                        data: 'id', 
+                        className: 'text-center',
+                        render: data => `<button class="btn btn-outline-danger btn-sm" onclick="deleteHistory(${data})" title="Xóa lịch sử"><i class="fa-solid fa-xmark"></i></button>`
+                    }
+                ],
+                language: {
+                    search: "Tìm kiếm:",
+                    lengthMenu: "Hiển thị _MENU_ dòng",
+                    info: "Hiển thị _START_ đến _END_ của _TOTAL_ dòng",
+                    paginate: { first: "Đầu", last: "Cuối", next: "Sau", previous: "Trước" },
+                    zeroRecords: "Không tìm thấy dữ liệu",
+                    processing: "Đang tải dữ liệu..."
+                }
+            });
+
+            loadInitialCache();
+        });
+
+        async function loadInitialCache() {
+            try {
+                const response = await fetch(`${API_URL}?action=data`);
+                const result = await response.json();
+                if (result.success) {
+                    danhSachTS = result.danh_sach.map(item => ({
+                        ...item,
+                        ma_tai_san: decryptData(item.ma_tai_san),
+                        ten_tai_san: decryptData(item.ten_tai_san),
+                        phong_ban_quan_ly: decryptData(item.phong_ban_quan_ly),
+                        can_bo_su_dung: decryptData(item.can_bo_su_dung)
+                    }));
+                    
+                    const selectDot = document.getElementById('selectDot');
+                    selectDot.innerHTML = '';
+                    result.dot_kiem_ke.forEach(d => {
+                        selectDot.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+                    });
+                }
+            } catch (e) {}
+        }
+
+        function refreshData() {
+            if (assetsTable) assetsTable.ajax.reload(null, false);
+            if (historyTable) historyTable.ajax.reload(null, false);
+            loadInitialCache();
+        }
+
+        let editingId = null;
+
+        // Kiểm tra lỗi dữ liệu đơn lẻ (Validation)
+        function validateAssetData(maTS, tenTS, phongBan, nguyenGia) {
+            if (!maTS) {
+                Swal.fire('Lỗi dữ liệu', 'Mã tài sản không được để trống!', 'warning');
+                document.getElementById('ma_tai_san').focus();
+                return false;
+            }
+            if (!tenTS) {
+                Swal.fire('Lỗi dữ liệu', 'Tên tài sản không được để trống!', 'warning');
+                document.getElementById('ten_tai_san').focus();
+                return false;
+            }
+            if (!phongBan) {
+                Swal.fire('Lỗi dữ liệu', 'Phòng ban quản lý không được để trống!', 'warning');
+                document.getElementById('phong_ban_quan_ly').focus();
+                return false;
+            }
+            if (nguyenGia !== '' && (isNaN(nguyenGia) || Number(nguyenGia) < 0)) {
+                Swal.fire('Lỗi dữ liệu', 'Nguyên giá phải là một số hợp lệ và lớn hơn hoặc bằng 0!', 'warning');
+                document.getElementById('nguyen_gia').focus();
+                return false;
+            }
+            return true;
+        }
+
+        // Lưu tài sản (Xóa ảnh bị loại bỏ khỏi Drive, đẩy ảnh mới lên Drive, lưu DB)
+        async function saveAsset(e) {
+            e.preventDefault();
+            const ma_tai_san = document.getElementById('ma_tai_san').value.trim();
+            const rawTen = document.getElementById('ten_tai_san').value.trim();
+            const rawPhong = document.getElementById('phong_ban_quan_ly').value.trim();
+            const rawCanBo = document.getElementById('can_bo_su_dung').value.trim();
+            const rawNguyenGia = document.getElementById('nguyen_gia').value;
+            const rawSerial = document.getElementById('so_serial').value.trim();
+
+            if (!validateAssetData(ma_tai_san, rawTen, rawPhong, rawNguyenGia)) {
+                return;
+            }
+
+            Swal.fire({
+                title: 'Đang đồng bộ ảnh & dữ liệu...',
+                text: 'Đang xử lý xóa/thêm ảnh trên Google Drive...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            // Xác định ảnh nào bị xóa khỏi Google Drive
+            const originalDriveUrlString = document.getElementById('hinh_anh_url').value;
+            let originalDriveUrls = originalDriveUrlString ? originalDriveUrlString.split(',').map(s => s.trim()).filter(Boolean) : [];
+            let deletedDriveUrls = originalDriveUrls.filter(url => !existingDriveUrls.includes(url));
+
+            // Gửi lệnh xóa ảnh khỏi Drive lên server
+            for (let deleteUrl of deletedDriveUrls) {
+                try {
+                    await fetch(`${API_URL}?action=delete_drive`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fileUrl: deleteUrl })
+                    });
+                } catch (err) {}
+            }
+
+            // Đẩy ảnh mới chọn lên Google Drive
+            let finalImageUrls = [...existingDriveUrls];
+            for (let file of tempFilesList) {
+                try {
+                    let base64String = await toBase64(file);
+                    const response = await fetch(`${API_URL}?action=upload_drive`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            fileName: `Asset_${Date.now()}_${file.name}`,
+                            fileData: base64String,
+                            mimeType: file.type
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        finalImageUrls.push(result.url);
+                    }
+                } catch (err) {}
+            }
+
+            const finalImageUrlString = finalImageUrls.join(',');
+            const finalGia = rawNguyenGia === '' ? 0 : Number(rawNguyenGia);
+
+            const payload = {
+                id: editingId || ma_tai_san,
+                ma_tai_san: encryptData(ma_tai_san),
+                don_vi: encryptData("00745 - ĐB SÔNG CỬU LONG"),
+                ten_tai_san: encryptData(rawTen),
+                nhom_tai_san: encryptData("403010301 - Quản lý tài sản"),
+                nguyen_gia: encryptData(finalGia),
+                hao_mon_luy_ke: encryptData(0),
+                gia_tri_con_lai: encryptData(finalGia),
+                ngay_dua_vao_sd: encryptData(new Date().toISOString().split('T')[0]),
+                trang_thai_sd: encryptData("Đang sử dụng"),
+                bo_so: encryptData("BIDV_CCLD"),
+                can_bo_su_dung: encryptData(rawCanBo),
+                phong_ban_quan_ly: encryptData(rawPhong),
+                so_serial: encryptData(so_serial),
+                hinh_anh: encryptData(finalImageUrlString)
+            };
+
+            try {
+                const response = await fetch(`${API_URL}?action=save_asset`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    Swal.fire({ icon: 'success', title: 'Thành công!', text: 'Đã lưu tài sản và cập nhật ảnh thành công.', timer: 1500, showConfirmButton: false });
+                    resetForm();
+                    refreshData();
+                } else {
+                    Swal.fire('Lỗi', result.error, 'error');
+                }
+            } catch (err) {
+                Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
+            }
+        }
+
+        function toBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        async function editAsset(id, ma_tai_san, ten_tai_san, phong_ban_quan_ly, can_bo_su_dung, nguyen_gia, so_serial, hinh_anh) {
+            editingId = id;
+            document.getElementById('ma_tai_san').value = ma_tai_san;
+            document.getElementById('ten_tai_san').value = ten_tai_san;
+            document.getElementById('phong_ban_quan_ly').value = phong_ban_quan_ly;
+            document.getElementById('can_bo_su_dung').value = can_bo_su_dung;
+            document.getElementById('nguyen_gia').value = nguyen_gia;
+            document.getElementById('so_serial').value = so_serial;
+            
+            document.getElementById('hinh_anh_url').value = hinh_anh;
+            existingDriveUrls = hinh_anh ? hinh_anh.split(',').map(s => s.trim()).filter(Boolean) : [];
+            tempFilesList = []; 
+            tempBase64List = [];
+            document.getElementById('imageFiles').value = '';
+
+            renderImageDetailList();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetForm() {
+            document.getElementById('assetForm').reset();
+            tempFilesList = [];
+            tempBase64List = [];
+            existingDriveUrls = [];
+            document.getElementById('hinh_anh_url').value = '';
+            document.getElementById('imageFiles').value = '';
+            renderImageDetailList();
+            editingId = null;
+        }
+
+        async function deleteAsset(id) {
+            const confirmRes = await Swal.fire({
+                title: 'Xác nhận xóa?',
+                text: `Bạn có chắc muốn xóa tài sản này?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Xóa',
+                cancelButtonText: 'Hủy'
+            });
+
+            if (confirmRes.isConfirmed) {
+                try {
+                    const response = await fetch(`${API_URL}?action=delete_asset`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        Swal.fire({ icon: 'success', title: 'Đã xóa!', timer: 1200, showConfirmButton: false });
+                        refreshData();
+                    }
+                } catch (err) {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
+                }
+            }
+        }
+
+        async function deleteHistory(id) {
+            const confirmRes = await Swal.fire({
+                title: 'Xóa lịch sử?',
+                text: 'Bạn có chắc muốn xóa dòng lịch sử này?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Xóa',
+                cancelButtonText: 'Hủy'
+            });
+
+            if (confirmRes.isConfirmed) {
+                try {
+                    const response = await fetch(`${API_URL}?action=delete_history`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        Swal.fire({ icon: 'success', title: 'Đã xóa!', timer: 1000, showConfirmButton: false });
+                        refreshData();
+                    }
+                } catch (err) {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
+                }
+            }
+        }
+
+        // Quét QR Code
+        async function onScanSuccess(decodedText) {
+            if (!isScanning) return;
+            isScanning = false;
+
+            const scannedCode = decodedText.trim();
+            const dotId = document.getElementById('selectDot').value;
+            const nguoiKK = document.getElementById('txtNguoiKK').value || 'Nhân viên';
+
+            const asset = danhSachTS.find(t => t.ma_tai_san === scannedCode || t.id === scannedCode);
+            const rawTsName = asset ? asset.ten_tai_san : `Tài sản quét (${scannedCode})`;
+            const thoiGian = new Date().toLocaleString('vi-VN');
+
+            const tsId = asset ? (asset.ma_tai_san || asset.id) : scannedCode;
+            const tsName = encryptData(rawTsName);
+            const ghiChu = encryptData('Quét QR hệ thống');
+
+            const resultDiv = document.getElementById('scan-result');
+            resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-warning-subtle text-warning border border-warning rounded';
+            resultDiv.innerText = `Đang xử lý mã: ${scannedCode}...`;
+
+            try {
+                const response = await fetch(`${API_URL}?action=history`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    playBeep();
+                    resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-success-subtle text-success border border-success rounded';
+                    resultDiv.innerHTML = `<i class="fa-solid fa-circle-check me-1"></i> Ghi nhận thành công: ${rawTsName}!`;
+                    refreshData();
+                } else {
+                    resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
+                    resultDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> ${result.error}`;
+                }
+            } catch (err) {
+                resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
+                resultDiv.innerText = `Lỗi kết nối máy chủ!`;
+            }
+
+            setTimeout(() => {
+                isScanning = true;
+                resultDiv.innerText = '';
+                resultDiv.className = 'mt-3 fw-bold fs-6';
+            }, 2500);
+        }
+
+        const html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", { fps: 15, qrbox: 250 }, false
+        );
+        html5QrcodeScanner.render(onScanSuccess, (err) => {});
+
+        // Tải mẫu Excel
+        function downloadTemplate(e) {
+            e.preventDefault();
+            const templateData = [
+                { 
+                    "ma_tai_san": "CC00000144981", 
+                    "don_vi": "00745 - ĐB SÔNG CỬU LONG", 
+                    "ten_tai_san": "Switch CISCO Catalyst 2960", 
+                    "nhom_tai_san": "403010301 - TB chuyển mạch", 
+                    "nguyen_gia": 13750000, 
+                    "hao_mon_luy_ke": 9614344, 
+                    "gia_tri_con_lai": 4135656, 
+                    "ngay_dua_vao_sd": "2024-06-08", 
+                    "trang_thai_sd": "Đang sử dụng", 
+                    "bo_so": "BIDV_CCLD", 
+                    "can_bo_su_dung": "Lê Duy Phúc", 
+                    "phong_ban_quan_ly": "340 - TRUNG TÂM XỬ LÝ NỢ", 
+                    "so_serial": "4CE514BGHZ",
+                    "hinh_anh": "" 
+                }
+            ];
+            const ws = XLSX.utils.json_to_sheet(templateData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "DanhSachTaiSan");
+            XLSX.writeFile(wb, "Template_KiemKe_TaiSan.xlsx");
+        }
+
+        // Import Excel có kiểm tra lỗi từng dòng
+        async function importExcelData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (rows.length === 0) {
+                        Swal.fire('Cảnh báo', 'File dữ liệu không có dòng nào!', 'warning');
+                        document.getElementById('excelFile').value = '';
+                        return;
+                    }
+
+                    Swal.fire({
+                        title: 'Đang kiểm tra lỗi & đồng bộ dữ liệu...',
+                        text: `Đang quét ${rows.length} dòng từ file Excel. Vui lòng chờ...`,
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+
+                    let successCount = 0;
+                    let failCount = 0;
+                    let errorDetails = [];
+
+                    for (let i = 0; i < rows.length; i++) {
+                        let row = rows[i];
+                        let rowIndex = i + 2; 
+
+                        const ma_tai_san = String(row['ma_tai_san'] || row['Mã Tài Sản'] || '').trim();
+                        const rawTen = String(row['ten_tai_san'] || row['Tên Tài Sản'] || '').trim();
+                        const rawPhong = String(row['phong_ban_quan_ly'] || row['Phòng Ban Quản Lý'] || '').trim();
+                        const rawCanBo = String(row['can_bo_su_dung'] || row['Cán Bộ Sử Dụng'] || '').trim();
+                        const rawNguyenGia = row['nguyen_gia'] !== undefined ? row['nguyen_gia'] : row['Nguyên Giá'];
+                        const rawImg = String(row['hinh_anh'] || '').trim();
+
+                        let rowErrors = [];
+                        if (!ma_tai_san) rowErrors.push('Thiếu mã tài sản');
+                        if (!rawTen) rowErrors.push('Thiếu tên tài sản');
+                        if (!rawPhong) rowErrors.push('Thiếu phòng ban');
+
+                        let parsedGia = 0;
+                        if (rawNguyenGia !== undefined && rawNguyenGia !== '') {
+                            if (isNaN(rawNguyenGia) || Number(rawNguyenGia) < 0) {
+                                rowErrors.push('Nguyên giá không hợp lệ');
+                            } else {
+                                parsedGia = Number(rawNguyenGia);
+                            }
+                        }
+
+                        if (rowErrors.length > 0) {
+                            failCount++;
+                            errorDetails.push(`Dòng ${rowIndex} (${ma_tai_san || 'Không mã'}): ${rowErrors.join(', ')}`);
+                            continue;
+                        }
+
+                        const payload = {
+                            id: ma_tai_san,
+                            ma_tai_san: encryptData(ma_tai_san),
+                            don_vi: encryptData(row['don_vi'] || row['Đơn Vị'] || ''),
+                            ten_tai_san: encryptData(rawTen),
+                            nhom_tai_san: encryptData(row['nhom_tai_san'] || row['Nhóm Tài Sản'] || ''),
+                            nguyen_gia: encryptData(parsedGia),
+                            hao_mon_luy_ke: encryptData(row['hao_mon_luy_ke'] || 0),
+                            gia_tri_con_lai: encryptData(parsedGia),
+                            ngay_dua_vao_sd: encryptData(row['ngay_dua_vao_sd'] || ''),
+                            trang_thai_sd: encryptData(row['trang_thai_sd'] || 'Đang sử dụng'),
+                            bo_so: encryptData(row['bo_so'] || ''),
+                            can_bo_su_dung: encryptData(rawCanBo),
+                            phong_ban_quan_ly: encryptData(rawPhong),
+                            so_serial: encryptData(String(row['so_serial'] || row['Số Serial'] || '')),
+                            hinh_anh: encryptData(rawImg)
+                        };
+
+                        try {
+                            const response = await fetch(`${API_URL}?action=save_asset`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            });
+                            const result = await response.json();
+                            if (result.success) { 
+                                successCount++; 
+                            } else { 
+                                failCount++; 
+                                errorDetails.push(`Dòng ${rowIndex}: Lỗi máy chủ - ${result.error}`);
+                            }
+                        } catch (err) { 
+                            failCount++; 
+                            errorDetails.push(`Dòng ${rowIndex}: Không thể kết nối máy chủ`);
+                        }
+                    }
+
+                    document.getElementById('excelFile').value = '';
+                    refreshData();
+
+                    let htmlMsg = `Thành công: <b>${successCount}</b> tài sản.<br>`;
+                    if (failCount > 0) {
+                        htmlMsg += `<span class="text-danger">Thất bại/Lỗi: <b>${failCount}</b> dòng</span><br>`;
+                        htmlMsg += `<div class="mt-2 text-start small border p-2 bg-light" style="max-height: 120px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
+                    }
+
+                    Swal.fire({
+                        icon: failCount === 0 ? 'success' : 'warning',
+                        title: 'Hoàn tất kiểm tra & nhập lô!',
+                        html: htmlMsg,
+                        width: '500px'
+                    });
+
+                } catch (error) {
+                    Swal.fire('Lỗi', 'Không thể đọc cấu trúc file Excel này!', 'error');
+                    document.getElementById('excelFile').value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    </script>
+</body>
+</html>
