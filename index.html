@@ -798,7 +798,13 @@
             document.getElementById('hao_mon_luy_ke').value = hao_mon_luy_ke ? Number(hao_mon_luy_ke).toLocaleString('vi-VN') : '0';
             document.getElementById('gia_tri_con_lai').value = gia_tri_con_lai ? Number(gia_tri_con_lai).toLocaleString('vi-VN') : '0';
 
-            document.getElementById('ngay_dua_vao_sd').value = ngay_dua_vao_sd;
+            // Xử lý an toàn cho ô ngày tháng: nếu là '0000-00-00' hoặc không hợp lệ thì để trống
+            let safeDate = '';
+            if (ngay_dua_vao_sd && ngay_dua_vao_sd !== '0000-00-00' && ngay_dua_vao_sd.includes('-')) {
+                safeDate = ngay_dua_vao_sd.split('T')[0]; // Lấy đúng phần yyyy-MM-dd nếu có giờ phút
+            }
+            document.getElementById('ngay_dua_vao_sd').value = safeDate;
+
             document.getElementById('trang_thai_sd').value = trang_thai_sd;
             document.getElementById('trang_thai_qt').value = trang_thai_qt;
             document.getElementById('bo_so').value = bo_so;
