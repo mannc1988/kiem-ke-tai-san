@@ -68,7 +68,7 @@ module.exports = async (req, res) => {
             return res.json({ success: true, danh_sach, dot_kiem_ke });
         }
 
-        // 2. PHÂN TRANG DATATABLE CHO DANH MỤC TÀI SẢN (Sắp xếp theo ma_tai_san)
+        // 2. PHÂN TRANG DATATABLE CHO DANH MỤC TÀI SẢN
         if (action === 'server_assets') {
             const draw = parseInt(req.query.draw) || 1;
             const start = parseInt(req.query.start) || 0;
@@ -121,14 +121,14 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 4. LƯU / CẬP NHẬT TÀI SẢN (Hỗ trợ tùy chọn trùng lặp: update, skip, error)
+        // 4. LƯU / CẬP NHẬT TÀI SẢN (Bao gồm cột trang_thai_qt)
         if (action === 'save_asset' && req.method === 'POST') {
             const { 
                 ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
                 nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
-                ngay_dua_vao_sd, trang_thai_sd, bo_so, 
+                ngay_dua_vao_sd, trang_thai_sd, trang_thai_qt, bo_so, 
                 can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at,
-                duplicateAction // Tùy chọn xử lý khi trùng: 'update', 'skip', hoặc mặc định
+                duplicateAction 
             } = req.body;
 
             if (!ma_tai_san || !ten_tai_san || !phong_ban_quan_ly) {
@@ -167,13 +167,13 @@ module.exports = async (req, res) => {
                         `UPDATE danh_sach_tai_san SET 
                         don_vi = ?, ten_tai_san = ?, nhom_tai_san = ?, 
                         nguyen_gia = ?, hao_mon_luy_ke = ?, gia_tri_con_lai = ?, 
-                        ngay_dua_vao_sd = ?, trang_thai_sd = ?, bo_so = ?, 
+                        ngay_dua_vao_sd = ?, trang_thai_sd = ?, trang_thai_qt = ?, bo_so = ?, 
                         can_bo_su_dung = ?, phong_ban_quan_ly = ?, so_serial = ?, hinh_anh = ?, import_at = ? 
                         WHERE ma_tai_san = ?`,
                         [
                             don_vi, ten_tai_san, nhom_tai_san, 
                             nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
-                            ngay_dua_vao_sd, trang_thai_sd, bo_so, 
+                            ngay_dua_vao_sd, trang_thai_sd, trang_thai_qt, bo_so, 
                             can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at, targetKey
                         ]
                     );
@@ -187,12 +187,12 @@ module.exports = async (req, res) => {
             } else {
                 await connection.execute(
                     `INSERT INTO danh_sach_tai_san 
-                    (ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, trang_thai_qt, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
                         nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, 
-                        ngay_dua_vao_sd, trang_thai_sd, bo_so, 
+                        ngay_dua_vao_sd, trang_thai_sd, trang_thai_qt, bo_so, 
                         can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at
                     ]
                 );
