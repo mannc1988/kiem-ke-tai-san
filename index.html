@@ -166,6 +166,10 @@
                             <input type="text" id="trang_thai_sd" class="form-control form-control-sm" value="Đang sử dụng">
                         </div>
                         <div class="col-md-3">
+                            <label class="form-label fw-semibold small">Trạng Thái QT:</label>
+                            <input type="text" id="trang_thai_qt" class="form-control form-control-sm" value="Đã quyết toán">
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label fw-semibold small">Bộ Sổ:</label>
                             <input type="text" id="bo_so" class="form-control form-control-sm" value="BIDV_CCLD">
                         </div>
@@ -209,7 +213,8 @@
                                 <th>Hao Mòn Lũy Kế</th>
                                 <th>Giá Trị Còn Lại</th>
                                 <th>Ngày Đưa Vào SD</th>
-                                <th>Trạng Thái</th>
+                                <th>Trạng Thái SD</th>
+                                <th>Trạng Thái QT</th>
                                 <th>Bộ Sổ</th>
                                 <th>Cán Bộ SD</th>
                                 <th>Phòng Ban</th>
@@ -322,13 +327,11 @@
             }
         }
 
-        // Khi click/focus vào ô input -> Bỏ dấu chấm để hiện số thô dễ sửa
         function removeFormat(input) {
             let value = input.value.replace(/\./g, '');
             input.value = value === '0' ? '' : value;
         }
 
-        // Khi rời khỏi ô input (blur) -> Định dạng lại có dấu chấm phân cách phần ngàn
         function formatCurrencyInput(input) {
             let value = input.value.replace(/\D/g, '');
             if (!value) {
@@ -338,7 +341,6 @@
             input.value = Number(value).toLocaleString('vi-VN');
         }
 
-        // Lấy giá trị số thô thực tế từ ô input
         function getCleanNumber(elementId) {
             let val = document.getElementById(elementId).value;
             if (!val) return 0;
@@ -546,6 +548,7 @@
                     { data: 'gia_tri_con_lai', render: data => { let v = decryptData(data); return v ? Number(v).toLocaleString('vi-VN') + ' đ' : '0'; } },
                     { data: 'ngay_dua_vao_sd', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
                     { data: 'trang_thai_sd', render: data => `<span class="badge bg-success-subtle text-success border">${decryptData(data)}</span>` },
+                    { data: 'trang_thai_qt', render: data => `<span class="badge bg-primary-subtle text-primary border">${decryptData(data)}</span>` },
                     { data: 'bo_so', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
                     { data: 'can_bo_su_dung', render: data => decryptData(data) },
                     { data: 'phong_ban_quan_ly', render: data => decryptData(data) },
@@ -564,6 +567,7 @@
                             let gCL = decryptData(row.gia_tri_con_lai);
                             let nSD = decryptData(row.ngay_dua_vao_sd);
                             let tT = decryptData(row.trang_thai_sd);
+                            let tQt = decryptData(row.trang_thai_qt);
                             let bS = decryptData(row.bo_so).replace(/'/g, "\\'");
                             let cB = decryptData(row.can_bo_su_dung).replace(/'/g, "\\'");
                             let pB = decryptData(row.phong_ban_quan_ly).replace(/'/g, "\\'");
@@ -572,7 +576,7 @@
                             let iAt = decryptData(row.import_at);
 
                             return `
-                                <button class="btn btn-warning btn-sm text-white me-1" onclick="editAsset('${mAs}', '${dV}', '${tTs}', '${nTs}', '${nG}', '${hM}', '${gCL}', '${nSD}', '${tT}', '${bS}', '${cB}', '${pB}', '${sS}', '${hA}', '${iAt}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
+                                <button class="btn btn-warning btn-sm text-white me-1" onclick="editAsset('${mAs}', '${dV}', '${tTs}', '${nTs}', '${nG}', '${hM}', '${gCL}', '${nSD}', '${tT}', '${tQt}', '${bS}', '${cB}', '${pB}', '${sS}', '${hA}', '${iAt}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
                                 <button class="btn btn-danger btn-sm" onclick="deleteAsset('${mAs}')" title="Xóa"><i class="fa-solid fa-trash"></i></button>
                             `;
                         }
@@ -680,7 +684,8 @@
             const finalConLai = getCleanNumber('gia_tri_con_lai');
 
             const rawNgaySD = document.getElementById('ngay_dua_vao_sd').value;
-            const rawTrangThai = document.getElementById('trang_thai_sd').value.trim() || 'Đang sử dụng';
+            const rawTrangThaiSD = document.getElementById('trang_thai_sd').value.trim() || 'Đang sử dụng';
+            const rawTrangThaiQT = document.getElementById('trang_thai_qt').value.trim() || 'Đã quyết toán';
             const rawBoSo = document.getElementById('bo_so').value.trim();
             const rawCanBo = document.getElementById('can_bo_su_dung').value.trim();
             const rawPhong = document.getElementById('phong_ban_quan_ly').value.trim();
@@ -743,7 +748,8 @@
                 hao_mon_luy_ke: encryptData(finalHaoMon),
                 gia_tri_con_lai: encryptData(finalConLai),
                 ngay_dua_vao_sd: encryptData(rawNgaySD),
-                trang_thai_sd: encryptData(rawTrangThai),
+                trang_thai_sd: encryptData(rawTrangThaiSD),
+                trang_thai_qt: encryptData(rawTrangThaiQT),
                 bo_so: encryptData(rawBoSo),
                 can_bo_su_dung: encryptData(rawCanBo),
                 phong_ban_quan_ly: encryptData(rawPhong),
@@ -781,7 +787,7 @@
             });
         }
 
-        function editAsset(ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at) {
+        function editAsset(ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, trang_thai_qt, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at) {
             document.getElementById('ma_tai_san').value = ma_tai_san;
             document.getElementById('ma_tai_san').readOnly = true; 
             document.getElementById('don_vi').value = don_vi;
@@ -794,6 +800,7 @@
 
             document.getElementById('ngay_dua_vao_sd').value = ngay_dua_vao_sd;
             document.getElementById('trang_thai_sd').value = trang_thai_sd;
+            document.getElementById('trang_thai_qt').value = trang_thai_qt;
             document.getElementById('bo_so').value = bo_so;
             document.getElementById('can_bo_su_dung').value = can_bo_su_dung;
             document.getElementById('phong_ban_quan_ly').value = phong_ban_quan_ly;
@@ -814,6 +821,7 @@
             document.getElementById('ma_tai_san').readOnly = false;
             document.getElementById('don_vi').value = "00745 - ĐB SÔNG CỬU LONG";
             document.getElementById('trang_thai_sd').value = "Đang sử dụng";
+            document.getElementById('trang_thai_qt').value = "Đã quyết toán";
             document.getElementById('bo_so').value = "BIDV_CCLD";
             tempFilesList = [];
             tempBase64List = [];
@@ -950,6 +958,7 @@
                     "gia_tri_con_lai": 4135656, 
                     "ngay_dua_vao_sd": "2024-06-08", 
                     "trang_thai_sd": "Đang sử dụng", 
+                    "trang_thai_qt": "Đã quyết toán", 
                     "bo_so": "BIDV_CCLD", 
                     "can_bo_su_dung": "Lê Duy Phúc", 
                     "phong_ban_quan_ly": "340 - TRUNG TÂM XỬ LÝ NỢ", 
@@ -1033,6 +1042,7 @@
 
                         const ngay_dua_vao_sd = String(row['ngay_dua_vao_sd'] || row['Ngày Đưa Vào SD'] || '').trim();
                         const trang_thai_sd = String(row['trang_thai_sd'] || row['Trạng Thái SD'] || 'Đang sử dụng').trim();
+                        const trang_thai_qt = String(row['trang_thai_qt'] || row['Trạng Thái QT'] || 'Đã quyết toán').trim();
                         const bo_so = String(row['bo_so'] || row['Bộ Sổ'] || 'BIDV_CCLD').trim();
                         const can_bo_su_dung = String(row['can_bo_su_dung'] || row['Cán Bộ Sử Dụng'] || '').trim();
                         const phong_ban_quan_ly = String(row['phong_ban_quan_ly'] || row['Phòng Ban Quản Lý'] || '').trim();
@@ -1082,6 +1092,7 @@
                             gia_tri_con_lai: encryptData(gcl),
                             ngay_dua_vao_sd: encryptData(ngay_dua_vao_sd),
                             trang_thai_sd: encryptData(trang_thai_sd),
+                            trang_thai_qt: encryptData(trang_thai_qt),
                             bo_so: encryptData(bo_so),
                             can_bo_su_dung: encryptData(can_bo_su_dung),
                             phong_ban_quan_ly: encryptData(phong_ban_quan_ly),
