@@ -115,7 +115,7 @@
                 <h5 class="mb-0"><i class="fa-solid fa-laptop me-2"></i> 1. Quản Lý Danh Mục Tài Sản (Đầy đủ tất cả các trường & Import At)</h5>
                 <div>
                     <label for="excelFile" class="btn btn-light btn-sm text-success fw-bold mb-0 cursor-pointer shadow-sm">
-                        <i class="fa-solid fa-file-excel me-1"></i> Import Excel Mới
+                        <i class="fa-solid fa-file-excel me-1"></i> Import Excel Theo Lô
                     </label>
                     <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="d-none" onchange="importExcelData(event)">
                     <a href="#" onclick="downloadTemplate(event)" class="btn btn-outline-light btn-sm ms-1" title="Tải file mẫu Excel">
@@ -198,7 +198,7 @@
                     </div>
                 </form>
 
-                <!-- Bảng hiển thị đầy đủ tất cả các cột bao gồm import_at -->
+                <!-- Bảng hiển thị danh mục tài sản -->
                 <div class="table-responsive">
                     <table id="assetsTable" class="table table-striped table-hover align-middle w-100">
                         <thead class="table-light">
@@ -299,7 +299,7 @@
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
 
-    <!-- Script Logic ứng dụng -->
+    <!-- Script Logic Frontend -->
     <script>
         const API_URL = 'https://kiem-ke-tai-san-vercel.vercel.app/api';
         const SECRET_KEY = 'ManNC@2026_SecureKeyAivenMySQL!'; 
@@ -1024,7 +1024,6 @@
                     let validPayloads = [];
                     let errorDetails = [];
 
-                    // KIỂM TRA TOÀN DIỆN TẤT CẢ CÁC CỘT TRƯỚC KHI ĐỒNG BỘ
                     for (let i = 0; i < rows.length; i++) {
                         let row = rows[i];
                         let rowIndex = i + 2; 
@@ -1055,27 +1054,10 @@
                         if (!ten_tai_san) rowErrors.push('Cột [Tên tài sản] bị trống');
                         if (!phong_ban_quan_ly) rowErrors.push('Cột [Phòng ban quản lý] bị trống');
 
-                        if (isNaN(ng)) {
-                            rowErrors.push('Cột [Nguyên giá] không phải số hợp lệ');
-                        } else if (ng < 0) {
-                            rowErrors.push('Cột [Nguyên giá] nhỏ hơn 0');
-                        }
-
-                        if (isNaN(hm)) {
-                            rowErrors.push('Cột [Hao mòn lũy kế] không phải số hợp lệ');
-                        } else if (hm < 0) {
-                            rowErrors.push('Cột [Hao mòn lũy kế] nhỏ hơn 0');
-                        }
-
-                        if (isNaN(gcl)) {
-                            rowErrors.push('Cột [Giá trị còn lại] không phải số hợp lệ');
-                        } else if (gcl < 0) {
-                            rowErrors.push('Cột [Giá trị còn lại] nhỏ hơn 0');
-                        }
-
-                        if (!isNaN(ng) && !isNaN(hm) && hm > ng) {
-                            rowErrors.push('Lỗi logic: [Hao mòn lũy kế] lớn hơn [Nguyên giá]');
-                        }
+                        if (isNaN(ng) || ng < 0) rowErrors.push('Cột [Nguyên giá] không hợp lệ');
+                        if (isNaN(hm) || hm < 0) rowErrors.push('Cột [Hao mòn lũy kế] không hợp lệ');
+                        if (isNaN(gcl) || gcl < 0) rowErrors.push('Cột [Giá trị còn lại] không hợp lệ');
+                        if (!isNaN(ng) && !isNaN(hm) && hm > ng) rowErrors.push('Lỗi logic: [Hao mòn] > [Nguyên giá]');
 
                         if (rowErrors.length > 0) {
                             errorDetails.push(`Dòng ${rowIndex} [Mã: ${ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
@@ -1098,61 +1080,61 @@
                             phong_ban_quan_ly: encryptData(phong_ban_quan_ly),
                             so_serial: encryptData(so_serial),
                             hinh_anh: encryptData(hinh_anh),
-                            import_at: encryptData(import_at),
-                            duplicateAction: duplicateAction
+                            import_at: encryptData(import_at)
                         });
                     }
 
-                    // ĐỒNG BỘ DỮ LIỆU HỢP LỆ LÊN SERVER
+                    // GỌI API ĐỒNG BỘ THEO LÔ (BATCH REQUEST) 1 LẦN DUY NHẤT
                     Swal.update({
-                        title: 'Đang đồng bộ dữ liệu hợp lệ...',
-                        text: `Phát hiện ${errorDetails.length} dòng lỗi cấu trúc cột. Đang đẩy ${validPayloads.length} dòng hợp lệ lên server...`
+                        title: 'Đang đồng bộ dữ liệu theo lô...',
+                        text: `Phát hiện ${errorDetails.length} dòng lỗi. Đang gửi ${validPayloads.length} dòng hợp lệ lên server trong 1 lần...`
                     });
 
                     let successCount = 0;
                     let skipCount = 0;
-                    let serverFailCount = 0;
+                    let totalFailCount = errorDetails.length;
 
-                    for (let payload of validPayloads) {
-                        try {
-                            const response = await fetch(`${API_URL}?action=save_asset`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload)
-                            });
-                            const result = await response.json();
-                            
-                            if (response.ok && result.success) { 
-                                if (result.skipped) {
-                                    skipCount++;
-                                } else {
-                                    successCount++; 
-                                }
-                            } else { 
-                                serverFailCount++; 
-                                errorDetails.push(`Lỗi Server: ${result.error || 'Không thể lưu dòng dữ liệu'}`); 
+                    try {
+                        const response = await fetch(`${API_URL}?action=save_asset_batch`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                payloads: validPayloads,
+                                duplicateAction: duplicateAction 
+                            })
+                        });
+                        const result = await response.json();
+                        
+                        if (response.ok && result.success) {
+                            successCount = result.successCount || 0;
+                            skipCount = result.skipCount || 0;
+                            if (result.errors && result.errors.length > 0) {
+                                errorDetails.push(...result.errors);
+                                totalFailCount = errorDetails.length;
                             }
-                        } catch (err) { 
-                            serverFailCount++; 
-                            errorDetails.push(`Lỗi kết nối máy chủ khi đồng bộ.`);
+                        } else {
+                            errorDetails.push(`Lỗi Server Batch: ${result.error || 'Không thể đồng bộ lô dữ liệu'}`);
+                            totalFailCount = errorDetails.length;
                         }
+                    } catch (err) {
+                        errorDetails.push(`Lỗi kết nối máy chủ khi đồng bộ theo lô.`);
+                        totalFailCount = errorDetails.length;
                     }
 
                     document.getElementById('excelFile').value = '';
                     refreshData();
 
-                    let totalFailCount = errorDetails.length;
                     let htmlMsg = `Thành công: <b>${successCount}</b> tài sản.<br>`;
                     if (skipCount > 0) htmlMsg += `Đã bỏ qua (trùng mã): <b>${skipCount}</b> dòng.<br>`;
                     
                     if (totalFailCount > 0) {
-                        htmlMsg += `<span class="text-danger">Tổng số lỗi ghi nhận: <b>${totalFailCount}</b> lỗi (Cột & Server)</span><br>`;
+                        htmlMsg += `<span class="text-danger">Tổng số lỗi ghi nhận: <b>${totalFailCount}</b> lỗi</span><br>`;
                         htmlMsg += `<div id="errorListContainer" class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
                     }
 
                     Swal.fire({
                         icon: totalFailCount === 0 ? 'success' : 'warning',
-                        title: 'Hoàn tất kiểm tra toàn diện!',
+                        title: 'Hoàn tất kiểm tra & đồng bộ lô!',
                         html: htmlMsg,
                         width: '600px',
                         showConfirmButton: true,
@@ -1163,9 +1145,7 @@
                     }).then((result) => {
                         if (result.isDenied) {
                             const errorContainer = document.getElementById('errorListContainer');
-                            if (errorContainer) {
-                                errorContainer.style.display = 'none';
-                            }
+                            if (errorContainer) errorContainer.style.display = 'none';
                         }
                     });
 
@@ -1174,12 +1154,12 @@
                             const btn = document.getElementById('downloadErrorBtn');
                             if (btn) {
                                 btn.onclick = function() {
-                                    const errorContent = `=== BÁO CÁO LỖI KIỂM TRA EXCEL (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi phát hiện: ${totalFailCount}\n\n` + errorDetails.join('\n');
+                                    const errorContent = `=== BÁO CÁO LỖI KIỂM TRA EXCEL THEO LÔ (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi: ${totalFailCount}\n\n` + errorDetails.join('\n');
                                     const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
-                                    a.download = `Log_Loi_KiemTra_TatCaCot_${Date.now()}.txt`;
+                                    a.download = `Log_Loi_Batch_${Date.now()}.txt`;
                                     document.body.appendChild(a);
                                     a.click();
                                     document.body.removeChild(a);
