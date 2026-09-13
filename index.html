@@ -1222,7 +1222,7 @@
 
                     Swal.update({
                         title: 'Đang đồng bộ dữ liệu theo lô...',
-                        text: `Phát hiện \({errorDetails.length} dòng lỗi. Đang gửi\){validPayloads.length} dòng hợp lệ lên server...`
+                        text: 'Phát hiện \({errorDetails.length} dòng lỗi. Đang gửi\){validPayloads.length} dòng hợp lệ lên server...'
                     });
 
                     let successCount = 0;
@@ -1274,8 +1274,7 @@
                     showConfirmButton: true,
                     confirmButtonText: 'Đóng',
                     showDenyButton: totalFailCount > 0,
-                    denyButtonText: '** Tắt hiển thị lỗi',
-                    footer: totalFailCount > 0 ? '** Tải file log báo cáo lỗi (.txt)' : ''
+                    denyButtonText: '** Tắt hiển thị lỗi'
                 }).then((result) => {
                     if (result.isDenied) {
                         const errorContainer = document.getElementById('errorListContainer');
