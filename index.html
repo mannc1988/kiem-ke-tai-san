@@ -328,15 +328,18 @@
         }
 
         // Hàm định dạng ngày chuẩn dd/MM/yyyy (Xử lý cả số Serial Excel và các định dạng khác)
+// Hàm định dạng ngày chuẩn dd/MM/yyyy (Đã xử lý an toàn chống lỗi chuỗi mẫu và số Serial Excel)
 function formatDateToDMY(dateInput) {
     if (dateInput === undefined || dateInput === null || dateInput === '') return '';
     let s = dateInput.toString().trim();
+    
+    // Phòng ngừa trường hợp chuỗi bị lỗi template string hoặc chứa ký tự đặc biệt lạ
+    if (s.includes('{{') || s.includes('({')) return '';
     if (s === '0000-00-00' || s.startsWith('0000') || s === '0' || s === '0.0') return '';
     
-    // Nếu là dạng số Serial của Excel (ví dụ: 52782, 45000...)
+    // Nếu là dạng số Serial của Excel (ví dụ: 52782...)
     if (!isNaN(dateInput) && Number(dateInput) > 1000) {
         let serial = Number(dateInput);
-        // Ngày gốc Excel tính từ 30/12/1899
         let utcDays = Math.floor(serial - 25569);
         let utcValue = utcDays * 86400;
         let dateInfo = new Date(utcValue * 1000);
@@ -344,7 +347,6 @@ function formatDateToDMY(dateInput) {
             let day = String(dateInfo.getUTCDate()).padStart(2, '0');
             let month = String(dateInfo.getUTCMonth() + 1).padStart(2, '0');
             let year = dateInfo.getUTCFullYear();
-            // Kiểm tra năm hợp lý (tránh lỗi hiển thị năm quá xa)
             if (year >= 1970 && year <= 2100) {
                 return `\({day}/\){month}/${year}`;
             }
@@ -354,7 +356,7 @@ function formatDateToDMY(dateInput) {
     // Nếu đã ở dạng dd/MM/yyyy thì trả về luôn
     if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
 
-    // Xử lý dạng yyyy-MM-dd (hoặc có giờ phút T...)
+    // Xử lý dạng yyyy-MM-dd
     if (s.includes('-')) {
         let parts = s.split('T')[0].split('-');
         if (parts.length === 3 && parts[0].length === 4) {
@@ -362,7 +364,6 @@ function formatDateToDMY(dateInput) {
         }
     }
     
-    // Thử dùng Date object nếu hợp lệ
     let d = new Date(s);
     if (!isNaN(d.getTime())) {
         let day = String(d.getDate()).padStart(2, '0');
