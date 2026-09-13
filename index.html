@@ -1166,7 +1166,6 @@
                                 }
                             }
                         } else {
-                            // Nếu cột ngày trống (nếu cho phép trống có thể bật cờ, ở đây bắt buộc hoặc tùy chọn)
                             isDateValid = true; 
                         }
                         // -----------------------------------------------------
@@ -1222,7 +1221,7 @@
 
                     Swal.update({
                         title: 'Đang đồng bộ dữ liệu theo lô...',
-                        text: 'Phát hiện ' + errorDetails.length + ' dòng lỗi. Đang gửi ' + validPayloads.length + ' dòng hợp lệ lên server...'
+                        text: `Phát hiện \({errorDetails.length} dòng lỗi. Đang gửi\){validPayloads.length} dòng hợp lệ lên server...`
                     });
 
                     let successCount = 0;
