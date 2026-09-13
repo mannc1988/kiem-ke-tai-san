@@ -1048,7 +1048,7 @@
             XLSX.writeFile(wb, "Template_KiemKe_TaiSan.xlsx");
         }
 
-        async function importExcelData(event) {
+            async function importExcelData(event) {
             const file = event.target.files[0];
             if (!file) return;
 
@@ -1090,8 +1090,8 @@
                     }
 
                     Swal.fire({
-                        title: 'Đang kiểm tra toàn diện tất cả các cột...',
-                        text: `Đang quét cấu trúc ${rows.length} dòng dữ liệu từ file Excel. Vui lòng chờ...`,
+                        title: 'Đang kiểm tra toàn diện cấu trúc & định dạng...',
+                        text: `Đang quét ${rows.length} dòng dữ liệu từ file Excel. Vui lòng chờ...`,
                         allowOutsideClick: false,
                         didOpen: () => { Swal.showLoading(); }
                     });
@@ -1114,6 +1114,7 @@
                         let rawGCL = row['gia_tri_con_lai'] !== undefined ? row['gia_tri_con_lai'] : (row['Giá Trị Còn Lại'] !== undefined ? row['Giá Trị Còn Lại'] : '');
                         let gcl = rawGCL !== '' && rawGCL !== null ? Number(rawGCL) : (ng - hm);
 
+                        // --- KIỂM TRA NGHIÊM NGẶT ĐỊNH DẠNG NGÀY ĐƯA VÀO SD ---
                         const rawNgaySD = row['ngay_dua_vao_sd'] !== undefined ? row['ngay_dua_vao_sd'] : (row['Ngày Đưa Vào SD'] !== undefined ? row['Ngày Đưa Vào SD'] : '');
                         let ngay_dua_vao_sd = '';
                         let isDateValid = false;
@@ -1168,6 +1169,7 @@
                             // Nếu cột ngày trống (nếu cho phép trống có thể bật cờ, ở đây bắt buộc hoặc tùy chọn)
                             isDateValid = true; 
                         }
+                        // -----------------------------------------------------
 
                         const trang_thai_sd = String(row['trang_thai_sd'] || row['Trạng Thái SD'] || 'Đang sử dụng').trim();
                         const trang_thai_qt = String(row['trang_thai_qt'] || row['Trạng Thái QT'] || 'Đã quyết toán').trim();
@@ -1182,6 +1184,11 @@
                         if (!ma_tai_san) rowErrors.push('Cột [Mã tài sản] bị trống');
                         if (!ten_tai_san) rowErrors.push('Cột [Tên tài sản] bị trống');
                         if (!phong_ban_quan_ly) rowErrors.push('Cột [Phòng ban quản lý] bị trống');
+                        
+                        // Báo lỗi ngay nếu ngày không đúng định dạng chuẩn
+                        if (!isDateValid) {
+                            rowErrors.push(`Lỗi định dạng [Ngày đưa vào SD]: "${rawNgaySD}" không đúng chuẩn dd/MM/yyyy`);
+                        }
 
                         if (isNaN(ng) || ng < 0) rowErrors.push('Cột [Nguyên giá] không hợp lệ');
                         if (isNaN(hm) || hm < 0) rowErrors.push('Cột [Hao mòn lũy kế] không hợp lệ');
@@ -1189,7 +1196,7 @@
                         if (!isNaN(ng) && !isNaN(hm) && hm > ng) rowErrors.push('Lỗi logic: [Hao mòn] > [Nguyên giá]');
 
                         if (rowErrors.length > 0) {
-                            errorDetails.push(`Dòng ${rowIndex} [Mã: ${ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
+                            errorDetails.push(`Dòng \({rowIndex} [Mã:\){ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
                             continue;
                         }
 
@@ -1215,7 +1222,7 @@
 
                     Swal.update({
                         title: 'Đang đồng bộ dữ liệu theo lô...',
-                        text: `Phát hiện ${errorDetails.length} dòng lỗi. Đang gửi ${validPayloads.length} dòng hợp lệ lên server trong 1 lần...`
+                        text: `Phát hiện \({errorDetails.length} dòng lỗi. Đang gửi\){validPayloads.length} dòng hợp lệ lên server...`
                     });
 
                     let successCount = 0;
@@ -1252,58 +1259,7 @@
                     document.getElementById('excelFile').value = '';
                     refreshData();
 
-                    let htmlMsg = `Thành công: <b>${successCount}</b> tài sản.<br>`;
-                    if (skipCount > 0) htmlMsg += `Đã bỏ qua (trùng mã): <b>${skipCount}</b> dòng.<br>`;
-                    
-                    if (totalFailCount > 0) {
-                        htmlMsg += `<span class="text-danger">Tổng số lỗi ghi nhận: <b>${totalFailCount}</b> lỗi</span><br>`;
-                        htmlMsg += `<div id="errorListContainer" class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
-                    }
-
-                    Swal.fire({
-                        icon: totalFailCount === 0 ? 'success' : 'warning',
-                        title: 'Hoàn tất kiểm tra & đồng bộ lô!',
-                        html: htmlMsg,
-                        width: '600px',
-                        showConfirmButton: true,
-                        confirmButtonText: 'Đóng',
-                        showDenyButton: totalFailCount > 0,
-                        denyButtonText: '<i class="fa-solid fa-eye-slash me-1"></i> Tắt hiển thị lỗi',
-                        footer: totalFailCount > 0 ? '<button id="downloadErrorBtn" class="btn btn-outline-danger btn-sm mt-2"><i class="fa-solid fa-download me-1"></i> Tải file log báo cáo lỗi (.txt)</button>' : ''
-                    }).then((result) => {
-                        if (result.isDenied) {
-                            const errorContainer = document.getElementById('errorListContainer');
-                            if (errorContainer) errorContainer.style.display = 'none';
-                        }
-                    });
-
-                    if (totalFailCount > 0) {
-                        setTimeout(() => {
-                            const btn = document.getElementById('downloadErrorBtn');
-                            if (btn) {
-                                btn.onclick = function() {
-                                    const errorContent = `=== BÁO CÁO LỖI KIỂM TRA EXCEL THEO LÔ (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi: ${totalFailCount}\n\n` + errorDetails.join('\n');
-                                    const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `Log_Loi_Batch_${Date.now()}.txt`;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                    URL.revokeObjectURL(url);
-                                };
-                            }
-                        }, 200);
-                    }
-
-                } catch (error) {
-                    Swal.fire('Lỗi', 'Không thể đọc cấu trúc file Excel này!', 'error');
-                    document.getElementById('excelFile').value = '';
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
+                    let htmlMsg = `Thành công: **${successCount}** tài sản.
     </script>
 </body>
 </html>
