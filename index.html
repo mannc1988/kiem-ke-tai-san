@@ -327,27 +327,54 @@
             }
         }
 
-        function formatDateToDMY(dateInput) {
-            if (!dateInput) return '';
-            let s = dateInput.toString().trim();
-            if (s === '0000-00-00' || s.startsWith('0000')) return '';
-            if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
-            if (s.includes('-')) {
-                let parts = s.split('T')[0].split('-');
-                if (parts.length === 3 && parts[0].length === 4) {
-                    return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                }
+        // Hàm định dạng ngày chuẩn dd/MM/yyyy (Xử lý cả số Serial Excel và các định dạng khác)
+function formatDateToDMY(dateInput) {
+    if (dateInput === undefined || dateInput === null || dateInput === '') return '';
+    let s = dateInput.toString().trim();
+    if (s === '0000-00-00' || s.startsWith('0000') || s === '0' || s === '0.0') return '';
+    
+    // Nếu là dạng số Serial của Excel (ví dụ: 52782, 45000...)
+    if (!isNaN(dateInput) && Number(dateInput) > 1000) {
+        let serial = Number(dateInput);
+        // Ngày gốc Excel tính từ 30/12/1899
+        let utcDays = Math.floor(serial - 25569);
+        let utcValue = utcDays * 86400;
+        let dateInfo = new Date(utcValue * 1000);
+        if (!isNaN(dateInfo.getTime())) {
+            let day = String(dateInfo.getUTCDate()).padStart(2, '0');
+            let month = String(dateInfo.getUTCMonth() + 1).padStart(2, '0');
+            let year = dateInfo.getUTCFullYear();
+            // Kiểm tra năm hợp lý (tránh lỗi hiển thị năm quá xa)
+            if (year >= 1970 && year <= 2100) {
+                return `\({day}/\){month}/${year}`;
             }
-            let d = new Date(s);
-            if (!isNaN(d.getTime())) {
-                let day = String(d.getDate()).padStart(2, '0');
-                let month = String(d.getMonth() + 1).padStart(2, '0');
-                let year = d.getFullYear();
-                return `${day}/${month}/${year}`;
-            }
-            return s;
         }
+    }
 
+    // Nếu đã ở dạng dd/MM/yyyy thì trả về luôn
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+
+    // Xử lý dạng yyyy-MM-dd (hoặc có giờ phút T...)
+    if (s.includes('-')) {
+        let parts = s.split('T')[0].split('-');
+        if (parts.length === 3 && parts[0].length === 4) {
+            return `\({parts[2]}/\){parts[1]}/${parts[0]}`;
+        }
+    }
+    
+    // Thử dùng Date object nếu hợp lệ
+    let d = new Date(s);
+    if (!isNaN(d.getTime())) {
+        let day = String(d.getDate()).padStart(2, '0');
+        let month = String(d.getMonth() + 1).padStart(2, '0');
+        let year = d.getFullYear();
+        if (year >= 1970 && year <= 2100) {
+            return `\({day}/\){month}/${year}`;
+        }
+    }
+
+    return s;
+}
         function formatDateToYMD(dateInput) {
             if (!dateInput) return '';
             let s = dateInput.toString().trim();
