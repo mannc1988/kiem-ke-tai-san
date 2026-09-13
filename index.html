@@ -1259,7 +1259,57 @@
                     document.getElementById('excelFile').value = '';
                     refreshData();
 
-                    let htmlMsg = `Thành công: **${successCount}** tài sản.
+                    let htmlMsg = `Thành công: <b>${successCount}</b> tài sản.<br>`;
+                    if (skipCount > 0) htmlMsg += `Đã bỏ qua (trùng mã): <b>${skipCount}</b> dòng.<br>`;
+                    
+                    if (totalFailCount > 0) {
+                        htmlMsg += `<span class="text-danger">Tổng số lỗi ghi nhận: <b>${totalFailCount}</b> lỗi</span><br>`;
+                        htmlMsg += `<div id="errorListContainer" class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
+                    }
+                    Swal.fire({
+                    icon: totalFailCount === 0 ? 'success' : 'warning',
+                    title: 'Hoàn tất kiểm tra & đồng bộ lô!',
+                    html: htmlMsg,
+                    width: '600px',
+                    showConfirmButton: true,
+                    confirmButtonText: 'Đóng',
+                    showDenyButton: totalFailCount > 0,
+                    denyButtonText: '** Tắt hiển thị lỗi',
+                    footer: totalFailCount > 0 ? '** Tải file log báo cáo lỗi (.txt)' : ''
+                }).then((result) => {
+                    if (result.isDenied) {
+                        const errorContainer = document.getElementById('errorListContainer');
+                        if (errorContainer) errorContainer.style.display = 'none';
+                    }
+                });
+
+                if (totalFailCount > 0) {
+                    setTimeout(() => {
+                        const btn = document.getElementById('downloadErrorBtn');
+                        if (btn) {
+                            btn.onclick = function() {
+                                const errorContent = `=== BÁO CÁO LỖI KIỂM TRA EXCEL THEO LÔ (\({new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi:\){totalFailCount}\n\n` + errorDetails.join('\n');
+                                const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `Log_Loi_Batch_${Date.now()}.txt`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                            };
+                        }
+                    }, 200);
+                }
+
+            } catch (error) {
+                Swal.fire('Lỗi', 'Không thể đọc cấu trúc file Excel này!', 'error');
+                document.getElementById('excelFile').value = '';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
     </script>
 </body>
 </html>
