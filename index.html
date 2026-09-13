@@ -1184,7 +1184,7 @@
                         if (!ten_tai_san) rowErrors.push('Cột [Tên tài sản] bị trống');
                         if (!phong_ban_quan_ly) rowErrors.push('Cột [Phòng ban quản lý] bị trống');
                         
-                        // Báo lỗi ngay nếu ngày không đúng định dạng chuẩn
+                        // Báo lỗi ngay nếu ngày không đúng định dạng chuẩn (Sử dụng backtick chính xác)
                         if (!isDateValid) {
                             rowErrors.push(`Lỗi định dạng [Ngày đưa vào SD]: "${rawNgaySD}" không đúng chuẩn dd/MM/yyyy`);
                         }
