@@ -1,1 +1,143 @@
 
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công Cụ Giải Mã AES Trực Tuyến</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- SweetAlert2 CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <!-- SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Crypto-JS dùng để giải mã AES -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body class="py-5">
+
+    <div class="container" style="max-width: 900px;">
+        <div class="text-center mb-4">
+            <h3 class="fw-bold text-primary"><i class="fa-solid fa-key me-2"></i>Giải Mã AES Trực Tuyến</h3>
+            <p class="text-muted small">Nhập chuỗi mã hóa và mật khẩu bảo mật (Passphrase) để giải mã văn bản</p>
+        </div>
+
+        <div class="card p-4 shadow-sm">
+            <!-- Input Ciphertext -->
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label for="txtCipher" class="form-label fw-semibold small text-primary mb-0">Chuỗi cần giải mã (Ciphertext):</label>
+                    <button class="btn btn-outline-secondary btn-sm py-0 px-2" type="button" onclick="copyCipher()" title="Sao chép chuỗi mã hóa">
+                        <i class="fa-solid fa-copy me-1"></i> Sao chép
+                    </button>
+                </div>
+                <textarea id="txtCipher" style="width: 100%; height: 150px; font-family: monospace; font-size: 14px;" class="form-control" placeholder="Dán chuỗi U2FsdGVkX1/... vào đây">U2FsdGVkX1/MPy0Spks1mq+tGxeKDZ0FV3SVlvBhlxsMutj+LE2o06+uQx3vtI8r</textarea>
+            </div>
+
+            <!-- Input Passphrase -->
+            <div class="mb-3">
+                <label for="txtPass" class="form-label fw-semibold small">Mật khẩu / Khóa bí mật (Passphrase):</label>
+                <div class="input-group">
+                    <input type="password" id="txtPass" class="form-control" placeholder="Nhập mật khẩu giải mã..." value="ManNC@2026_SecureKeyAivenMySQL!">
+                    <button class="btn btn-outline-secondary" type="button" id="togglePassBtn" onclick="togglePasswordVisibility()">
+                        <i class="fa-solid fa-eye" id="eyeIcon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Nút hành động -->
+            <div class="d-grid gap-2 mb-4">
+                <button class="btn btn-success fw-semibold py-2" onclick="decryptText()">
+                    <i class="fa-solid fa-lock-open me-1"></i> Giải Mã Ngay
+                </button>
+            </div>
+
+            <!-- Output Result -->
+            <div class="mb-0">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label for="txtPlain" class="form-label fw-semibold small text-success mb-0">Kết quả văn bản gốc (Plaintext):</label>
+                    <button class="btn btn-outline-primary btn-sm py-0 px-2" type="button" onclick="copyResult()" title="Sao chép kết quả">
+                        <i class="fa-solid fa-copy me-1"></i> Sao chép kết quả
+                    </button>
+                </div>
+                <textarea id="txtPlain" style="width: 100%; height: 600px; font-family: monospace; font-size: 14px;" class="form-control bg-light" placeholder="Kết quả giải mã sẽ hiển thị ở đây..." readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function togglePasswordVisibility() {
+            const passInput = document.getElementById('txtPass');
+            const eyeIcon = document.getElementById('eyeIcon');
+            if (passInput.type === 'password') {
+                passInput.type = 'text';
+                eyeIcon.className = 'fa-solid fa-eye-slash';
+            } else {
+                passInput.type = 'password';
+                eyeIcon.className = 'fa-solid fa-eye';
+            }
+        }
+
+        function decryptText() {
+            const ciphertext = document.getElementById('txtCipher').value.trim();
+            const passphrase = document.getElementById('txtPass').value;
+            const plainTextArea = document.getElementById('txtPlain');
+
+            if (!ciphertext) {
+                Swal.fire('Cảnh báo', 'Vui lòng nhập chuỗi cần giải mã!', 'warning');
+                return;
+            }
+            if (!passphrase) {
+                Swal.fire('Cảnh báo', 'Vui lòng nhập mật khẩu (passphrase)!', 'warning');
+                return;
+            }
+
+            try {
+                const bytes = CryptoJS.AES.decrypt(ciphertext, passphrase);
+                const originalText = bytes.toString(CryptoJS.enc.Utf8);
+
+                if (originalText) {
+                    plainTextArea.value = originalText;
+                    Swal.fire({ icon: 'success', title: 'Giải mã thành công!', timer: 1000, showConfirmButton: false });
+                } else {
+                    plainTextArea.value = '';
+                    Swal.fire('Lỗi giải mã', 'Không thể giải mã! Mật khẩu sai hoặc định dạng chuỗi mã hóa không hợp lệ.', 'error');
+                }
+            } catch (err) {
+                plainTextArea.value = '';
+                Swal.fire('Lỗi', 'Đã xảy ra lỗi trong quá trình giải mã: ' + err.message, 'error');
+            }
+        }
+
+        function copyCipher() {
+            const cipherText = document.getElementById('txtCipher').value;
+            if (!cipherText) return;
+            navigator.clipboard.writeText(cipherText).then(() => {
+                Swal.fire({ icon: 'success', title: 'Đã sao chép chuỗi mã hóa!', timer: 1000, showConfirmButton: false });
+            });
+        }
+
+        function copyResult() {
+            const plainText = document.getElementById('txtPlain').value;
+            if (!plainText) {
+                Swal.fire('Thông báo', 'Không có nội dung để sao chép!', 'info');
+                return;
+            }
+            navigator.clipboard.writeText(plainText).then(() => {
+                Swal.fire({ icon: 'success', title: 'Đã sao chép kết quả!', timer: 1000, showConfirmButton: false });
+            });
+        }
+    </script>
+</body>
+</html>
