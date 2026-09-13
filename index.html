@@ -347,7 +347,7 @@
                     let month = String(dateInfo.getUTCMonth() + 1).padStart(2, '0');
                     let year = dateInfo.getUTCFullYear();
                     if (year >= 1900 && year <= 2100) {
-                        return `\({day}/\){month}/${year}`;
+                        return `\(${day}/\)${month}/${year}`;
                     }
                 }
             }
@@ -365,7 +365,7 @@
                     let year = parts[0];
                     let month = parts[1];
                     let day = parts[2];
-                    return `\({day}/\){month}/${year}`;
+                    return `\(${day}/\)${month}/${year}`;
                 }
             }
             
@@ -376,7 +376,7 @@
                 let month = String(d.getMonth() + 1).padStart(2, '0');
                 let year = d.getFullYear();
                 if (year >= 1900 && year <= 2100) {
-                    return `\({day}/\){month}/${year}`;
+                    return `\(${day}/\)${month}/${year}`;
                 }
             }
 
