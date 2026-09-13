@@ -1118,7 +1118,7 @@ function formatDateToDMY(dateInput) {
                         let rawGCL = row['gia_tri_con_lai'] !== undefined ? row['gia_tri_con_lai'] : (row['Giá Trị Còn Lại'] !== undefined ? row['Giá Trị Còn Lại'] : '');
                         let gcl = rawGCL !== '' && rawGCL !== null ? Number(rawGCL) : (ng - hm);
 
-                        const rawNgaySD = String(row['ngay_dua_vao_sd'] || row['Ngày Đưa Vào SD'] || '').trim();
+                        const rawNgaySD = row['ngay_dua_vao_sd'] !== undefined ? row['ngay_dua_vao_sd'] : (row['Ngày Đưa Vào SD'] !== undefined ? row['Ngày Đưa Vào SD'] : '');
                         const ngay_dua_vao_sd = formatDateToDMY(rawNgaySD);
 
                         const trang_thai_sd = String(row['trang_thai_sd'] || row['Trạng Thái SD'] || 'Đang sử dụng').trim();
