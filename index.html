@@ -330,16 +330,17 @@
         // Hàm định dạng ngày chuẩn dd/MM/yyyy (Xử lý cả số Serial Excel và các định dạng khác)
 // Hàm định dạng ngày chuẩn dd/MM/yyyy (Đã xử lý an toàn chống lỗi chuỗi mẫu và số Serial Excel)
 // Hàm bắt buộc định dạng và chuẩn hóa ngày đưa vào SD thành chuẩn dd/MM/yyyy
+// Hàm chuẩn hóa và hiển thị Ngày đưa vào SD luôn ở dạng dd/MM/yyyy
 function formatDateToDMY(dateInput) {
     if (dateInput === undefined || dateInput === null || dateInput === '') return '';
     let s = dateInput.toString().trim();
     
-    // Loại bỏ các chuỗi rỗng, không hợp lệ hoặc lỗi template string
-    if (s.includes('{{') || s.includes('({') || s === '0000-00-00' || s.startsWith('0000') || s === '0' || s === '0.0' || s === 'NaN') {
+    // Nếu dữ liệu rỗng hoặc các giá trị mặc định không có ngày
+    if (!s || s === '0000-00-00' || s.startsWith('0000') || s === '0' || s === '0.0' || s === 'NaN') {
         return '';
     }
     
-    // Trường hợp 1: Nếu là số Serial của Excel (ví dụ: 45451, 52782...)
+    // 1. Nếu là số Serial của Excel (ví dụ: 45451, 52782...)
     if (!isNaN(dateInput) && Number(dateInput) > 1000) {
         let serial = Number(dateInput);
         let utcDays = Math.floor(serial - 25569);
@@ -349,40 +350,36 @@ function formatDateToDMY(dateInput) {
             let day = String(dateInfo.getUTCDate()).padStart(2, '0');
             let month = String(dateInfo.getUTCMonth() + 1).padStart(2, '0');
             let year = dateInfo.getUTCFullYear();
-            if (year >= 1900 && year <= 2100) {
-                return `\({day}/\){month}/${year}`;
-            }
+            return `\({day}/\){month}/${year}`;
         }
     }
 
-    // Trường hợp 2: Nếu đã ở đúng định dạng dd/MM/yyyy
+    // 2. Nếu đã đúng định dạng dd/MM/yyyy thì giữ nguyên
     if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
         return s;
     }
 
-    // Trường hợp 3: Nếu là định dạng yyyy-MM-dd (từ thẻ input date)
+    // 3. Nếu là định dạng yyyy-MM-dd hoặc yyyy-MM-ddTHH:mm:ss
     if (s.includes('-')) {
-        let parts = s.split('T')[0].split('-');
+        let cleanDatePart = s.split('T')[0];
+        let parts = cleanDatePart.split('-');
         if (parts.length === 3 && parts[0].length === 4) {
-            let year = parts[0];
-            let month = parts[1];
-            let day = parts[2];
-            return `\({day}/\){month}/${year}`;
+            return `\({parts[2]}/\){parts[1]}/${parts[0]}`;
         }
     }
     
-    // Trường hợp 4: Cố gắng parse qua đối tượng Date chung
+    // 4. Parse qua đối tượng Date chung cho các trường hợp khác
     let d = new Date(s);
     if (!isNaN(d.getTime())) {
         let day = String(d.getDate()).padStart(2, '0');
         let month = String(d.getMonth() + 1).padStart(2, '0');
         let year = d.getFullYear();
-        if (year >= 1900 && year <= 2100) {
+        if (year > 1900 && year < 2100) {
             return `\({day}/\){month}/${year}`;
         }
     }
 
-    // Nếu không khớp định dạng nào, trả về chuỗi gốc đã làm sạch
+    // Trả về chính chuỗi gốc nếu không rơi vào các trường hợp trên để tránh bị rỗng oan
     return s;
 }
         function formatDateToYMD(dateInput) {
