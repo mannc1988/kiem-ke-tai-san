@@ -124,7 +124,7 @@
                 </div>
             </div>
             <div class="card-body">
-                <!-- Form thêm/sửa tài sản đầy đủ trường -->
+                <!-- Form thêm/sửa tài sản -->
                 <form id="assetForm" onsubmit="saveAsset(event)" class="mb-4 pb-3 border-bottom">
                     <div class="row g-3">
                         <div class="col-md-3">
@@ -248,7 +248,7 @@
                                 <input type="text" id="txtNguoiKK" class="form-control border-primary-subtle" value="Nguyễn Cao Mẫn">
                             </div>
                             <div class="alert alert-info py-2 small mb-0">
-                                <i class="fa-solid fa-circle-info me-1"></i> Dữ liệu quét mã QR sẽ tự động đối soát và mã hóa lịch sử.
+                                <i class="fa-solid fa-circle-info me-1"></i> Hệ thống tự động chống trùng mã trong cùng 1 Đợt kiểm kê & xem chi tiết dữ liệu lịch sử.
                             </div>
                         </div>
                     </div>
@@ -263,7 +263,7 @@
             </div>
         </div>
 
-        <!-- PHẦN 3: LỊCH SỬ KIỂM KÊ -->
+        <!-- PHẦN 3: LỊCH SỬ KIỂM KẾ -->
         <div class="card shadow-sm">
             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
                 <h5 class="mb-0"><i class="fa-solid fa-clock-rotate-left me-2"></i> 3. Lịch Sử Đã Kiểm Kê</h5>
@@ -305,6 +305,8 @@
         const SECRET_KEY = 'ManNC@2026_SecureKeyAivenMySQL!'; 
         
         let danhSachTS = [];
+        let lichSuKiemKeCache = [];
+        let listDotKiemKe = [];
         let isScanning = true;
         let assetsTable, historyTable;
         let tempFilesList = []; 
@@ -327,7 +329,6 @@
             }
         }
 
-        // Hàm định dạng ngày chuẩn dd/MM/yyyy (Đã sửa lỗi template string trả về đúng ngày tháng)
         function formatDateToDMY(dateInput) {
             if (dateInput === undefined || dateInput === null || dateInput === '') return '';
             let s = dateInput.toString().trim();
@@ -336,7 +337,6 @@
                 return '';
             }
             
-            // 1. Nếu là số Serial của Excel (ví dụ: 46063, 52782...)
             if (!isNaN(dateInput) && Number(dateInput) > 1000) {
                 let serial = Number(dateInput);
                 let utcDays = Math.floor(serial - 25569);
@@ -352,12 +352,10 @@
                 }
             }
 
-            // 2. Nếu đã đúng định dạng dd/MM/yyyy thì giữ nguyên
             if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
                 return s;
             }
 
-            // 3. Nếu là định dạng yyyy-MM-dd hoặc yyyy-MM-ddTHH:mm:ss
             if (s.includes('-')) {
                 let cleanDatePart = s.split('T')[0];
                 let parts = cleanDatePart.split('-');
@@ -369,7 +367,6 @@
                 }
             }
             
-            // 4. Parse qua đối tượng Date chung cho các trường hợp khác
             let d = new Date(s);
             if (!isNaN(d.getTime())) {
                 let day = String(d.getDate()).padStart(2, '0');
@@ -382,6 +379,7 @@
 
             return s;
         }
+
         function formatDateToYMD(dateInput) {
             if (!dateInput) return '';
             let s = dateInput.toString().trim();
@@ -705,14 +703,32 @@
                     danhSachTS = result.danh_sach.map(item => ({
                         ...item,
                         ma_tai_san: decryptData(item.ma_tai_san),
+                        don_vi: decryptData(item.don_vi),
                         ten_tai_san: decryptData(item.ten_tai_san),
+                        nhom_tai_san: decryptData(item.nhom_tai_san),
+                        nguyen_gia: decryptData(item.nguyen_gia),
+                        hao_mon_luy_ke: decryptData(item.hao_mon_luy_ke),
+                        gia_tri_con_lai: decryptData(item.gia_tri_con_lai),
+                        ngay_dua_vao_sd: decryptData(item.ngay_dua_vao_sd),
+                        trang_thai_sd: decryptData(item.trang_thai_sd),
+                        trang_thai_qt: decryptData(item.trang_thai_qt),
+                        bo_so: decryptData(item.bo_so),
                         phong_ban_quan_ly: decryptData(item.phong_ban_quan_ly),
-                        can_bo_su_dung: decryptData(item.can_bo_su_dung)
+                        can_bo_su_dung: decryptData(item.can_bo_su_dung),
+                        so_serial: decryptData(item.so_serial),
+                        hinh_anh: decryptData(item.hinh_anh)
                     }));
                     
+                    lichSuKiemKeCache = (result.lich_su || []).map(h => ({
+                        ...h,
+                        tsName: decryptData(h.tsName),
+                        ghiChu: decryptData(h.ghiChu)
+                    }));
+
+                    listDotKiemKe = result.dot_kiem_ke || [];
                     const selectDot = document.getElementById('selectDot');
                     selectDot.innerHTML = '';
-                    result.dot_kiem_ke.forEach(d => {
+                    listDotKiemKe.forEach(d => {
                         selectDot.innerHTML += `<option value="${d.id}">${d.name}</option>`;
                     });
                 }
@@ -966,6 +982,93 @@
             }
         }
 
+        function showAssetDetailAndHistoryModal(scannedCode, assetObj, previousHistories, currentDotName) {
+            let infoHtml = '';
+
+            if (assetObj) {
+                infoHtml += `
+                    <div class="card mb-3 text-start border shadow-none bg-light">
+                        <div class="card-header bg-primary text-white py-2 fw-bold">
+                            <i class="fa-solid fa-circle-info me-1"></i> Thông Tin Gốc Tài Sản
+                        </div>
+                        <div class="card-body py-2 px-3">
+                            <div class="row g-2" style="font-size: 0.85rem;">
+                                <div class="col-md-6"><b>Mã TS:</b> <span class="badge bg-secondary">${assetObj.ma_tai_san}</span></div>
+                                <div class="col-md-6"><b>Tên TS:</b> <span class="fw-semibold text-primary">${assetObj.ten_tai_san}</span></div>
+                                <div class="col-md-6"><b>Đơn vị:</b> ${assetObj.don_vi || 'N/A'}</div>
+                                <div class="col-md-6"><b>Phòng ban:</b> ${assetObj.phong_ban_quan_ly || 'N/A'}</div>
+                                <div class="col-md-6"><b>Cán bộ SD:</b> ${assetObj.can_bo_su_dung || 'N/A'}</div>
+                                <div class="col-md-6"><b>Số Serial:</b> ${assetObj.so_serial || 'N/A'}</div>
+                                <div class="col-md-6"><b>Nguyên giá:</b> ${assetObj.nguyen_gia ? Number(assetObj.nguyen_gia).toLocaleString('vi-VN') + ' đ' : '0 đ'}</div>
+                                <div class="col-md-6"><b>Giá trị còn lại:</b> ${assetObj.gia_tri_con_lai ? Number(assetObj.gia_tri_con_lai).toLocaleString('vi-VN') + ' đ' : '0 đ'}</div>
+                                <div class="col-md-6"><b>Trạng thái SD:</b> ${assetObj.trang_thai_sd || 'N/A'}</div>
+                                <div class="col-md-6"><b>Ngày đưa vào SD:</b> ${formatDateToDMY(assetObj.ngay_dua_vao_sd)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                infoHtml += `
+                    <div class="alert alert-warning text-start py-2 small mb-3">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i> Mã tài sản <b>${scannedCode}</b> chưa có trong Danh Mục Tài Sản gốc.
+                    </div>
+                `;
+            }
+
+            infoHtml += `
+                <div class="card text-start border shadow-none">
+                    <div class="card-header bg-dark text-white py-2 fw-bold">
+                        <i class="fa-solid fa-history me-1"></i> Lịch Sử Kiểm Kê Ở Các Đợt Trước (${previousHistories.length})
+                    </div>
+                    <div class="card-body p-0">
+            `;
+
+            if (previousHistories.length > 0) {
+                infoHtml += `
+                    <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                        <table class="table table-sm table-striped mb-0" style="font-size: 0.8rem;">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Đợt Kiểm Kê</th>
+                                    <th>Cán Bộ KK</th>
+                                    <th>Thời Gian</th>
+                                    <th>Ghi Chú</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                previousHistories.forEach(h => {
+                    let dotObj = listDotKiemKe.find(d => String(d.id) === String(h.dotId));
+                    let dName = dotObj ? dotObj.name : `Đợt ID: ${h.dotId}`;
+                    infoHtml += `
+                        <tr>
+                            <td><span class="badge bg-info text-dark">${dName}</span></td>
+                            <td>${h.nguoiKK || 'N/A'}</td>
+                            <td><small class="text-muted">${h.thoiGian}</small></td>
+                            <td>${h.ghiChu || ''}</td>
+                        </tr>
+                    `;
+                });
+                infoHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                infoHtml += `<div class="p-3 text-muted text-center fst-italic small">Chưa có lịch sử kiểm kê ở các đợt trước.</div>`;
+            }
+
+            infoHtml += `</div></div>`;
+
+            Swal.fire({
+                title: `<span class="text-success"><i class="fa-solid fa-circle-check me-2"></i>Ghi Nhận Kiểm Kê Thành Công!</span>`,
+                html: infoHtml,
+                width: '750px',
+                confirmButtonText: '<i class="fa-solid fa-check me-1"></i> Đóng & Tiếp tục quét',
+                confirmButtonColor: '#198754'
+            });
+        }
+
         async function onScanSuccess(decodedText) {
             if (!isScanning) return;
             isScanning = false;
@@ -974,15 +1077,50 @@
             const dotId = document.getElementById('selectDot').value;
             const nguoiKK = document.getElementById('txtNguoiKK').value || 'Nhân viên';
 
-            const asset = danhSachTS.find(t => t.ma_tai_san === scannedCode);
-            const rawTsName = asset ? asset.ten_tai_san : `Tài sản quét (${scannedCode})`;
-            const thoiGian = new Date().toLocaleString('vi-VN');
+            const resultDiv = document.getElementById('scan-result');
 
+            // 1. CHỐNG TRÙNG MÃ TRONG CÙNG 1 ĐỢT KIỂM KÊ
+            const isAlreadyScannedInThisDot = lichSuKiemKeCache.some(h => 
+                String(h.dotId) === String(dotId) && String(h.tsId) === String(scannedCode)
+            );
+
+            if (isAlreadyScannedInThisDot) {
+                playBeep();
+                let dotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
+                let dotName = dotObj ? dotObj.name : `Đợt ID: ${dotId}`;
+
+                resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
+                resultDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> Trùng mã: Tài sản ${scannedCode} đã kiểm kê trong ${dotName}!`;
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Cảnh báo trùng mã!',
+                    html: `Tài sản mã <b>${scannedCode}</b> đã được kiểm kê thành công trong đợt: <br><b class="text-danger">${dotName}</b>!`,
+                    confirmButtonText: 'Đóng',
+                    confirmButtonColor: '#dc3545'
+                });
+
+                setTimeout(() => {
+                    isScanning = true;
+                    resultDiv.innerText = '';
+                    resultDiv.className = 'mt-3 fw-bold fs-6';
+                }, 2500);
+                return;
+            }
+
+            // 2. LẤY DỮ LIỆU TÀI SẢN GỐC & LỊCH SỬ ĐỢT TRƯỚC
+            const assetObj = danhSachTS.find(t => String(t.ma_tai_san) === String(scannedCode));
+            const rawTsName = assetObj ? assetObj.ten_tai_san : `Tài sản quét (${scannedCode})`;
+            
+            const previousHistories = lichSuKiemKeCache.filter(h => 
+                String(h.tsId) === String(scannedCode) && String(h.dotId) !== String(dotId)
+            );
+
+            const thoiGian = new Date().toLocaleString('vi-VN');
             const tsId = scannedCode;
             const tsName = encryptData(rawTsName);
             const ghiChu = encryptData('Quét QR hệ thống');
 
-            const resultDiv = document.getElementById('scan-result');
             resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-warning-subtle text-warning border border-warning rounded';
             resultDiv.innerText = `Đang xử lý mã: ${scannedCode}...`;
 
@@ -998,7 +1136,13 @@
                     playBeep();
                     resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-success-subtle text-success border border-success rounded';
                     resultDiv.innerHTML = `<i class="fa-solid fa-circle-check me-1"></i> Ghi nhận thành công: ${rawTsName}!`;
+                    
                     refreshData();
+
+                    let dotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
+                    let currentDotName = dotObj ? dotObj.name : `Đợt ID: ${dotId}`;
+                    
+                    showAssetDetailAndHistoryModal(scannedCode, assetObj, previousHistories, currentDotName);
                 } else {
                     resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
                     resultDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> ${result.error}`;
@@ -1036,7 +1180,7 @@
                     "trang_thai_qt": "Đã quyết toán", 
                     "bo_so": "BIDV_CCLD", 
                     "can_bo_su_dung": "Lê Duy Phúc", 
-                    "phong_ban_quan_ly": "340 - TRUNG TÂM XỬ LÝ NỢ", 
+                    "phong_ban_quan_ly": "340 - TRUNG TÂM X XỬ LÝ NỢ", 
                     "so_serial": "4CE514BGHZ",
                     "hinh_anh": "",
                     "import_at": "06/06/2026, 16:00:00"
@@ -1048,7 +1192,7 @@
             XLSX.writeFile(wb, "Template_KiemKe_TaiSan.xlsx");
         }
 
-            async function importExcelData(event) {
+        async function importExcelData(event) {
             const file = event.target.files[0];
             if (!file) return;
 
@@ -1114,7 +1258,6 @@
                         let rawGCL = row['gia_tri_con_lai'] !== undefined ? row['gia_tri_con_lai'] : (row['Giá Trị Còn Lại'] !== undefined ? row['Giá Trị Còn Lại'] : '');
                         let gcl = rawGCL !== '' && rawGCL !== null ? Number(rawGCL) : (ng - hm);
 
-                        // --- KIỂM TRA NGHIÊM NGẶT ĐỊNH DẠNG NGÀY ĐƯA VÀO SD ---
                         const rawNgaySD = row['ngay_dua_vao_sd'] !== undefined ? row['ngay_dua_vao_sd'] : (row['Ngày Đưa Vào SD'] !== undefined ? row['Ngày Đưa Vào SD'] : '');
                         let ngay_dua_vao_sd = '';
                         let isDateValid = false;
@@ -1122,7 +1265,6 @@
                         if (rawNgaySD !== undefined && rawNgaySD !== null && String(rawNgaySD).trim() !== '') {
                             let sDate = String(rawNgaySD).trim();
                             
-                            // Trường hợp 1: Nếu là số Serial chuẩn của Excel (Ví dụ: 46063)
                             if (!isNaN(sDate) && Number(sDate) > 1000) {
                                 let serial = Number(sDate);
                                 let utcDays = Math.floor(serial - 25569);
@@ -1133,12 +1275,11 @@
                                     let month = String(dateInfo.getUTCMonth() + 1).padStart(2, '0');
                                     let year = dateInfo.getUTCFullYear();
                                     if (year >= 1900 && year <= 2100) {
-                                        ngay_dua_vao_sd = `\({day}/\){month}/${year}`;
+                                        ngay_dua_vao_sd = `${day}/${month}/${year}`;
                                         isDateValid = true;
                                     }
                                 }
                             }
-                            // Trường hợp 2: Kiểm tra nếu khớp chính xác định dạng dd/MM/yyyy
                             else if (/^\d{2}\/\d{2}\/\d{4}$/.test(sDate)) {
                                 let parts = sDate.split('/');
                                 let d = parseInt(parts[0], 10);
@@ -1149,7 +1290,6 @@
                                     isDateValid = true;
                                 }
                             }
-                            // Trường hợp 3: Kiểm tra định dạng yyyy-MM-dd hoặc yyyy-MM-ddTHH:mm:ss
                             else if (sDate.includes('-')) {
                                 let cleanDatePart = sDate.split('T')[0];
                                 let parts = cleanDatePart.split('-');
@@ -1160,7 +1300,7 @@
                                     if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
                                         let dayStr = String(d).padStart(2, '0');
                                         let monthStr = String(m).padStart(2, '0');
-                                        ngay_dua_vao_sd = `\({dayStr}/\){monthStr}/${y}`;
+                                        ngay_dua_vao_sd = `${dayStr}/${monthStr}/${y}`;
                                         isDateValid = true;
                                     }
                                 }
@@ -1168,7 +1308,6 @@
                         } else {
                             isDateValid = true; 
                         }
-                        // -----------------------------------------------------
 
                         const trang_thai_sd = String(row['trang_thai_sd'] || row['Trạng Thái SD'] || 'Đang sử dụng').trim();
                         const trang_thai_qt = String(row['trang_thai_qt'] || row['Trạng Thái QT'] || 'Đã quyết toán').trim();
@@ -1184,7 +1323,6 @@
                         if (!ten_tai_san) rowErrors.push('Cột [Tên tài sản] bị trống');
                         if (!phong_ban_quan_ly) rowErrors.push('Cột [Phòng ban quản lý] bị trống');
                         
-                        // Báo lỗi ngay nếu ngày không đúng định dạng chuẩn (Sử dụng backtick chính xác)
                         if (!isDateValid) {
                             rowErrors.push(`Lỗi định dạng [Ngày đưa vào SD]: "${rawNgaySD}" không đúng chuẩn dd/MM/yyyy`);
                         }
@@ -1195,7 +1333,7 @@
                         if (!isNaN(ng) && !isNaN(hm) && hm > ng) rowErrors.push('Lỗi logic: [Hao mòn] > [Nguyên giá]');
 
                         if (rowErrors.length > 0) {
-                            errorDetails.push(`Dòng \({rowIndex} [Mã:\){ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
+                            errorDetails.push(`Dòng ${rowIndex} [Mã:${ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
                             continue;
                         }
 
@@ -1266,39 +1404,37 @@
                         htmlMsg += `<div id="errorListContainer" class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
                     }
                     Swal.fire({
-                    icon: totalFailCount === 0 ? 'success' : 'warning',
-                    title: 'Hoàn tất kiểm tra & đồng bộ lô!',
-                    html: htmlMsg,
-                    width: '650px',
-                    showConfirmButton: true,
-                    confirmButtonText: 'Đóng',
-                    showDenyButton: totalFailCount > 0,
-                    denyButtonText: '** Tải File Log Lỗi (.txt)',
-                    denyButtonColor: '#d33'
-                }).then((result) => {
-                    // Khi người bấm vào nút Tải File Log Lỗi (Nút deny trong SweetAlert)
-                    if (result.isDenied) {
-                        const errorContent = `=== BÁO CÁO LỖI KIỂM TRA EXCEL THEO LÔ (\({new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi:\){totalFailCount}\n\n` + errorDetails.join('\n');
-                        const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href.value = url;
-                        a.href = url;
-                        a.download = `Log_Loi_Batch_${Date.now()}.txt`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    }
-                });
+                        icon: totalFailCount === 0 ? 'success' : 'warning',
+                        title: 'Hoàn tất kiểm tra & đồng bộ lô!',
+                        html: htmlMsg,
+                        width: '650px',
+                        showConfirmButton: true,
+                        confirmButtonText: 'Đóng',
+                        showDenyButton: totalFailCount > 0,
+                        denyButtonText: 'Tải File Log Lỗi (.txt)',
+                        denyButtonColor: '#d33'
+                    }).then((result) => {
+                        if (result.isDenied) {
+                            const errorContent = `=== BÁO CÁO LỖI KIỂM TRA EXCEL THEO LÔ (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi: ${totalFailCount}\n\n` + errorDetails.join('\n');
+                            const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `Log_Loi_Batch_${Date.now()}.txt`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }
+                    });
 
-            } catch (error) {
-                Swal.fire('Lỗi', 'Không thể đọc cấu trúc file Excel này!', 'error');
-                document.getElementById('excelFile').value = '';
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    }
+                } catch (error) {
+                    Swal.fire('Lỗi', 'Không thể đọc cấu trúc file Excel này!', 'error');
+                    document.getElementById('excelFile').value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
     </script>
 </body>
 </html>
