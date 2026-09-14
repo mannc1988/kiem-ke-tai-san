@@ -229,32 +229,32 @@
             </div>
         </div>
 
-        <!-- PHẦN 2: QUÉT QR KIỂM KẾ -->
+        <!-- PHẦN 2: QUÉT QR KIỂM KẾ THEO ĐỢT -->
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white py-3">
-                <h5 class="mb-0"><i class="fa-solid fa-camera me-2"></i> 2. Quét QR Kiểm Kê Tài Sản</h5>
+                <h5 class="mb-0"><i class="fa-solid fa-camera me-2"></i> 2. Quét QR Kiểm Kê Theo Đợt</h5>
             </div>
             <div class="card-body">
                 <div class="row">
                     <div class="col-lg-5 mb-4 mb-lg-0">
                         <div class="p-3 border rounded bg-light h-100">
-                            <h5 class="card-title fw-bold text-dark mb-3"><i class="fa-solid fa-sliders me-1 text-primary"></i> Thiết Lập Quét</h5>
+                            <h5 class="card-title fw-bold text-dark mb-3"><i class="fa-solid fa-sliders me-1 text-primary"></i> Thiết Lập Đợt Kiểm Kê</h5>
                             <div class="mb-3">
-                                <label class="form-label fw-semibold text-secondary">Đợt Kiểm Kê:</label>
-                                <select id="selectDot" class="form-select border-primary-subtle"></select>
+                                <label class="form-label fw-semibold text-secondary">Đợt Kiểm Kê <span class="text-danger">*</span>:</label>
+                                <select id="selectDot" class="form-select border-primary-subtle" onchange="filterHistoryByDot()"></select>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label fw-semibold text-secondary">Cán Bộ Kiểm Kê:</label>
                                 <input type="text" id="txtNguoiKK" class="form-control border-primary-subtle" value="Nguyễn Cao Mẫn">
                             </div>
-                            <div class="alert alert-info py-2 small mb-0">
-                                <i class="fa-solid fa-circle-info me-1"></i> Hệ thống tự động chống trùng mã trong cùng 1 Đợt kiểm kê & xem chi tiết dữ liệu lịch sử.
+                            <div class="alert alert-warning py-2 small mb-0">
+                                <i class="fa-solid fa-shield-halved me-1"></i> <b>Chống trùng tuyệt đối:</b> Mỗi mã tài sản chỉ được phép quét 1 lần duy nhất trong cùng 1 đợt kiểm kê.
                             </div>
                         </div>
                     </div>
                     <div class="col-lg-7">
                         <div class="p-3 border rounded bg-light text-center">
-                            <h5 class="card-title fw-bold text-dark mb-3"><i class="fa-solid fa-qrcode me-1 text-success"></i> Camera Quét Liên Tục</h5>
+                            <h5 class="card-title fw-bold text-dark mb-3"><i class="fa-solid fa-qrcode me-1 text-success"></i> Camera Quét Mã</h5>
                             <div id="reader" style="width: 100%; max-width: 380px; margin: auto;" class="p-2"></div>
                             <div id="scan-result" class="mt-3 fw-bold fs-6 p-2 rounded"></div>
                         </div>
@@ -266,7 +266,7 @@
         <!-- PHẦN 3: LỊCH SỬ KIỂM KẾ -->
         <div class="card shadow-sm">
             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
-                <h5 class="mb-0"><i class="fa-solid fa-clock-rotate-left me-2"></i> 3. Lịch Sử Đã Kiểm Kê</h5>
+                <h5 class="mb-0"><i class="fa-solid fa-clock-rotate-left me-2"></i> 3. Lịch Sử Đã Kiểm Kê (Theo Đợt)</h5>
                 <button class="btn btn-light btn-sm fw-semibold" onclick="refreshData()"><i class="fa-solid fa-rotate me-1"></i> Làm mới</button>
             </div>
             <div class="card-body">
@@ -275,6 +275,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th>STT</th>
+                                <th>Đợt KK</th>
                                 <th>Mã Tài Sản</th>
                                 <th>Tên Tài Sản</th>
                                 <th>Cán Bộ KK</th>
@@ -667,10 +668,21 @@
                 processing: true,
                 ajax: {
                     url: `${API_URL}?action=server_history`,
-                    type: 'GET'
+                    type: 'GET',
+                    data: function(d) {
+                        d.dot_id = $('#selectDot').value;
+                    }
                 },
                 columns: [
                     { data: null, render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 },
+                    { 
+                        data: 'dotId', 
+                        render: data => {
+                            let dotObj = listDotKiemKe.find(d => String(d.id) === String(data));
+                            let name = dotObj ? dotObj.name : `Đợt ID: ${data}`;
+                            return `<span class="badge bg-info text-dark">${name}</span>`;
+                        }
+                    },
                     { data: 'tsId', render: data => `<span class="badge bg-secondary">${data}</span>` },
                     { data: 'tsName', render: data => `<span class="fw-semibold text-dark">${decryptData(data)}</span>` },
                     { data: 'nguoiKK' },
@@ -733,6 +745,12 @@
                     });
                 }
             } catch (e) {}
+        }
+
+        function filterHistoryByDot() {
+            if (historyTable) {
+                historyTable.ajax.reload();
+            }
         }
 
         function refreshData() {
@@ -1077,9 +1095,15 @@
             const dotId = document.getElementById('selectDot').value;
             const nguoiKK = document.getElementById('txtNguoiKK').value || 'Nhân viên';
 
+            if (!dotId) {
+                Swal.fire('Chưa chọn đợt', 'Vui lòng chọn Đợt Kiểm Kê trước khi quét!', 'warning');
+                isScanning = true;
+                return;
+            }
+
             const resultDiv = document.getElementById('scan-result');
 
-            // 1. CHỐNG TRÙNG MÃ TRONG CÙNG 1 ĐỢT KIỂM KÊ
+            // CHỐNG TRÙNG THEO MÃ TÀI SẢN + ĐỢT KIỂM KÊ
             const isAlreadyScannedInThisDot = lichSuKiemKeCache.some(h => 
                 String(h.dotId) === String(dotId) && String(h.tsId) === String(scannedCode)
             );
@@ -1094,8 +1118,8 @@
 
                 Swal.fire({
                     icon: 'warning',
-                    title: 'Cảnh báo trùng mã!',
-                    html: `Tài sản mã <b>${scannedCode}</b> đã được kiểm kê thành công trong đợt: <br><b class="text-danger">${dotName}</b>!`,
+                    title: 'Trùng Mã Theo Đợt!',
+                    html: `Mã tài sản <b>${scannedCode}</b> đã được kiểm kê thành công trong đợt: <br><b class="text-danger">${dotName}</b>!`,
                     confirmButtonText: 'Đóng',
                     confirmButtonColor: '#dc3545'
                 });
@@ -1108,7 +1132,6 @@
                 return;
             }
 
-            // 2. LẤY DỮ LIỆU TÀI SẢN GỐC & LỊCH SỬ ĐỢT TRƯỚC
             const assetObj = danhSachTS.find(t => String(t.ma_tai_san) === String(scannedCode));
             const rawTsName = assetObj ? assetObj.ten_tai_san : `Tài sản quét (${scannedCode})`;
             
@@ -1180,7 +1203,7 @@
                     "trang_thai_qt": "Đã quyết toán", 
                     "bo_so": "BIDV_CCLD", 
                     "can_bo_su_dung": "Lê Duy Phúc", 
-                    "phong_ban_quan_ly": "340 - TRUNG TÂM X XỬ LÝ NỢ", 
+                    "phong_ban_quan_ly": "340 - TRUNG TÂM XỬ LÝ NỢ", 
                     "so_serial": "4CE514BGHZ",
                     "hinh_anh": "",
                     "import_at": "06/06/2026, 16:00:00"
