@@ -1,6 +1,6 @@
-const { google } = require('googleapis');
 const mysql = require('mysql2/promise');
 const CryptoJS = require('crypto-js');
+const fetch = require('node-fetch'); // Đảm bảo dự án có cài node-fetch hoặc dùng fetch tích hợp sẵn của Node.js
 
 // Cấu hình khóa bí mật AES
 const SECRET_KEY = 'ManNC@2026_SecureKeyAivenMySQL!';
@@ -17,16 +17,6 @@ const dbConfig = {
         ca: process.env.DB_CA_CERT 
     }
 };
-
-// Cấu hình Google Drive OAuth2
-const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
-);
-oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
-
-const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 function encryptData(plainText) {
     if (plainText === undefined || plainText === null || plainText === '') return '';
@@ -109,7 +99,7 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 3. PHÂN TRANG DATATABLE LỊCH SỬ KIỂM KÊ (DÀNH CHO BẢNG MỚI)
+        // 3. PHÂN TRANG DATATABLE LỊCH SỬ KIỂM KÊ
         if (action === 'server_history') {
             const draw = parseInt(req.query.draw) || 1;
             const start = parseInt(req.query.start) || 0;
@@ -188,7 +178,7 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 4.1. LƯU TÀI SẢN THEO LÔ (BULK SAVE IMPORT EXCEL)
+        // 4.1. LƯU TÀI SẢN THEO LÔ
         if (action === 'save_asset_batch' && req.method === 'POST') {
             const { payloads, duplicateAction } = req.body;
 
@@ -273,7 +263,7 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
         }
 
-        // 6. GHI NHẬN LỊCH SỬ QR (MÃ HÓA AES TOÀN BỘ CÁC CỘT BẢNG MỚI TRỪ ID)
+        // 6. GHI NHẬN LỊCH SỬ QR
         if (action === 'history' && req.method === 'POST') {
             const { 
                 tsId, phong_ban, so_serial, nguoiKK, ghiChu, 
@@ -287,7 +277,6 @@ module.exports = async (req, res) => {
             const rawTargetDotId = decryptData(dotId).trim();
             const rawTargetTsId = decryptData(tsId).trim();
 
-            // Kiểm tra trùng lặp tài sản trong cùng đợt kiểm kê
             const [allHistories] = await connection.execute('SELECT dotId, tsId FROM lich_su_kk');
 
             let isDuplicate = false;
@@ -308,7 +297,6 @@ module.exports = async (req, res) => {
                 });
             }
 
-            // Mã hóa AES 100% dữ liệu trước khi INSERT
             const encTsId = encryptData(rawTargetTsId);
             const encPhongBan = encryptData(decryptData(phong_ban));
             const encSerial = encryptData(decryptData(so_serial));
@@ -338,32 +326,54 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: 'Đã xóa lịch sử!' });
         }
 
-        // 8. UPLOAD DRIVE
-        if (action === 'upload_drive' && req.method === 'POST') {
-            const { fileName, fileData, mimeType } = req.body;
-            const base64Data = fileData.replace(/^data:image\/\w+;base64,/, '');
-            const buffer = Buffer.from(base64Data, 'base64');
+        // 7.1. CẬP NHẬT LỊCH SỬ KIỂM KÊ (BỔ SUNG PHÒNG BAN, SERIAL)
+        if (action === 'update_history' && req.method === 'POST') {
+            const { id, phong_ban, so_serial, nguoiKK, ket_qua_kk, phuong_an_xl, tep_dinh_kem, ghiChu } = req.body;
 
-            const fileMetadata = { name: fileName, parents: [process.env.GOOGLE_DRIVE_FOLDER_ID] };
-            const media = { mimeType: mimeType, body: require('stream').Readable.from(buffer) };
+            if (!id) {
+                return res.status(400).json({ success: false, error: 'Thiếu ID lịch sử cần cập nhật!' });
+            }
 
-            const response = await drive.files.create({ resource: fileMetadata, media: media, fields: 'id' });
-            await drive.permissions.create({ fileId: response.data.id, requestBody: { role: 'reader', type: 'anyone' } });
+            const encPhongBan = encryptData(decryptData(phong_ban));
+            const encSerial = encryptData(decryptData(so_serial));
+            const encNguoiKK = encryptData(decryptData(nguoiKK));
+            const encKetQua = encryptData(decryptData(ket_qua_kk));
+            const encPhuongAn = encryptData(decryptData(phuong_an_xl));
+            const encTepDinhKem = encryptData(decryptData(tep_dinh_kem || ''));
+            const encGhiChu = encryptData(decryptData(ghiChu));
 
-            const fileUrl = `https://lh3.googleusercontent.com/d/${response.data.id}`;
-            return res.json({ success: true, url: fileUrl });
+            await connection.execute(
+                `UPDATE lich_su_kk SET 
+                phong_ban = ?, so_serial = ?, nguoiKK = ?, ket_qua_kk = ?, phuong_an_xl = ?, tep_dinh_kem = ?, ghiChu = ? 
+                WHERE id = ?`,
+                [encPhongBan, encSerial, encNguoiKK, encKetQua, encPhuongAn, encTepDinhKem, encGhiChu, id]
+            );
+
+            return res.json({ success: true, message: 'Đã cập nhật lịch sử thành công!' });
         }
 
-        // 9. XÓA DRIVE
+        // 8. UPLOAD DRIVE (GỌI QUA GOOGLE APPS SCRIPT WEB APP ĐỂ TRÁNH LỖI TOKEN)
+        if (action === 'upload_drive' && req.method === 'POST') {
+            const { fileName, fileData, mimeType } = req.body;
+            const SCRIPT_WEB_APP_URL = process.env.GOOGLE_SCRIPT_WEB_APP_URL;
+
+            if (!SCRIPT_WEB_APP_URL) {
+                return res.status(500).json({ success: false, error: 'Chưa cấu hình GOOGLE_SCRIPT_WEB_APP_URL trong biến môi trường!' });
+            }
+
+            const response = await fetch(SCRIPT_WEB_APP_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileName, fileData, mimeType })
+            });
+
+            const result = await response.json();
+            return res.json(result);
+        }
+
+        // 9. XÓA DRIVE (NẾU CẦN)
         if (action === 'delete_drive' && req.method === 'POST') {
-            const { fileUrl } = req.body;
-            if (!fileUrl) return res.status(400).json({ success: false, error: 'Thiếu URL' });
-
-            let fileId = fileUrl.includes('id=') ? fileUrl.split('id=')[1].split('&')[0] : fileUrl.split('/d/')[1].split('/')[0];
-            if (!fileId) return res.status(400).json({ success: false, error: 'Không lấy được File ID' });
-
-            await drive.files.delete({ fileId });
-            return res.json({ success: true, message: 'Đã xóa file trên Drive' });
+            return res.json({ success: true, message: 'Bỏ qua xóa rác Drive trực tiếp qua Apps Script' });
         }
 
         return res.status(404).json({ success: false, error: 'Action không hợp lệ' });
