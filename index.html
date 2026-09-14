@@ -278,7 +278,11 @@
                                 <th>Đợt KK</th>
                                 <th>Mã Tài Sản</th>
                                 <th>Tên Tài Sản</th>
+                                <th>Phòng Ban</th>
+                                <th>Serial</th>
                                 <th>Cán Bộ KK</th>
+                                <th>Kết Quả KK</th>
+                                <th>Phương Án XL</th>
                                 <th>Thời Gian</th>
                                 <th>Ghi Chú</th>
                                 <th class="text-center">Xóa</th>
@@ -685,9 +689,13 @@
                     },
                     { data: 'tsId', render: data => `<span class="badge bg-secondary">${data}</span>` },
                     { data: 'tsName', render: data => `<span class="fw-semibold text-dark">${decryptData(data)}</span>` },
+                    { data: 'phong_ban', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
+                    { data: 'so_serial', render: data => `<span class="badge bg-light text-dark border">${decryptData(data)}</span>` },
                     { data: 'nguoiKK' },
+                    { data: 'ket_qua_kk', render: data => `<span class="badge bg-success-subtle text-success border">${decryptData(data)}</span>` },
+                    { data: 'phuong_an_xl', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
                     { data: 'thoiGian', render: data => `<span class="text-muted small">${data}</span>` },
-                    { data: 'ghiChu', render: data => `<span class="badge bg-success-subtle text-success border border-success-subtle">${decryptData(data)}</span>` },
+                    { data: 'ghiChu', render: data => `<span class="badge bg-light text-secondary border">${decryptData(data)}</span>` },
                     { 
                         data: 'id', 
                         className: 'text-center',
@@ -734,6 +742,10 @@
                     lichSuKiemKeCache = (result.lich_su || []).map(h => ({
                         ...h,
                         tsName: decryptData(h.tsName),
+                        phong_ban: decryptData(h.phong_ban),
+                        so_serial: decryptData(h.so_serial),
+                        ket_qua_kk: decryptData(h.ket_qua_kk),
+                        phuong_an_xl: decryptData(h.phuong_an_xl),
                         ghiChu: decryptData(h.ghiChu)
                     }));
 
@@ -1048,9 +1060,11 @@
                             <thead class="table-light sticky-top">
                                 <tr>
                                     <th>Đợt Kiểm Kê</th>
+                                    <th>Phòng Ban</th>
+                                    <th>Serial</th>
                                     <th>Cán Bộ KK</th>
+                                    <th>Kết Quả</th>
                                     <th>Thời Gian</th>
-                                    <th>Ghi Chú</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1061,9 +1075,11 @@
                     infoHtml += `
                         <tr>
                             <td><span class="badge bg-info text-dark">${dName}</span></td>
+                            <td>${h.phong_ban || 'N/A'}</td>
+                            <td>${h.so_serial || 'N/A'}</td>
                             <td>${h.nguoiKK || 'N/A'}</td>
+                            <td><span class="badge bg-success-subtle text-success">${h.ket_qua_kk || 'Đạt'}</span></td>
                             <td><small class="text-muted">${h.thoiGian}</small></td>
-                            <td>${h.ghiChu || ''}</td>
                         </tr>
                     `;
                 });
@@ -1097,6 +1113,8 @@
             const resultDiv = document.getElementById('scan-result');
             const assetObj = danhSachTS.find(t => String(t.ma_tai_san) === String(scannedCode));
             const rawTsName = assetObj ? assetObj.ten_tai_san : `Tài sản quét (${scannedCode})`;
+            const rawPhongBan = assetObj ? (assetObj.phong_ban_quan_ly || '') : '';
+            const rawSerial = assetObj ? (assetObj.so_serial || '') : '';
             
             const previousHistories = lichSuKiemKeCache.filter(h => 
                 String(h.tsId) === String(scannedCode) && String(h.dotId) !== String(dotId)
@@ -1105,29 +1123,48 @@
             const thoiGian = new Date().toLocaleString('vi-VN');
             const tsId = scannedCode;
             const tsName = encryptData(rawTsName);
+            const phong_ban = encryptData(rawPhongBan);
+            const so_serial = encryptData(rawSerial);
+            const ket_qua_kk = encryptData('Đạt');
+            const phuong_an_xl = encryptData('Tiếp tục sử dụng');
+            const tep_dinh_kem = encryptData('');
             const ghiChu = encryptData('Quét QR hệ thống');
 
             resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-warning-subtle text-warning border border-warning rounded';
             resultDiv.innerText = `Đang kiểm tra CSDL & ghi nhận: ${scannedCode}...`;
 
             try {
-                // Gửi request tới Server backend để check DB
                 const response = await fetch(`${API_URL}?action=history`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu })
+                    body: JSON.stringify({ 
+                        dotId, 
+                        tsId, 
+                        tsName, 
+                        phong_ban, 
+                        so_serial, 
+                        nguoiKK, 
+                        ket_qua_kk, 
+                        phuong_an_xl, 
+                        tep_dinh_kem, 
+                        thoiGian, 
+                        ghiChu 
+                    })
                 });
                 const result = await response.json();
                 
                 if (result.success) {
                     playBeep();
 
-                    // Cập nhật Cache local khi server lưu thành công
                     lichSuKiemKeCache.push({
                         dotId: dotId,
                         tsId: scannedCode,
                         tsName: rawTsName,
+                        phong_ban: rawPhongBan,
+                        so_serial: rawSerial,
                         nguoiKK: nguoiKK,
+                        ket_qua_kk: 'Đạt',
+                        phuong_an_xl: 'Tiếp tục sử dụng',
                         thoiGian: thoiGian,
                         ghiChu: 'Quét QR hệ thống'
                     });
@@ -1151,7 +1188,6 @@
                     });
 
                 } else {
-                    // XỬ LÝ KHI SERVER BÁO LỖI TRÙNG TRONG DATABASE
                     playBeep();
                     let dotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
                     let dotName = dotObj ? dotObj.name : `Đợt ID: ${dotId}`;
