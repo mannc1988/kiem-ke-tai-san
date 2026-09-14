@@ -187,7 +187,6 @@
                         </div>
                         <div class="col-md-5">
                             <label class="form-label fw-semibold small">Quản Lý Tệp/Ảnh Đính Kèm (CRUD):</label>
-                            <!-- Đã sửa accept="*/*" để upload mọi loại file -->
                             <input type="file" id="imageFiles" class="form-control form-control-sm mb-1" accept="*/*" multiple onchange="handleTempImagesSelect(event)">
                             <div id="imageDetailList" class="mt-2"></div>
                             <input type="hidden" id="hinh_anh_url" value="">
@@ -298,7 +297,7 @@
 
     </div>
 
-    <!-- Container ẩn cho Viewer.js -->
+    <!-- Container ẩn cho Viewer.js / Modal xem tệp linh hoạt -->
     <div id="viewerContainer" style="display: none;"></div>
 
     <!-- SweetAlert2 & Eruda Console Debug -->
@@ -506,21 +505,10 @@
         }
 
         function showSingleTempViewer(index) {
-            const container = document.getElementById('viewerContainer');
-            container.innerHTML = '';
             let file = tempFilesList[index];
-            if (file && file.type.startsWith('image/')) {
-                const img = document.createElement('img');
-                img.src = tempBase64List[index];
-                container.appendChild(img);
-                const viewer = new Viewer(container, {
-                    inline: false, button: true, navbar: false, title: false, toolbar: true,
-                    hidden: function () { viewer.destroy(); }
-                });
-                viewer.show();
-            } else {
-                Swal.fire('Thông báo', 'Định dạng tệp này không hỗ trợ xem trước trực tiếp, bạn có thể tải về thông qua link Drive.', 'info');
-            }
+            if (!file) return;
+            let fileUrl = tempBase64List[index];
+            openUniversalViewer(fileUrl, file.type, file.name);
         }
 
         function removeExistingDriveImage(index) {
@@ -541,29 +529,87 @@
             renderImageDetailList();
         }
 
+        // --- BỔ SUNG: HỆ THỐNG XEM TRỰC TIẾP ĐA ĐỊNH DẠNG (ẢNH, PDF, WORD, EXCEL) ---
         function showViewer(urlsString) {
-            const container = document.getElementById('viewerContainer');
-            container.innerHTML = ''; 
-
             let urls = urlsString.split(',').map(s => s.trim()).filter(Boolean);
             if (urls.length === 0) return;
+            
+            // Nếu có nhiều URL, ưu tiên xem cái đầu tiên hoặc mở popup dạng list
+            let url = urls[0];
+            let fileName = url.split('/').pop().split('?')[0].toLowerCase();
+            
+            let mimeType = '';
+            if (fileName.endsWith('.pdf')) mimeType = 'application/pdf';
+            else if (fileName.endsWith('.doc') || fileName.endsWith('.docx')) mimeType = 'application/msword';
+            else if (fileName.endsWith('.xls') || fileName.endsWith('.xlsx')) mimeType = 'application/vnd.ms-excel';
+            else if (fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.gif')) mimeType = 'image/';
 
-            urls.forEach(url => {
+            openUniversalViewer(url, mimeType, fileName);
+        }
+
+        function openUniversalViewer(url, mimeType, title = 'Xem trước tệp') {
+            mimeType = mimeType || '';
+            
+            // 1. Nếu là Ảnh
+            if (mimeType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(title)) {
+                const container = document.getElementById('viewerContainer');
+                container.innerHTML = '';
                 const img = document.createElement('img');
                 img.src = url;
                 container.appendChild(img);
-            });
+                const viewer = new Viewer(container, {
+                    inline: false,
+                    button: true,
+                    navbar: false,
+                    title: false,
+                    toolbar: true,
+                    hidden: function () { viewer.destroy(); }
+                });
+                viewer.show();
+                return;
+            }
 
-            const viewer = new Viewer(container, {
-                inline: false,
-                button: true,
-                navbar: urls.length > 1, 
-                title: false, 
-                toolbar: true,
-                hidden: function () { viewer.destroy(); }
+            // 2. Nếu là PDF (Dùng Blob / Iframe)
+            if (mimeType.includes('pdf') || /\.pdf$/i.test(title)) {
+                Swal.fire({
+                    title: `<span class="text-primary">${title}</span>`,
+                    html: `<iframe src="${url}" style="width:100%; height:75vh; border:none;" allowfullscreen></iframe>`,
+                    width: '85vw',
+                    showCloseButton: true,
+                    showConfirmButton: false
+                });
+                return;
+            }
+
+            // 3. Nếu là Word / Excel (Dùng Google Docs Viewer nhúng)
+            if (mimeType.includes('word') || mimeType.includes('excel') || mimeType.includes('sheet') || /\.(doc|docx|xls|xlsx)$/i.test(title)) {
+                let encodedUrl = encodeURIComponent(url);
+                let googleViewerUrl = `https://docs.google.com/gview?url=${encodedUrl}&embedded=true`;
+                Swal.fire({
+                    title: `<span class="text-primary">${title}</span>`,
+                    html: `<iframe src="${googleViewerUrl}" style="width:100%; height:75vh; border:none;" allowfullscreen></iframe>`,
+                    width: '85vw',
+                    showCloseButton: true,
+                    showConfirmButton: false
+                });
+                return;
+            }
+
+            // 4. Các định dạng khác: Mở tab mới hoặc thông báo tải về
+            Swal.fire({
+                title: 'Không hỗ trợ xem trực tiếp',
+                text: `Định dạng tệp "${title}" không hỗ trợ hiển thị inline. Bạn có muốn mở/tải về không?`,
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonText: 'Tải về / Mở',
+                cancelButtonText: 'Đóng'
+            }).then((res) => {
+                if (res.isConfirmed) {
+                    window.open(url, '_blank');
+                }
             });
-            viewer.show();
         }
+        // --- KẾT THÚC BỔ SUNG XEM FILE ---
 
         function playBeep() {
             try {
@@ -607,7 +653,7 @@
                                         <span class="text-truncate me-2 small text-secondary" style="max-width: 90px;" title="${fName}">
                                             <i class="fa-solid fa-file text-primary me-1"></i> ${fName}
                                         </span>
-                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="showViewer('${decrypted}')" title="Xem tệp">
+                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="showViewer('${url}')" title="Xem tệp">
                                             <i class="fa-solid fa-eye"></i>
                                         </button>
                                     </div>
@@ -716,7 +762,7 @@
                                 htmlList += `
                                     <div class="d-flex align-items-center justify-content-between bg-white border rounded px-1 py-0 mb-1 shadow-sm" style="font-size: 0.75rem;">
                                         <span class="text-truncate me-1 text-secondary" style="max-width: 75px;" title="${fName}">${fName}</span>
-                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="showViewer('${decrypted}')" title="Xem"><i class="fa-solid fa-eye"></i></button>
+                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="showViewer('${url}')" title="Xem"><i class="fa-solid fa-eye"></i></button>
                                     </div>
                                 `;
                             });
