@@ -28,10 +28,15 @@ oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
 
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
+function encryptData(plainText) {
+    if (plainText === undefined || plainText === null || plainText === '') return '';
+    return CryptoJS.AES.encrypt(plainText.toString(), SECRET_KEY).toString();
+}
+
 function decryptData(cipherText) {
     if (!cipherText) return '';
     try {
-        const bytes = CryptoJS.AES.decrypt(cipherText, SECRET_KEY);
+        const bytes = CryptoJS.AES.decrypt(cipherText.toString(), SECRET_KEY);
         const originalText = bytes.toString(CryptoJS.enc.Utf8);
         return originalText || cipherText; 
     } catch (e) {
@@ -98,33 +103,32 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 3. PHÂN TRANG LỊCH SỬ
+        // 3. PHÂN TRANG LỊCH SỬ (GIẢI MÃ ĐỢT ĐỂ LỌC THEO DOT_ID)
         if (action === 'server_history') {
             const draw = parseInt(req.query.draw) || 1;
             const start = parseInt(req.query.start) || 0;
             const length = parseInt(req.query.length) || 10;
-            const dotId = req.query.dot_id;
+            const selectedDotId = req.query.dot_id ? String(req.query.dot_id).trim() : '';
 
-            let whereClause = '';
-            let queryParams = [];
-
-            if (dotId) {
-                whereClause = ' WHERE dotId = ?';
-                queryParams.push(dotId);
+            const [allRows] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
+            
+            // Lọc theo dotId sau khi giải mã (do dotId đã được mã hóa AES)
+            let filteredRows = allRows;
+            if (selectedDotId) {
+                filteredRows = allRows.filter(row => {
+                    const decryptedDotId = decryptData(row.dotId).trim();
+                    return decryptedDotId === selectedDotId || String(row.dotId).trim() === selectedDotId;
+                });
             }
 
-            const countQuery = `SELECT COUNT(*) as total FROM lich_su_kk${whereClause}`;
-            const [countResult] = await connection.execute(countQuery, queryParams);
-            const totalRecords = countResult[0].total;
-
-            const dataQuery = `SELECT * FROM lich_su_kk\({whereClause} ORDER BY id DESC LIMIT\){parseInt(length)} OFFSET ${parseInt(start)}`;
-            const [rows] = await connection.execute(dataQuery, queryParams);
+            const totalRecords = filteredRows.length;
+            const paginatedRows = filteredRows.slice(start, start + length);
 
             return res.json({
                 draw: draw,
                 recordsTotal: totalRecords,
                 recordsFiltered: totalRecords,
-                data: rows
+                data: paginatedRows
             });
         }
 
@@ -263,7 +267,7 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
         }
 
-        // 6. GHI NHẬN LỊCH SỬ QR (ĐÃ SỬA CHỐNG TRÙNG ĐỢT + MÃ TÀI SẢN TỪ DATABASE)
+        // 6. GHI NHẬN LỊCH SỬ QR (MÃ HÓA TOÀN BỘ CÁC CỘT NGOẠI TRỪ ID TỚI CSDL)
         if (action === 'history' && req.method === 'POST') {
             const { dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu } = req.body;
 
@@ -271,19 +275,18 @@ module.exports = async (req, res) => {
                 return res.status(400).json({ success: false, error: 'Thiếu thông tin Đợt kiểm kê hoặc Mã tài sản!' });
             }
 
-            const rawScannedTsId = decryptData(tsId).trim();
+            const rawTargetDotId = decryptData(dotId).trim();
+            const rawTargetTsId = decryptData(tsId).trim();
 
-            // Truy vấn lấy danh sách lịch sử kiểm kê thuộc Đợt này
-            const [existingHistories] = await connection.execute(
-                'SELECT tsId FROM lich_su_kk WHERE dotId = ?',
-                [dotId]
-            );
+            // Lấy tất cả bản ghi ra để giải mã kiểm tra trùng (do dotId và tsId trong DB đều mã hóa AES)
+            const [allHistories] = await connection.execute('SELECT dotId, tsId FROM lich_su_kk');
 
-            // Kiểm tra trùng lặp (so sánh cả dạng giải mã lẫn dạng chuỗi thô)
             let isDuplicate = false;
-            for (let row of existingHistories) {
+            for (let row of allHistories) {
+                const dbDotIdDecrypted = decryptData(row.dotId).trim();
                 const dbTsIdDecrypted = decryptData(row.tsId).trim();
-                if (dbTsIdDecrypted === rawScannedTsId || String(row.tsId).trim() === String(tsId).trim()) {
+
+                if (dbDotIdDecrypted === rawTargetDotId && dbTsIdDecrypted === rawTargetTsId) {
                     isDuplicate = true;
                     break;
                 }
@@ -292,14 +295,21 @@ module.exports = async (req, res) => {
             if (isDuplicate) {
                 return res.status(200).json({ 
                     success: false, 
-                    error: `Tài sản [${rawScannedTsId}] đã được kiểm kê trong đợt này!` 
+                    error: `Tài sản [${rawTargetTsId}] đã được kiểm kê trong đợt này!` 
                 });
             }
 
-            // Nếu không trùng thì tiến hành INSERT
+            // Đảm bảo tất cả các trường dữ liệu đều được mã hóa mã AES trước khi INSERT vào MySQL
+            const encDotId = encryptData(rawTargetDotId);
+            const encTsId = encryptData(rawTargetTsId);
+            const encTsName = encryptData(decryptData(tsName));
+            const encNguoiKK = encryptData(decryptData(nguoiKK));
+            const encThoiGian = encryptData(decryptData(thoiGian));
+            const encGhiChu = encryptData(decryptData(ghiChu));
+
             await connection.execute(
                 'INSERT INTO lich_su_kk (dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu) VALUES (?, ?, ?, ?, ?, ?)',
-                [dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu]
+                [encDotId, encTsId, encTsName, encNguoiKK, encThoiGian, encGhiChu]
             );
             return res.json({ success: true, message: 'Đã ghi nhận lịch sử!' });
         }
