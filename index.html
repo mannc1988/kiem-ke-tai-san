@@ -682,19 +682,20 @@
                     { 
                         data: 'dotId', 
                         render: data => {
-                            let dotObj = listDotKiemKe.find(d => String(d.id) === String(data));
-                            let name = dotObj ? dotObj.name : `Đợt ID: ${data}`;
+                            let decryptedDotId = decryptData(data);
+                            let dotObj = listDotKiemKe.find(d => String(d.id) === String(decryptedDotId) || String(d.id) === String(data));
+                            let name = dotObj ? dotObj.name : `Đợt ID: ${decryptedDotId}`;
                             return `<span class="badge bg-info text-dark">${name}</span>`;
                         }
                     },
-                    { data: 'tsId', render: data => `<span class="badge bg-secondary">${data}</span>` },
+                    { data: 'tsId', render: data => `<span class="badge bg-secondary">${decryptData(data)}</span>` },
                     { data: 'tsName', render: data => `<span class="fw-semibold text-dark">${decryptData(data)}</span>` },
                     { data: 'phong_ban', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
                     { data: 'so_serial', render: data => `<span class="badge bg-light text-dark border">${decryptData(data)}</span>` },
-                    { data: 'nguoiKK' },
+                    { data: 'nguoiKK', render: data => decryptData(data) || data },
                     { data: 'ket_qua_kk', render: data => `<span class="badge bg-success-subtle text-success border">${decryptData(data)}</span>` },
                     { data: 'phuong_an_xl', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
-                    { data: 'thoiGian', render: data => `<span class="text-muted small">${data}</span>` },
+                    { data: 'thoiGian', render: data => `<span class="text-muted small">${decryptData(data)}</span>` },
                     { data: 'ghiChu', render: data => `<span class="badge bg-light text-secondary border">${decryptData(data)}</span>` },
                     { 
                         data: 'id', 
@@ -741,11 +742,15 @@
                     
                     lichSuKiemKeCache = (result.lich_su || []).map(h => ({
                         ...h,
+                        dotId: decryptData(h.dotId),
+                        tsId: decryptData(h.tsId),
                         tsName: decryptData(h.tsName),
                         phong_ban: decryptData(h.phong_ban),
                         so_serial: decryptData(h.so_serial),
+                        nguoiKK: decryptData(h.nguoiKK) || h.nguoiKK,
                         ket_qua_kk: decryptData(h.ket_qua_kk),
                         phuong_an_xl: decryptData(h.phuong_an_xl),
+                        thoiGian: decryptData(h.thoiGian) || h.thoiGian,
                         ghiChu: decryptData(h.ghiChu)
                     }));
 
@@ -1070,16 +1075,17 @@
                             <tbody>
                 `;
                 previousHistories.forEach(h => {
-                    let dotObj = listDotKiemKe.find(d => String(d.id) === String(h.dotId));
-                    let dName = dotObj ? dotObj.name : `Đợt ID: ${h.dotId}`;
+                    let decryptedDotId = decryptData(h.dotId);
+                    let dotObj = listDotKiemKe.find(d => String(d.id) === String(decryptedDotId) || String(d.id) === String(h.dotId));
+                    let dName = dotObj ? dotObj.name : `Đợt ID: ${decryptedDotId}`;
                     infoHtml += `
                         <tr>
                             <td><span class="badge bg-info text-dark">${dName}</span></td>
-                            <td>${h.phong_ban || 'N/A'}</td>
-                            <td>${h.so_serial || 'N/A'}</td>
-                            <td>${h.nguoiKK || 'N/A'}</td>
-                            <td><span class="badge bg-success-subtle text-success">${h.ket_qua_kk || 'Đạt'}</span></td>
-                            <td><small class="text-muted">${h.thoiGian}</small></td>
+                            <td>${decryptData(h.phong_ban) || 'N/A'}</td>
+                            <td>${decryptData(h.so_serial) || 'N/A'}</td>
+                            <td>${decryptData(h.nguoiKK) || h.nguoiKK || 'N/A'}</td>
+                            <td><span class="badge bg-success-subtle text-success">${decryptData(h.ket_qua_kk) || 'Đạt'}</span></td>
+                            <td><small class="text-muted">${decryptData(h.thoiGian) || h.thoiGian}</small></td>
                         </tr>
                     `;
                 });
@@ -1116,9 +1122,11 @@
             const rawPhongBan = assetObj ? (assetObj.phong_ban_quan_ly || '') : '';
             const rawSerial = assetObj ? (assetObj.so_serial || '') : '';
             
-            const previousHistories = lichSuKiemKeCache.filter(h => 
-                String(h.tsId) === String(scannedCode) && String(h.dotId) !== String(dotId)
-            );
+            const previousHistories = lichSuKiemKeCache.filter(h => {
+                let dId = decryptData(h.dotId) || h.dotId;
+                let tId = decryptData(h.tsId) || h.tsId;
+                return String(tId) === String(scannedCode) && String(dId) !== String(dotId);
+            });
 
             const thoiGian = new Date().toLocaleString('vi-VN');
             const tsId = scannedCode;
