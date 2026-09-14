@@ -332,7 +332,7 @@
         function decryptData(cipherText) {
             if (!cipherText) return '';
             try {
-                const bytes = CryptoJS.AES.decrypt(cipherText, SECRET_KEY);
+                const bytes = CryptoJS.AES.decrypt(cipherText.toString(), SECRET_KEY);
                 const originalText = bytes.toString(CryptoJS.enc.Utf8);
                 return originalText || cipherText; 
             } catch (e) {
@@ -1069,42 +1069,72 @@
             }
         }
 
-        // HÀM MỞ MODAL SỬA LỊCH SỬ KIỂM KẾ
+        // HÀM MỞ MODAL SỬA LỊCH SỬ KIỂM KẾ (CẬP NHẬT DROPDOWN & PHÒNG BAN, SERIAL)
         async function openEditHistoryModal(encodedJsonStr) {
             const item = JSON.parse(decodeURIComponent(encodedJsonStr));
             editHistoryFilesList = [];
             editHistoryBase64List = [];
             editHistoryExistingDriveUrls = item.tep_dinh_kem ? item.tep_dinh_kem.split(',').map(s => s.trim()).filter(Boolean) : [];
 
+            // Lấy danh sách duy nhất các phòng ban và cán bộ từ danh mục tài sản để làm dropdown
+            let phongBanSet = new Set(['340 - TRUNG TÂM XỬ LÝ NỢ', 'Phòng Hành Chính', 'Phòng Kế Toán', 'Phòng CNTT']);
+            danhSachTS.forEach(t => { if (t.phong_ban_quan_ly) phongBanSet.add(t.phong_ban_quan_ly); });
+            if (item.phong_ban) phongBanSet.add(item.phong_ban);
+
+            let canBoSet = new Set(['Nguyễn Cao Mẫn', 'Lê Duy Phúc', 'Admin']);
+            danhSachTS.forEach(t => { if (t.can_bo_su_dung) canBoSet.add(t.can_bo_su_dung); });
+            if (item.nguoiKK) canBoSet.add(item.nguoiKK);
+
+            let phongBanOptions = Array.from(phongBanSet).map(pb => `<option value="${pb}" ${pb === item.phong_ban ? 'selected' : ''}>${pb}</option>`).join('');
+            let canBoOptions = Array.from(canBoSet).map(cb => `<option value="${cb}" ${cb === item.nguoiKK ? 'selected' : ''}>${cb}</option>`).join('');
+
+            let ketQuaList = ['Khớp danh mục', 'Thừa tài sản', 'Thiếu tài sản', 'Hỏng/Chờ thanh lý'];
+            let ketQuaOptions = ketQuaList.map(kq => `<option value="${kq}" ${kq === item.ket_qua_kk ? 'selected' : ''}>${kq}</option>`).join('');
+
+            let phuongAnList = ['Giữ nguyên', 'Thu hồi', 'Điều chuyển', 'Thanh lý'];
+            let phuongAnOptions = phuongAnList.map(pa => `<option value="${pa}" ${pa === item.phuong_an_xl ? 'selected' : ''}>${pa}</option>`).join('');
+
             const { value: formValues } = await Swal.fire({
                 title: `<span class="text-primary"><i class="fa-solid fa-pen-to-square me-2"></i>Sửa Lịch Sử Kiểm Kê</span>`,
                 html: `
                     <div class="text-start" style="font-size: 0.9rem;">
-                        <div class="mb-2">
-                            <label class="form-label fw-semibold">Mã Tài Sản:</label>
-                            <input type="text" id="swal_tsId" class="form-control form-control-sm bg-light" value="${item.tsId}" readonly>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Mã Tài Sản:</label>
+                                <input type="text" id="swal_tsId" class="form-control form-control-sm bg-light" value="${item.tsId}" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Tên Tài Sản:</label>
+                                <input type="text" id="swal_tsName" class="form-control form-control-sm bg-light" value="${item.tsName}" readonly>
+                            </div>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label fw-semibold">Tên Tài Sản:</label>
-                            <input type="text" id="swal_tsName" class="form-control form-control-sm bg-light" value="${item.tsName}" readonly>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Phòng Ban:</label>
+                                <select id="swal_phong_ban" class="form-select form-select-sm">${phongBanOptions}</select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Số Serial (Nhập tự do):</label>
+                                <input type="text" id="swal_so_serial" class="form-control form-control-sm" value="${item.so_serial || ''}">
+                            </div>
                         </div>
                         <div class="row g-2 mb-2">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Cán Bộ Kiểm Kê:</label>
-                                <input type="text" id="swal_nguoiKK" class="form-control form-control-sm" value="${item.nguoiKK || ''}">
+                                <select id="swal_nguoiKK" class="form-select form-select-sm">${canBoOptions}</select>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Kết Quả KK:</label>
-                                <input type="text" id="swal_ket_qua_kk" class="form-control form-control-sm" value="${item.ket_qua_kk || 'Đạt'}">
+                                <select id="swal_ket_qua_kk" class="form-select form-select-sm">${ketQuaOptions}</select>
                             </div>
                         </div>
                         <div class="row g-2 mb-2">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Phương Án XL:</label>
-                                <input type="text" id="swal_phuong_an_xl" class="form-control form-control-sm" value="${item.phuong_an_xl || 'Tiếp tục sử dụng'}">
+                                <select id="swal_phuong_an_xl" class="form-select form-select-sm">${phuongAnOptions}</select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Ghi Chú:</label>
+                                <label class="form-label fw-semibold">Ghi Chú (Nhập tự do):</label>
                                 <input type="text" id="swal_ghiChu" class="form-control form-control-sm" value="${item.ghiChu || ''}">
                             </div>
                         </div>
@@ -1115,7 +1145,7 @@
                         </div>
                     </div>
                 `,
-                width: '600px',
+                width: '650px',
                 showCancelButton: true,
                 confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> Lưu thay đổi',
                 cancelButtonText: 'Hủy',
@@ -1125,9 +1155,11 @@
                 },
                 preConfirm: () => {
                     return {
-                        nguoiKK: document.getElementById('swal_nguoiKK').value.trim(),
-                        ket_qua_kk: document.getElementById('swal_ket_qua_kk').value.trim(),
-                        phuong_an_xl: document.getElementById('swal_phuong_an_xl').value.trim(),
+                        phong_ban: document.getElementById('swal_phong_ban').value,
+                        so_serial: document.getElementById('swal_so_serial').value.trim(),
+                        nguoiKK: document.getElementById('swal_nguoiKK').value,
+                        ket_qua_kk: document.getElementById('swal_ket_qua_kk').value,
+                        phuong_an_xl: document.getElementById('swal_phuong_an_xl').value,
                         ghiChu: document.getElementById('swal_ghiChu').value.trim()
                     }
                 }
@@ -1163,6 +1195,8 @@
 
                 const payload = {
                     id: item.id,
+                    phong_ban: encryptData(formValues.phong_ban),
+                    so_serial: encryptData(formValues.so_serial),
                     nguoiKK: formValues.nguoiKK,
                     ket_qua_kk: encryptData(formValues.ket_qua_kk),
                     phuong_an_xl: encryptData(formValues.phuong_an_xl),
@@ -1365,8 +1399,8 @@
             const tsName = encryptData(rawTsName);
             const phong_ban = encryptData(rawPhongBan);
             const so_serial = encryptData(rawSerial);
-            const ket_qua_kk = encryptData('Đạt');
-            const phuong_an_xl = encryptData('Tiếp tục sử dụng');
+            const ket_qua_kk = encryptData('Khớp danh mục');
+            const phuong_an_xl = encryptData('Giữ nguyên');
             const tep_dinh_kem = encryptData('');
             const ghiChu = encryptData('Quét QR hệ thống');
 
@@ -1403,8 +1437,8 @@
                         phong_ban: rawPhongBan,
                         so_serial: rawSerial,
                         nguoiKK: nguoiKK,
-                        ket_qua_kk: 'Đạt',
-                        phuong_an_xl: 'Tiếp tục sử dụng',
+                        ket_qua_kk: 'Khớp danh mục',
+                        phuong_an_xl: 'Giữ nguyên',
                         tep_dinh_kem: '',
                         thoiGian: thoiGian,
                         ghiChu: 'Quét QR hệ thống'
