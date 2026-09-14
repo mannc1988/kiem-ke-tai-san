@@ -73,35 +73,45 @@ module.exports = async (req, res) => {
         }
 
         // 2. PHÂN TRANG DATATABLE DANH MỤC
-        if (action === 'server_assets') {
-            const draw = parseInt(req.query.draw) || 1;
-            const start = parseInt(req.query.start) || 0;
-            const length = parseInt(req.query.length) || 10;
-            const searchValue = req.query.search && req.query.search.value ? req.query.search.value.trim() : '';
+        // 2. PHÂN TRANG DATATABLE DANH MỤC (ĐÃ SỬA LỖI SYNTAX LIMIT/OFFSET)
+if (action === 'server_assets') {
+    const draw = parseInt(req.query.draw) || 1;
+    const start = parseInt(req.query.start) || 0;
+    const length = parseInt(req.query.length) || 10;
+    const searchValue = req.query.search && req.query.search.value ? req.query.search.value.trim() : '';
 
-            let baseWhereClause = '';
-            let queryParams = [];
+    let baseWhereClause = '';
+    let searchParams = [];
 
-            if (searchValue) {
-                baseWhereClause = ' WHERE ma_tai_san LIKE ? OR ten_tai_san LIKE ? OR phong_ban_quan_ly LIKE ?';
-                const searchParam = `%${searchValue}%`;
-                queryParams.push(searchParam, searchParam, searchParam);
-            }
+    if (searchValue) {
+        baseWhereClause = ' WHERE ma_tai_san LIKE ? OR ten_tai_san LIKE ? OR phong_ban_quan_ly LIKE ?';
+        const searchParam = `%${searchValue}%`;
+        searchParams = [searchParam, searchParam, searchParam];
+    }
 
-            const countQuery = `SELECT COUNT(*) as total FROM danh_sach_tai_san${baseWhereClause}`;
-            const [countResult] = await connection.execute(countQuery, queryParams);
-            const totalRecords = countResult[0].total;
+    // Đếm tổng số bản ghi không filter
+    const [totalResult] = await connection.execute('SELECT COUNT(*) as total FROM danh_sach_tai_san');
+    const totalRecords = totalResult[0].total;
 
-            const dataQuery = `SELECT * FROM danh_sach_tai_san\({baseWhereClause} ORDER BY ma_tai_san DESC LIMIT\){parseInt(length)} OFFSET ${parseInt(start)}`;
-            const [rows] = await connection.execute(dataQuery, queryParams);
+    // Đếm số bản ghi đã filter
+    const countQuery = `SELECT COUNT(*) as total FROM danh_sach_tai_san${baseWhereClause}`;
+    const [filteredResult] = await connection.execute(countQuery, searchParams);
+    const recordsFiltered = filteredResult[0].total;
 
-            return res.json({
-                draw: draw,
-                recordsTotal: totalRecords,
-                recordsFiltered: totalRecords,
-                data: rows
-            });
-        }
+    // CÂU LỆNH ĐÃ SỬA CHUẨN CÚ PHÁP MYSQL (Không chứa ngoặc nhọn dư thừa)
+    const limitVal = parseInt(length);
+    const offsetVal = parseInt(start);
+    const dataQuery = `SELECT * FROM danh_sach_tai_san\({baseWhereClause} ORDER BY ma_tai_san DESC LIMIT\){limitVal} OFFSET ${offsetVal}`;
+    
+    const [rows] = await connection.execute(dataQuery, searchParams);
+
+    return res.json({
+        draw: draw,
+        recordsTotal: totalRecords,
+        recordsFiltered: recordsFiltered,
+        data: rows
+    });
+}
 
         // 3. PHÂN TRANG LỊCH SỬ (GIẢI MÃ ĐỢT ĐỂ LỌC THEO DOT_ID)
         if (action === 'server_history') {
