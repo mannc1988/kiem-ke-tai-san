@@ -283,9 +283,10 @@
                                 <th>Cán Bộ KK</th>
                                 <th>Kết Quả KK</th>
                                 <th>Phương Án XL</th>
+                                <th>Tệp Đính Kèm</th>
                                 <th>Thời Gian</th>
                                 <th>Ghi Chú</th>
-                                <th class="text-center">Xóa</th>
+                                <th class="text-center">Thao Tác</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -317,6 +318,11 @@
         let tempFilesList = []; 
         let tempBase64List = []; 
         let existingDriveUrls = []; 
+
+        // Biến tạm cho modal sửa lịch sử
+        let editHistoryFilesList = [];
+        let editHistoryBase64List = [];
+        let editHistoryExistingDriveUrls = [];
 
         function encryptData(plainText) {
             if (plainText === undefined || plainText === null || plainText === '') return '';
@@ -695,12 +701,57 @@
                     { data: 'nguoiKK', render: data => decryptData(data) || data },
                     { data: 'ket_qua_kk', render: data => `<span class="badge bg-success-subtle text-success border">${decryptData(data)}</span>` },
                     { data: 'phuong_an_xl', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
+                    { 
+                        data: 'tep_dinh_kem', 
+                        className: 'align-middle',
+                        render: data => {
+                            let decrypted = decryptData(data);
+                            if (!decrypted) return '<span class="text-muted small fst-italic">Không có file</span>';
+                            let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
+                            if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có file</span>';
+
+                            let htmlList = '<div style="max-width: 130px;">';
+                            urls.forEach((url, idx) => {
+                                let fName = url.split('/').pop().split('?')[0] || `File_${idx + 1}.jpg`;
+                                htmlList += `
+                                    <div class="d-flex align-items-center justify-content-between bg-white border rounded px-1 py-0 mb-1 shadow-sm" style="font-size: 0.75rem;">
+                                        <span class="text-truncate me-1 text-secondary" style="max-width: 75px;" title="${fName}">${fName}</span>
+                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="showViewer('${decrypted}')" title="Xem"><i class="fa-solid fa-eye"></i></button>
+                                    </div>
+                                `;
+                            });
+                            htmlList += '</div>';
+                            return htmlList;
+                        }
+                    },
                     { data: 'thoiGian', render: data => `<span class="text-muted small">${decryptData(data)}</span>` },
                     { data: 'ghiChu', render: data => `<span class="badge bg-light text-secondary border">${decryptData(data)}</span>` },
                     { 
                         data: 'id', 
-                        className: 'text-center',
-                        render: data => `<button class="btn btn-outline-danger btn-sm" onclick="deleteHistory(${data})" title="Xóa lịch sử"><i class="fa-solid fa-xmark"></i></button>`
+                        className: 'text-center align-middle',
+                        render: (data, type, row) => {
+                            let hId = data;
+                            let hDot = decryptData(row.dotId) || row.dotId;
+                            let hTsId = decryptData(row.tsId) || row.tsId;
+                            let hTsName = decryptData(row.tsName) || row.tsName;
+                            let hPb = decryptData(row.phong_ban) || row.phong_ban;
+                            let hSerial = decryptData(row.so_serial) || row.so_serial;
+                            let hNguoi = decryptData(row.nguoiKK) || row.nguoiKK;
+                            let hKetQua = decryptData(row.ket_qua_kk) || row.ket_qua_kk;
+                            let hPa = decryptData(row.phuong_an_xl) || row.phuong_an_xl;
+                            let hTep = decryptData(row.tep_dinh_kem) || row.tep_dinh_kem;
+                            let hNote = decryptData(row.ghiChu) || row.ghiChu;
+                            let hTime = decryptData(row.thoiGian) || row.thoiGian;
+
+                            let safeParam = encodeURIComponent(JSON.stringify({
+                                id: hId, dotId: hDot, tsId: hTsId, tsName: hTsName, phong_ban: hPb, so_serial: hSerial, nguoiKK: hNguoi, ket_qua_kk: hKetQua, phuong_an_xl: hPa, tep_dinh_kem: hTep, ghiChu: hNote, thoiGian: hTime
+                            }));
+
+                            return `
+                                <button class="btn btn-warning btn-sm text-white me-1" onclick="openEditHistoryModal('${safeParam}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteHistory(${hId})" title="Xóa"><i class="fa-solid fa-xmark"></i></button>
+                            `;
+                        }
                     }
                 ],
                 language: {
@@ -750,6 +801,7 @@
                         nguoiKK: decryptData(h.nguoiKK) || h.nguoiKK,
                         ket_qua_kk: decryptData(h.ket_qua_kk),
                         phuong_an_xl: decryptData(h.phuong_an_xl),
+                        tep_dinh_kem: decryptData(h.tep_dinh_kem),
                         thoiGian: decryptData(h.thoiGian) || h.thoiGian,
                         ghiChu: decryptData(h.ghiChu)
                     }));
@@ -1017,6 +1069,186 @@
             }
         }
 
+        // HÀM MỞ MODAL SỬA LỊCH SỬ KIỂM KẾ
+        async function openEditHistoryModal(encodedJsonStr) {
+            const item = JSON.parse(decodeURIComponent(encodedJsonStr));
+            editHistoryFilesList = [];
+            editHistoryBase64List = [];
+            editHistoryExistingDriveUrls = item.tep_dinh_kem ? item.tep_dinh_kem.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+            const { value: formValues } = await Swal.fire({
+                title: `<span class="text-primary"><i class="fa-solid fa-pen-to-square me-2"></i>Sửa Lịch Sử Kiểm Kê</span>`,
+                html: `
+                    <div class="text-start" style="font-size: 0.9rem;">
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold">Mã Tài Sản:</label>
+                            <input type="text" id="swal_tsId" class="form-control form-control-sm bg-light" value="${item.tsId}" readonly>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold">Tên Tài Sản:</label>
+                            <input type="text" id="swal_tsName" class="form-control form-control-sm bg-light" value="${item.tsName}" readonly>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Cán Bộ Kiểm Kê:</label>
+                                <input type="text" id="swal_nguoiKK" class="form-control form-control-sm" value="${item.nguoiKK || ''}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Kết Quả KK:</label>
+                                <input type="text" id="swal_ket_qua_kk" class="form-control form-control-sm" value="${item.ket_qua_kk || 'Đạt'}">
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Phương Án XL:</label>
+                                <input type="text" id="swal_phuong_an_xl" class="form-control form-control-sm" value="${item.phuong_an_xl || 'Tiếp tục sử dụng'}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Ghi Chú:</label>
+                                <input type="text" id="swal_ghiChu" class="form-control form-control-sm" value="${item.ghiChu || ''}">
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold">Đính Kèm Tệp/Ảnh (Google Drive):</label>
+                            <input type="file" id="swal_fileInput" class="form-control form-control-sm mb-1" multiple onchange="handleEditHistoryFilesSelect(event)">
+                            <div id="swal_fileDetailList" class="mt-2 border rounded p-2 bg-white" style="max-height: 120px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                `,
+                width: '600px',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> Lưu thay đổi',
+                cancelButtonText: 'Hủy',
+                confirmButtonColor: '#198754',
+                didOpen: () => {
+                    renderEditHistoryFileList();
+                },
+                preConfirm: () => {
+                    return {
+                        nguoiKK: document.getElementById('swal_nguoiKK').value.trim(),
+                        ket_qua_kk: document.getElementById('swal_ket_qua_kk').value.trim(),
+                        phuong_an_xl: document.getElementById('swal_phuong_an_xl').value.trim(),
+                        ghiChu: document.getElementById('swal_ghiChu').value.trim()
+                    }
+                }
+            });
+
+            if (formValues) {
+                Swal.fire({
+                    title: 'Đang lưu lịch sử...',
+                    text: 'Đang đồng bộ file lên Google Drive...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                let finalDriveUrls = [...editHistoryExistingDriveUrls];
+                for (let file of editHistoryFilesList) {
+                    try {
+                        let b64 = await toBase64(file);
+                        const res = await fetch(`${API_URL}?action=upload_drive`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                fileName: `History_${Date.now()}_${file.name}`,
+                                fileData: b64,
+                                mimeType: file.type
+                            })
+                        });
+                        const resJson = await res.json();
+                        if (resJson.success) {
+                            finalDriveUrls.push(resJson.url);
+                        }
+                    } catch (e) {}
+                }
+
+                const payload = {
+                    id: item.id,
+                    nguoiKK: formValues.nguoiKK,
+                    ket_qua_kk: encryptData(formValues.ket_qua_kk),
+                    phuong_an_xl: encryptData(formValues.phuong_an_xl),
+                    tep_dinh_kem: encryptData(finalDriveUrls.join(',')),
+                    ghiChu: encryptData(formValues.ghiChu)
+                };
+
+                try {
+                    const updateRes = await fetch(`${API_URL}?action=update_history`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const updateJson = await updateRes.json();
+                    if (updateJson.success) {
+                        Swal.fire({ icon: 'success', title: 'Đã cập nhật lịch sử thành công!', timer: 1200, showConfirmButton: false });
+                        refreshData();
+                    } else {
+                        Swal.fire('Lỗi', updateJson.error || 'Không thể cập nhật lịch sử!', 'error');
+                    }
+                } catch (err) {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
+                }
+            }
+        }
+
+        async function handleEditHistoryFilesSelect(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+            for (let i = 0; i < files.length; i++) {
+                editHistoryFilesList.push(files[i]);
+                let b64 = await toBase64(files[i]);
+                editHistoryBase64List.push(b64);
+            }
+            renderEditHistoryFileList();
+            event.target.value = '';
+        }
+
+        function renderEditHistoryFileList() {
+            const container = document.getElementById('swal_fileDetailList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (editHistoryFilesList.length === 0 && editHistoryExistingDriveUrls.length === 0) {
+                container.innerHTML = `<span class="text-muted small fst-italic">Chưa có file đính kèm nào.</span>`;
+                return;
+            }
+
+            editHistoryExistingDriveUrls.forEach((url, idx) => {
+                let fName = url.split('/').pop().split('?')[0] || `Drive_File_${idx + 1}.jpg`;
+                const div = document.createElement('div');
+                div.className = 'file-detail-item';
+                div.innerHTML = `
+                    <span class="text-truncate me-2 text-primary" style="max-width: 250px;" title="${fName}"><i class="fa-solid fa-cloud-arrow-up me-1"></i> ${fName}</span>
+                    <div>
+                        <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showViewer('${url}')"><i class="fa-solid fa-eye"></i></button>
+                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeEditDriveFile(${idx})"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            editHistoryFilesList.forEach((file, idx) => {
+                const div = document.createElement('div');
+                div.className = 'file-detail-item';
+                div.innerHTML = `
+                    <span class="text-truncate me-2 text-success" style="max-width: 250px;" title="${file.name}"><i class="fa-solid fa-circle-plus me-1"></i> ${file.name}</span>
+                    <div>
+                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeEditTempFile(${idx})"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function removeEditDriveFile(idx) {
+            editHistoryExistingDriveUrls.splice(idx, 1);
+            renderEditHistoryFileList();
+        }
+
+        function removeEditTempFile(idx) {
+            editHistoryFilesList.splice(idx, 1);
+            editHistoryBase64List.splice(idx, 1);
+            renderEditHistoryFileList();
+        }
+
         function generateModalHtml(scannedCode, assetObj, previousHistories, currentDotName) {
             let infoHtml = '';
 
@@ -1173,6 +1405,7 @@
                         nguoiKK: nguoiKK,
                         ket_qua_kk: 'Đạt',
                         phuong_an_xl: 'Tiếp tục sử dụng',
+                        tep_dinh_kem: '',
                         thoiGian: thoiGian,
                         ghiChu: 'Quét QR hệ thống'
                     });
@@ -1415,7 +1648,7 @@
                             phong_ban_quan_ly: encryptData(phong_ban_quan_ly),
                             so_serial: encryptData(so_serial),
                             hinh_anh: encryptData(hinh_anh),
-                            import_at: encryptData(import_at)
+                            import_at: encryptData(currentTimestamp)
                         });
                     }
 
