@@ -112,7 +112,7 @@
         <!-- PHẦN 1: QUẢN LÝ DANH MỤC TÀI SẢN -->
         <div class="card shadow-sm">
             <div class="card-header bg-success text-white d-flex justify-content-between align-items-center py-3">
-                <h5 class="mb-0"><i class="fa-solid fa-laptop me-2"></i> 1. Quản Lý Danh Mục Tài Sản (Đầy đủ tất cả các trường & Import At)</h5>
+                <h5 class="mb-0"><i class="fa-solid fa-laptop me-2"></i> 1. Quản Lý Danh Mục Tài Sản</h5>
                 <div>
                     <label for="excelFile" class="btn btn-light btn-sm text-success fw-bold mb-0 cursor-pointer shadow-sm">
                         <i class="fa-solid fa-file-excel me-1"></i> Import Excel Theo Lô
@@ -248,7 +248,7 @@
                                 <input type="text" id="txtNguoiKK" class="form-control border-primary-subtle" value="Nguyễn Cao Mẫn">
                             </div>
                             <div class="alert alert-warning py-2 small mb-0">
-                                <i class="fa-solid fa-shield-halved me-1"></i> <b>Chống trùng tuyệt đối:</b> Mỗi mã tài sản chỉ được phép quét 1 lần duy nhất trong cùng 1 đợt kiểm kê.
+                                <i class="fa-solid fa-shield-halved me-1"></i> <b>Chống trùng tuyệt đối trong CSDL:</b> Máy chủ sẽ tự động từ chối nếu mã tài sản đã tồn tại trong đợt này.
                             </div>
                         </div>
                     </div>
@@ -670,7 +670,7 @@
                     url: `${API_URL}?action=server_history`,
                     type: 'GET',
                     data: function(d) {
-                        d.dot_id = $('#selectDot').value;
+                        d.dot_id = $('#selectDot').val();
                     }
                 },
                 columns: [
@@ -1000,7 +1000,7 @@
             }
         }
 
-        function showAssetDetailAndHistoryModal(scannedCode, assetObj, previousHistories, currentDotName) {
+        function generateModalHtml(scannedCode, assetObj, previousHistories, currentDotName) {
             let infoHtml = '';
 
             if (assetObj) {
@@ -1077,14 +1077,7 @@
             }
 
             infoHtml += `</div></div>`;
-
-            Swal.fire({
-                title: `<span class="text-success"><i class="fa-solid fa-circle-check me-2"></i>Ghi Nhận Kiểm Kê Thành Công!</span>`,
-                html: infoHtml,
-                width: '750px',
-                confirmButtonText: '<i class="fa-solid fa-check me-1"></i> Đóng & Tiếp tục quét',
-                confirmButtonColor: '#198754'
-            });
+            return infoHtml;
         }
 
         async function onScanSuccess(decodedText) {
@@ -1102,36 +1095,6 @@
             }
 
             const resultDiv = document.getElementById('scan-result');
-
-            // CHỐNG TRÙNG THEO MÃ TÀI SẢN + ĐỢT KIỂM KÊ
-            const isAlreadyScannedInThisDot = lichSuKiemKeCache.some(h => 
-                String(h.dotId) === String(dotId) && String(h.tsId) === String(scannedCode)
-            );
-
-            if (isAlreadyScannedInThisDot) {
-                playBeep();
-                let dotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
-                let dotName = dotObj ? dotObj.name : `Đợt ID: ${dotId}`;
-
-                resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
-                resultDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> Trùng mã: Tài sản ${scannedCode} đã kiểm kê trong ${dotName}!`;
-
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Trùng Mã Theo Đợt!',
-                    html: `Mã tài sản <b>${scannedCode}</b> đã được kiểm kê thành công trong đợt: <br><b class="text-danger">${dotName}</b>!`,
-                    confirmButtonText: 'Đóng',
-                    confirmButtonColor: '#dc3545'
-                });
-
-                setTimeout(() => {
-                    isScanning = true;
-                    resultDiv.innerText = '';
-                    resultDiv.className = 'mt-3 fw-bold fs-6';
-                }, 2500);
-                return;
-            }
-
             const assetObj = danhSachTS.find(t => String(t.ma_tai_san) === String(scannedCode));
             const rawTsName = assetObj ? assetObj.ten_tai_san : `Tài sản quét (${scannedCode})`;
             
@@ -1145,9 +1108,10 @@
             const ghiChu = encryptData('Quét QR hệ thống');
 
             resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-warning-subtle text-warning border border-warning rounded';
-            resultDiv.innerText = `Đang xử lý mã: ${scannedCode}...`;
+            resultDiv.innerText = `Đang kiểm tra CSDL & ghi nhận: ${scannedCode}...`;
 
             try {
+                // Gửi request tới Server backend để check DB
                 const response = await fetch(`${API_URL}?action=history`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1157,6 +1121,17 @@
                 
                 if (result.success) {
                     playBeep();
+
+                    // Cập nhật Cache local khi server lưu thành công
+                    lichSuKiemKeCache.push({
+                        dotId: dotId,
+                        tsId: scannedCode,
+                        tsName: rawTsName,
+                        nguoiKK: nguoiKK,
+                        thoiGian: thoiGian,
+                        ghiChu: 'Quét QR hệ thống'
+                    });
+
                     resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-success-subtle text-success border border-success rounded';
                     resultDiv.innerHTML = `<i class="fa-solid fa-circle-check me-1"></i> Ghi nhận thành công: ${rawTsName}!`;
                     
@@ -1165,21 +1140,41 @@
                     let dotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
                     let currentDotName = dotObj ? dotObj.name : `Đợt ID: ${dotId}`;
                     
-                    showAssetDetailAndHistoryModal(scannedCode, assetObj, previousHistories, currentDotName);
+                    Swal.fire({
+                        title: `<span class="text-success"><i class="fa-solid fa-circle-check me-2"></i>Ghi Nhận Kiểm Kê Thành Công!</span>`,
+                        html: generateModalHtml(scannedCode, assetObj, previousHistories, currentDotName),
+                        width: '750px',
+                        confirmButtonText: '<i class="fa-solid fa-check me-1"></i> Đóng & Tiếp tục quét',
+                        confirmButtonColor: '#198754'
+                    }).then(() => {
+                        isScanning = true;
+                    });
+
                 } else {
+                    // XỬ LÝ KHI SERVER BÁO LỖI TRÙNG TRONG DATABASE
+                    playBeep();
+                    let dotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
+                    let dotName = dotObj ? dotObj.name : `Đợt ID: ${dotId}`;
+                    let errorMsg = result.error || `Tài sản ${scannedCode} đã kiểm kê trong đợt này!`;
+
                     resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
-                    resultDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> ${result.error}`;
+                    resultDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> ${errorMsg}`;
+
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Đã Kiểm Kê Trước Đó!',
+                        html: `Mã tài sản <b>${scannedCode}</b> đã tồn tại trong CSDL kiểm kê của đợt: <br><b class="text-danger">${dotName}</b>.<br><br>Hệ thống đã hủy lưu tự động!`,
+                        confirmButtonText: 'Đóng & Tiếp tục',
+                        confirmButtonColor: '#dc3545'
+                    }).then(() => {
+                        isScanning = true;
+                    });
                 }
             } catch (err) {
                 resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
                 resultDiv.innerText = `Lỗi kết nối máy chủ!`;
-            }
-
-            setTimeout(() => {
                 isScanning = true;
-                resultDiv.innerText = '';
-                resultDiv.className = 'mt-3 fw-bold fs-6';
-            }, 2500);
+            }
         }
 
         const html5QrcodeScanner = new Html5QrcodeScanner(
