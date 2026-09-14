@@ -72,48 +72,49 @@ module.exports = async (req, res) => {
             return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
         }
 
-        // 2. PHÂN TRANG DATATABLE DANH MỤC
-        // 2. PHÂN TRANG DATATABLE DANH MỤC (ĐÃ SỬA LỖI SYNTAX LIMIT/OFFSET)
-if (action === 'server_assets') {
-    const draw = parseInt(req.query.draw) || 1;
-    const start = parseInt(req.query.start) || 0;
-    const length = parseInt(req.query.length) || 10;
-    const searchValue = req.query.search && req.query.search.value ? req.query.search.value.trim() : '';
+        // 2. PHÂN TRANG DATATABLE DANH MỤC (ĐÃ SỬA DÙNG THAM SỐ ? CHO LIMIT/OFFSET ĐỂ TRÁNH LỖI CÚ PHÁP)
+        if (action === 'server_assets') {
+            const draw = parseInt(req.query.draw) || 1;
+            const start = parseInt(req.query.start) || 0;
+            const length = parseInt(req.query.length) || 10;
+            const searchValue = req.query.search && req.query.search.value ? req.query.search.value.trim() : '';
 
-    let baseWhereClause = '';
-    let searchParams = [];
+            let baseWhereClause = '';
+            let searchParams = [];
 
-    if (searchValue) {
-        baseWhereClause = ' WHERE ma_tai_san LIKE ? OR ten_tai_san LIKE ? OR phong_ban_quan_ly LIKE ?';
-        const searchParam = `%${searchValue}%`;
-        searchParams = [searchParam, searchParam, searchParam];
-    }
+            if (searchValue) {
+                baseWhereClause = ' WHERE ma_tai_san LIKE ? OR ten_tai_san LIKE ? OR phong_ban_quan_ly LIKE ?';
+                const searchParam = `%${searchValue}%`;
+                searchParams = [searchParam, searchParam, searchParam];
+            }
 
-    // Đếm tổng số bản ghi không filter
-    const [totalResult] = await connection.execute('SELECT COUNT(*) as total FROM danh_sach_tai_san');
-    const totalRecords = totalResult[0].total;
+            // Đếm tổng số bản ghi
+            const [totalResult] = await connection.execute('SELECT COUNT(*) as total FROM danh_sach_tai_san');
+            const totalRecords = totalResult[0].total;
 
-    // Đếm số bản ghi đã filter
-    const countQuery = `SELECT COUNT(*) as total FROM danh_sach_tai_san${baseWhereClause}`;
-    const [filteredResult] = await connection.execute(countQuery, searchParams);
-    const recordsFiltered = filteredResult[0].total;
+            // Đếm số bản ghi sau lọc
+            const countQuery = `SELECT COUNT(*) as total FROM danh_sach_tai_san${baseWhereClause}`;
+            const [filteredResult] = await connection.execute(countQuery, searchParams);
+            const recordsFiltered = filteredResult[0].total;
 
-    // CÂU LỆNH ĐÃ SỬA CHUẨN CÚ PHÁP MYSQL (Không chứa ngoặc nhọn dư thừa)
-    const limitVal = parseInt(length);
-    const offsetVal = parseInt(start);
-    const dataQuery = `SELECT * FROM danh_sach_tai_san\({baseWhereClause} ORDER BY ma_tai_san DESC LIMIT\){limitVal} OFFSET ${offsetVal}`;
-    
-    const [rows] = await connection.execute(dataQuery, searchParams);
+            // Truy vấn lấy dữ liệu với LIMIT và OFFSET dùng hằng số đã ép kiểu Int
+            const limitVal = Math.max(1, parseInt(length));
+            const offsetVal = Math.max(0, parseInt(start));
+            
+            const dataQuery = `SELECT * FROM danh_sach_tai_san${baseWhereClause} ORDER BY ma_tai_san DESC LIMIT ? OFFSET ?`;
+            const queryArgs = [...searchParams, limitVal, offsetVal];
 
-    return res.json({
-        draw: draw,
-        recordsTotal: totalRecords,
-        recordsFiltered: recordsFiltered,
-        data: rows
-    });
-}
+            const [rows] = await connection.execute(dataQuery, queryArgs);
 
-        // 3. PHÂN TRANG LỊCH SỬ (GIẢI MÃ ĐỢT ĐỂ LỌC THEO DOT_ID)
+            return res.json({
+                draw: draw,
+                recordsTotal: totalRecords,
+                recordsFiltered: recordsFiltered,
+                data: rows
+            });
+        }
+
+        // 3. PHÂN TRANG LỊCH SỬ (GIẢI MÃ VÀ LỌC THEO DOT_ID)
         if (action === 'server_history') {
             const draw = parseInt(req.query.draw) || 1;
             const start = parseInt(req.query.start) || 0;
@@ -122,7 +123,6 @@ if (action === 'server_assets') {
 
             const [allRows] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
             
-            // Lọc theo dotId sau khi giải mã (do dotId đã được mã hóa AES)
             let filteredRows = allRows;
             if (selectedDotId) {
                 filteredRows = allRows.filter(row => {
@@ -131,13 +131,14 @@ if (action === 'server_assets') {
                 });
             }
 
-            const totalRecords = filteredRows.length;
+            const totalRecords = allRows.length;
+            const recordsFiltered = filteredRows.length;
             const paginatedRows = filteredRows.slice(start, start + length);
 
             return res.json({
                 draw: draw,
                 recordsTotal: totalRecords,
-                recordsFiltered: totalRecords,
+                recordsFiltered: recordsFiltered,
                 data: paginatedRows
             });
         }
@@ -192,7 +193,7 @@ if (action === 'server_assets') {
             }
         }
 
-        // 4.1. LƯU TÀI SẢN THEO LÔ (BULK SAVE CHO IMPORT EXCEL)
+        // 4.1. LƯU TÀI SẢN THEO LÔ (BULK SAVE)
         if (action === 'save_asset_batch' && req.method === 'POST') {
             const { payloads, duplicateAction } = req.body;
 
@@ -277,7 +278,7 @@ if (action === 'server_assets') {
             return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
         }
 
-        // 6. GHI NHẬN LỊCH SỬ QR (MÃ HÓA TOÀN BỘ CÁC CỘT NGOẠI TRỪ ID TỚI CSDL)
+        // 6. GHI NHẬN LỊCH SỬ QR (MÃ HÓA AES 100% CÁC CỘT TRỪ ID + CHỐNG TRÙNG)
         if (action === 'history' && req.method === 'POST') {
             const { dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu } = req.body;
 
@@ -288,7 +289,6 @@ if (action === 'server_assets') {
             const rawTargetDotId = decryptData(dotId).trim();
             const rawTargetTsId = decryptData(tsId).trim();
 
-            // Lấy tất cả bản ghi ra để giải mã kiểm tra trùng (do dotId và tsId trong DB đều mã hóa AES)
             const [allHistories] = await connection.execute('SELECT dotId, tsId FROM lich_su_kk');
 
             let isDuplicate = false;
@@ -309,7 +309,6 @@ if (action === 'server_assets') {
                 });
             }
 
-            // Đảm bảo tất cả các trường dữ liệu đều được mã hóa mã AES trước khi INSERT vào MySQL
             const encDotId = encryptData(rawTargetDotId);
             const encTsId = encryptData(rawTargetTsId);
             const encTsName = encryptData(decryptData(tsName));
