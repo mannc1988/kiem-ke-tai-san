@@ -1,6 +1,6 @@
 const mysql = require('mysql2/promise');
 const CryptoJS = require('crypto-js');
-const fetch = require('node-fetch'); // Đảm bảo dự án có cài node-fetch hoặc dùng fetch tích hợp sẵn của Node.js
+const fetch = require('node-fetch');
 
 // Cấu hình khóa bí mật AES
 const SECRET_KEY = 'ManNC@2026_SecureKeyAivenMySQL!';
@@ -35,6 +35,8 @@ function decryptData(cipherText) {
 }
 
 module.exports = async (req, res) => {
+    // Tăng giới hạn payload body nếu upload file lớn (PDF, Excel nặng)
+    // Lưu ý: Trên Vercel giới hạn body request mặc định khoảng 4.5MB
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -326,7 +328,7 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: 'Đã xóa lịch sử!' });
         }
 
-        // 7.1. CẬP NHẬT LỊCH SỬ KIỂM KÊ (BỔ SUNG PHÒNG BAN, SERIAL)
+        // 7.1. CẬP NHẬT LỊCH SỬ KIỂM KÊ
         if (action === 'update_history' && req.method === 'POST') {
             const { id, phong_ban, so_serial, nguoiKK, ket_qua_kk, phuong_an_xl, tep_dinh_kem, ghiChu } = req.body;
 
@@ -352,7 +354,7 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: 'Đã cập nhật lịch sử thành công!' });
         }
 
-        // 8. UPLOAD DRIVE (GỌI QUA GOOGLE APPS SCRIPT WEB APP ĐỂ TRÁNH LỖI TOKEN)
+        // 8. UPLOAD MỌI LOẠI FILE QUA GOOGLE APPS SCRIPT WEB APP
         if (action === 'upload_drive' && req.method === 'POST') {
             const { fileName, fileData, mimeType } = req.body;
             const SCRIPT_WEB_APP_URL = process.env.GOOGLE_SCRIPT_WEB_APP_URL;
@@ -361,6 +363,7 @@ module.exports = async (req, res) => {
                 return res.status(500).json({ success: false, error: 'Chưa cấu hình GOOGLE_SCRIPT_WEB_APP_URL trong biến môi trường!' });
             }
 
+            // Gói toàn bộ dữ liệu file (Base64) gửi sang Apps Script để lưu trữ an toàn
             const response = await fetch(SCRIPT_WEB_APP_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -371,7 +374,7 @@ module.exports = async (req, res) => {
             return res.json(result);
         }
 
-        // 9. XÓA DRIVE (NẾU CẦN)
+        // 9. XÓA DRIVE 
         if (action === 'delete_drive' && req.method === 'POST') {
             return res.json({ success: true, message: 'Bỏ qua xóa rác Drive trực tiếp qua Apps Script' });
         }
