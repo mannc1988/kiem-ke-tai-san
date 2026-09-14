@@ -63,7 +63,8 @@ module.exports = async (req, res) => {
         if (action === 'data') {
             const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
             const [dot_kiem_ke] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
-            return res.json({ success: true, danh_sach, dot_kiem_ke });
+            const [lich_su] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
+            return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
         }
 
         // 2. PHÂN TRANG DATATABLE DANH MỤC
@@ -86,7 +87,7 @@ module.exports = async (req, res) => {
             const [countResult] = await connection.execute(countQuery, queryParams);
             const totalRecords = countResult[0].total;
 
-            const dataQuery = `SELECT * FROM danh_sach_tai_san${baseWhereClause} ORDER BY ma_tai_san DESC LIMIT ${parseInt(length)} OFFSET ${parseInt(start)}`;
+            const dataQuery = `SELECT * FROM danh_sach_tai_san\({baseWhereClause} ORDER BY ma_tai_san DESC LIMIT\){parseInt(length)} OFFSET ${parseInt(start)}`;
             const [rows] = await connection.execute(dataQuery, queryParams);
 
             return res.json({
@@ -102,12 +103,22 @@ module.exports = async (req, res) => {
             const draw = parseInt(req.query.draw) || 1;
             const start = parseInt(req.query.start) || 0;
             const length = parseInt(req.query.length) || 10;
+            const dotId = req.query.dot_id;
 
-            const [countResult] = await connection.execute('SELECT COUNT(*) as total FROM lich_su_kk');
+            let whereClause = '';
+            let queryParams = [];
+
+            if (dotId) {
+                whereClause = ' WHERE dotId = ?';
+                queryParams.push(dotId);
+            }
+
+            const countQuery = `SELECT COUNT(*) as total FROM lich_su_kk${whereClause}`;
+            const [countResult] = await connection.execute(countQuery, queryParams);
             const totalRecords = countResult[0].total;
 
-            const dataQuery = `SELECT * FROM lich_su_kk ORDER BY id DESC LIMIT ${parseInt(length)} OFFSET ${parseInt(start)}`;
-            const [rows] = await connection.execute(dataQuery);
+            const dataQuery = `SELECT * FROM lich_su_kk\({whereClause} ORDER BY id DESC LIMIT\){parseInt(length)} OFFSET ${parseInt(start)}`;
+            const [rows] = await connection.execute(dataQuery, queryParams);
 
             return res.json({
                 draw: draw,
@@ -223,7 +234,7 @@ module.exports = async (req, res) => {
                             );
                             successCount++;
                         } catch (updateErr) {
-                            batchErrors.push(`Lỗi cập nhật mã ${decryptedNewMaTS}: ${updateErr.message}`);
+                            batchErrors.push(`Lỗi cập nhật mã \({decryptedNewMaTS}:\){updateErr.message}`);
                         }
                     }
                 } else {
@@ -237,7 +248,7 @@ module.exports = async (req, res) => {
                         successCount++;
                         allAssets.push({ ma_tai_san });
                     } catch (insertErr) {
-                        batchErrors.push(`Lỗi thêm mới mã ${decryptedNewMaTS}: ${insertErr.message}`);
+                        batchErrors.push(`Lỗi thêm mới mã \({decryptedNewMaTS}:\){insertErr.message}`);
                     }
                 }
             }
@@ -252,9 +263,40 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
         }
 
-        // 6. GHI NHẬN LỊCH SỬ QR
+        // 6. GHI NHẬN LỊCH SỬ QR (ĐÃ SỬA CHỐNG TRÙNG ĐỢT + MÃ TÀI SẢN TỪ DATABASE)
         if (action === 'history' && req.method === 'POST') {
             const { dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu } = req.body;
+
+            if (!dotId || !tsId) {
+                return res.status(400).json({ success: false, error: 'Thiếu thông tin Đợt kiểm kê hoặc Mã tài sản!' });
+            }
+
+            const rawScannedTsId = decryptData(tsId).trim();
+
+            // Truy vấn lấy danh sách lịch sử kiểm kê thuộc Đợt này
+            const [existingHistories] = await connection.execute(
+                'SELECT tsId FROM lich_su_kk WHERE dotId = ?',
+                [dotId]
+            );
+
+            // Kiểm tra trùng lặp (so sánh cả dạng giải mã lẫn dạng chuỗi thô)
+            let isDuplicate = false;
+            for (let row of existingHistories) {
+                const dbTsIdDecrypted = decryptData(row.tsId).trim();
+                if (dbTsIdDecrypted === rawScannedTsId || String(row.tsId).trim() === String(tsId).trim()) {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+
+            if (isDuplicate) {
+                return res.status(200).json({ 
+                    success: false, 
+                    error: `Tài sản [${rawScannedTsId}] đã được kiểm kê trong đợt này!` 
+                });
+            }
+
+            // Nếu không trùng thì tiến hành INSERT
             await connection.execute(
                 'INSERT INTO lich_su_kk (dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu) VALUES (?, ?, ?, ?, ?, ?)',
                 [dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu]
