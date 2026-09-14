@@ -72,7 +72,7 @@ module.exports = async (req, res) => {
             return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
         }
 
-        // 2. PHÂN TRANG DATATABLE DANH MỤC (ĐÃ SỬA DÙNG THAM SỐ ? CHO LIMIT/OFFSET ĐỂ TRÁNH LỖI CÚ PHÁP)
+        // 2. PHÂN TRANG DATATABLE DANH MỤC TÀI SẢN
         if (action === 'server_assets') {
             const draw = parseInt(req.query.draw) || 1;
             const start = parseInt(req.query.start) || 0;
@@ -88,23 +88,18 @@ module.exports = async (req, res) => {
                 searchParams = [searchParam, searchParam, searchParam];
             }
 
-            // Đếm tổng số bản ghi
             const [totalResult] = await connection.execute('SELECT COUNT(*) as total FROM danh_sach_tai_san');
             const totalRecords = totalResult[0].total;
 
-            // Đếm số bản ghi sau lọc
             const countQuery = `SELECT COUNT(*) as total FROM danh_sach_tai_san${baseWhereClause}`;
             const [filteredResult] = await connection.execute(countQuery, searchParams);
             const recordsFiltered = filteredResult[0].total;
 
-            // Truy vấn lấy dữ liệu với LIMIT và OFFSET dùng hằng số đã ép kiểu Int
             const limitVal = Math.max(1, parseInt(length));
             const offsetVal = Math.max(0, parseInt(start));
             
             const dataQuery = `SELECT * FROM danh_sach_tai_san${baseWhereClause} ORDER BY ma_tai_san DESC LIMIT ? OFFSET ?`;
-            const queryArgs = [...searchParams, limitVal, offsetVal];
-
-            const [rows] = await connection.execute(dataQuery, queryArgs);
+            const [rows] = await connection.execute(dataQuery, [...searchParams, limitVal, offsetVal]);
 
             return res.json({
                 draw: draw,
@@ -114,7 +109,7 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 3. PHÂN TRANG LỊCH SỬ (GIẢI MÃ VÀ LỌC THEO DOT_ID)
+        // 3. PHÂN TRANG DATATABLE LỊCH SỬ KIỂM KÊ (DÀNH CHO BẢNG MỚI)
         if (action === 'server_history') {
             const draw = parseInt(req.query.draw) || 1;
             const start = parseInt(req.query.start) || 0;
@@ -193,7 +188,7 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 4.1. LƯU TÀI SẢN THEO LÔ (BULK SAVE)
+        // 4.1. LƯU TÀI SẢN THEO LÔ (BULK SAVE IMPORT EXCEL)
         if (action === 'save_asset_batch' && req.method === 'POST') {
             const { payloads, duplicateAction } = req.body;
 
@@ -278,9 +273,12 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
         }
 
-        // 6. GHI NHẬN LỊCH SỬ QR (MÃ HÓA AES 100% CÁC CỘT TRỪ ID + CHỐNG TRÙNG)
+        // 6. GHI NHẬN LỊCH SỬ QR (MÃ HÓA AES TOÀN BỘ CÁC CỘT BẢNG MỚI TRỪ ID)
         if (action === 'history' && req.method === 'POST') {
-            const { dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu } = req.body;
+            const { 
+                tsId, phong_ban, so_serial, nguoiKK, ghiChu, 
+                dotId, ket_qua_kk, phuong_an_xl, tep_dinh_kem, thoiGian, tsName 
+            } = req.body;
 
             if (!dotId || !tsId) {
                 return res.status(400).json({ success: false, error: 'Thiếu thông tin Đợt kiểm kê hoặc Mã tài sản!' });
@@ -289,6 +287,7 @@ module.exports = async (req, res) => {
             const rawTargetDotId = decryptData(dotId).trim();
             const rawTargetTsId = decryptData(tsId).trim();
 
+            // Kiểm tra trùng lặp tài sản trong cùng đợt kiểm kê
             const [allHistories] = await connection.execute('SELECT dotId, tsId FROM lich_su_kk');
 
             let isDuplicate = false;
@@ -309,18 +308,27 @@ module.exports = async (req, res) => {
                 });
             }
 
-            const encDotId = encryptData(rawTargetDotId);
+            // Mã hóa AES 100% dữ liệu trước khi INSERT
             const encTsId = encryptData(rawTargetTsId);
-            const encTsName = encryptData(decryptData(tsName));
+            const encPhongBan = encryptData(decryptData(phong_ban));
+            const encSerial = encryptData(decryptData(so_serial));
             const encNguoiKK = encryptData(decryptData(nguoiKK));
-            const encThoiGian = encryptData(decryptData(thoiGian));
             const encGhiChu = encryptData(decryptData(ghiChu));
+            const encDotId = encryptData(rawTargetDotId);
+            const encKetQua = encryptData(decryptData(ket_qua_kk || 'Khớp danh mục'));
+            const encPhuongAn = encryptData(decryptData(phuong_an_xl || 'Giữ nguyên'));
+            const encTepDinhKem = encryptData(decryptData(tep_dinh_kem || ''));
+            const encThoiGian = encryptData(decryptData(thoiGian));
+            const encTsName = encryptData(decryptData(tsName));
 
             await connection.execute(
-                'INSERT INTO lich_su_kk (dotId, tsId, tsName, nguoiKK, thoiGian, ghiChu) VALUES (?, ?, ?, ?, ?, ?)',
-                [encDotId, encTsId, encTsName, encNguoiKK, encThoiGian, encGhiChu]
+                `INSERT INTO lich_su_kk 
+                (tsId, phong_ban, so_serial, nguoiKK, ghiChu, dotId, ket_qua_kk, phuong_an_xl, tep_dinh_kem, thoiGian, tsName) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [encTsId, encPhongBan, encSerial, encNguoiKK, encGhiChu, encDotId, encKetQua, encPhuongAn, encTepDinhKem, encThoiGian, encTsName]
             );
-            return res.json({ success: true, message: 'Đã ghi nhận lịch sử!' });
+
+            return res.json({ success: true, message: 'Đã ghi nhận lịch sử kiểm kê!' });
         }
 
         // 7. XÓA LỊCH SỬ
