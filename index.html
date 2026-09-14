@@ -28,7 +28,7 @@
     <!-- Crypto-JS dùng để mã hóa AES -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <!-- Thư viện SheetJS đọc file Excel -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- QR Scanner Library -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
@@ -106,7 +106,7 @@
         <!-- Header -->
         <div class="text-center mb-4">
             <h2 class="fw-bold text-primary"><i class="fa-solid fa-boxes-stacked me-2"></i>QUẢN LÝ & KIỂM KẾ TÀI SẢN (AES & GOOGLE DRIVE)</h2>
-            <p class="text-muted">Hệ thống bảo mật dữ liệu đầu cuối & lưu trữ ảnh trực tiếp lên Google Drive</p>
+            <p class="text-muted">Hệ thống bảo mật dữ liệu đầu cuối & lưu trữ tệp trực tiếp lên Google Drive</p>
         </div>
 
         <!-- PHẦN 1: QUẢN LÝ DANH MỤC TÀI SẢN -->
@@ -186,8 +186,9 @@
                             <input type="text" id="so_serial" class="form-control form-control-sm" placeholder="Serial máy">
                         </div>
                         <div class="col-md-5">
-                            <label class="form-label fw-semibold small">Quản Lý Ảnh Đính Kèm (CRUD):</label>
-                            <input type="file" id="imageFiles" class="form-control form-control-sm mb-1" accept="image/*" multiple onchange="handleTempImagesSelect(event)">
+                            <label class="form-label fw-semibold small">Quản Lý Tệp/Ảnh Đính Kèm (CRUD):</label>
+                            <!-- Đã sửa accept="*/*" để upload mọi loại file -->
+                            <input type="file" id="imageFiles" class="form-control form-control-sm mb-1" accept="*/*" multiple onchange="handleTempImagesSelect(event)">
                             <div id="imageDetailList" class="mt-2"></div>
                             <input type="hidden" id="hinh_anh_url" value="">
                         </div>
@@ -204,7 +205,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th>STT</th>
-                                <th>Ảnh Đính Kèm</th>
+                                <th>Tệp/Ảnh Đính Kèm</th>
                                 <th>Mã Tài Sản</th>
                                 <th>Đơn Vị</th>
                                 <th>Tên Tài Sản</th>
@@ -319,7 +320,6 @@
         let tempBase64List = []; 
         let existingDriveUrls = []; 
 
-        // Biến tạm cho modal sửa lịch sử
         let editHistoryFilesList = [];
         let editHistoryBase64List = [];
         let editHistoryExistingDriveUrls = [];
@@ -450,27 +450,27 @@
             container.innerHTML = '';
 
             if (tempFilesList.length === 0 && existingDriveUrls.length === 0) {
-                container.innerHTML = `<span class="text-muted small fst-italic">Chưa có ảnh đính kèm nào.</span>`;
+                container.innerHTML = `<span class="text-muted small fst-italic">Chưa có tệp đính kèm nào.</span>`;
                 return;
             }
 
             if (existingDriveUrls.length > 0) {
                 const headerDrive = document.createElement('div');
                 headerDrive.className = 'text-primary fw-semibold small mb-1';
-                headerDrive.innerHTML = `<i class="fa-solid fa-cloud-arrow-up me-1"></i> Ảnh trên Drive (${existingDriveUrls.length}):`;
+                headerDrive.innerHTML = `<i class="fa-solid fa-cloud-arrow-up me-1"></i> Tệp trên Drive (${existingDriveUrls.length}):`;
                 container.appendChild(headerDrive);
 
                 existingDriveUrls.forEach((url, index) => {
-                    let fName = url.split('/').pop().split('?')[0] || `Drive_Img_${index + 1}.jpg`;
+                    let fName = url.split('/').pop().split('?')[0] || `Drive_File_${index + 1}`;
                     const div = document.createElement('div');
                     div.className = 'file-detail-item';
                     div.innerHTML = `
                         <span class="text-truncate me-2 text-primary" style="max-width: 170px;" title="${fName}">
-                            <i class="fa-solid fa-image me-1"></i> ${fName}
+                            <i class="fa-solid fa-file me-1"></i> ${fName}
                         </span>
                         <div>
-                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showViewer('${url}')" title="Xem ảnh"><i class="fa-solid fa-eye"></i></button>
-                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeExistingDriveImage(${index})" title="Xóa ảnh cũ"><i class="fa-solid fa-xmark"></i></button>
+                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showViewer('${url}')" title="Xem tệp"><i class="fa-solid fa-eye"></i></button>
+                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeExistingDriveImage(${index})" title="Xóa tệp cũ"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                     `;
                     container.appendChild(div);
@@ -481,8 +481,8 @@
                 const headerTemp = document.createElement('div');
                 headerTemp.className = 'd-flex justify-content-between align-items-center mt-2 mb-1';
                 headerTemp.innerHTML = `
-                    <span class="text-success fw-semibold small"><i class="fa-solid fa-circle-plus me-1"></i> Ảnh mới chọn (${tempFilesList.length}):</span>
-                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllTempImages()" title="Xóa hết ảnh mới">
+                    <span class="text-success fw-semibold small"><i class="fa-solid fa-circle-plus me-1"></i> Tệp mới chọn (${tempFilesList.length}):</span>
+                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllTempImages()" title="Xóa hết tệp mới">
                         <i class="fa-solid fa-trash-can me-1"></i> Xóa hết
                     </button>
                 `;
@@ -493,10 +493,10 @@
                     div.className = 'file-detail-item';
                     div.innerHTML = `
                         <span class="text-truncate me-2" style="max-width: 170px;" title="${file.name}">
-                            <i class="fa-solid fa-image text-success me-1"></i> ${file.name}
+                            <i class="fa-solid fa-file text-success me-1"></i> ${file.name}
                         </span>
                         <div>
-                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showSingleTempViewer(${index})" title="Xem ảnh"><i class="fa-solid fa-eye"></i></button>
+                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showSingleTempViewer(${index})" title="Xem tệp"><i class="fa-solid fa-eye"></i></button>
                             <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeTempFile(${index})" title="Xóa"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                     `;
@@ -508,19 +508,19 @@
         function showSingleTempViewer(index) {
             const container = document.getElementById('viewerContainer');
             container.innerHTML = '';
-            const img = document.createElement('img');
-            img.src = tempBase64List[index];
-            container.appendChild(img);
-
-            const viewer = new Viewer(container, {
-                inline: false,
-                button: true,
-                navbar: false,
-                title: false,
-                toolbar: true,
-                hidden: function () { viewer.destroy(); }
-            });
-            viewer.show();
+            let file = tempFilesList[index];
+            if (file && file.type.startsWith('image/')) {
+                const img = document.createElement('img');
+                img.src = tempBase64List[index];
+                container.appendChild(img);
+                const viewer = new Viewer(container, {
+                    inline: false, button: true, navbar: false, title: false, toolbar: true,
+                    hidden: function () { viewer.destroy(); }
+                });
+                viewer.show();
+            } else {
+                Swal.fire('Thông báo', 'Định dạng tệp này không hỗ trợ xem trước trực tiếp, bạn có thể tải về thông qua link Drive.', 'info');
+            }
         }
 
         function removeExistingDriveImage(index) {
@@ -595,19 +595,19 @@
                         className: 'align-middle',
                         render: data => {
                             let decrypted = decryptData(data);
-                            if (!decrypted) return '<span class="text-muted small fst-italic">Không có ảnh</span>';
+                            if (!decrypted) return '<span class="text-muted small fst-italic">Không có tệp</span>';
                             let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
-                            if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có ảnh</span>';
+                            if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có tệp</span>';
 
                             let htmlList = '<div style="max-width: 150px;">';
                             urls.forEach((url, idx) => {
-                                let fName = url.split('/').pop().split('?')[0] || `Asset_Img_${idx + 1}.jpg`;
+                                let fName = url.split('/').pop().split('?')[0] || `Asset_File_${idx + 1}`;
                                 htmlList += `
                                     <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 mb-1 shadow-sm">
                                         <span class="text-truncate me-2 small text-secondary" style="max-width: 90px;" title="${fName}">
-                                            <i class="fa-solid fa-image text-primary me-1"></i> ${fName}
+                                            <i class="fa-solid fa-file text-primary me-1"></i> ${fName}
                                         </span>
-                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="showViewer('${decrypted}')" title="Xem ảnh">
+                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="showViewer('${decrypted}')" title="Xem tệp">
                                             <i class="fa-solid fa-eye"></i>
                                         </button>
                                     </div>
@@ -712,7 +712,7 @@
 
                             let htmlList = '<div style="max-width: 130px;">';
                             urls.forEach((url, idx) => {
-                                let fName = url.split('/').pop().split('?')[0] || `File_${idx + 1}.jpg`;
+                                let fName = url.split('/').pop().split('?')[0] || `File_${idx + 1}`;
                                 htmlList += `
                                     <div class="d-flex align-items-center justify-content-between bg-white border rounded px-1 py-0 mb-1 shadow-sm" style="font-size: 0.75rem;">
                                         <span class="text-truncate me-1 text-secondary" style="max-width: 75px;" title="${fName}">${fName}</span>
@@ -873,8 +873,8 @@
             }
 
             Swal.fire({
-                title: 'Đang đồng bộ ảnh & dữ liệu...',
-                text: 'Đang xử lý xóa/thêm ảnh trên Google Drive...',
+                title: 'Đang đồng bộ tệp & dữ liệu...',
+                text: 'Đang xử lý xóa/thêm tệp trên Google Drive...',
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
@@ -1069,14 +1069,12 @@
             }
         }
 
-        // HÀM MỞ MODAL SỬA LỊCH SỬ KIỂM KẾ (CẬP NHẬT DROPDOWN & PHÒNG BAN, SERIAL)
         async function openEditHistoryModal(encodedJsonStr) {
             const item = JSON.parse(decodeURIComponent(encodedJsonStr));
             editHistoryFilesList = [];
             editHistoryBase64List = [];
             editHistoryExistingDriveUrls = item.tep_dinh_kem ? item.tep_dinh_kem.split(',').map(s => s.trim()).filter(Boolean) : [];
 
-            // Lấy danh sách duy nhất các phòng ban và cán bộ từ danh mục tài sản để làm dropdown
             let phongBanSet = new Set(['340 - TRUNG TÂM XỬ LÝ NỢ', 'Phòng Hành Chính', 'Phòng Kế Toán', 'Phòng CNTT']);
             danhSachTS.forEach(t => { if (t.phong_ban_quan_ly) phongBanSet.add(t.phong_ban_quan_ly); });
             if (item.phong_ban) phongBanSet.add(item.phong_ban);
@@ -1139,8 +1137,8 @@
                             </div>
                         </div>
                         <div class="mb-2">
-                            <label class="form-label fw-semibold">Đính Kèm Tệp/Ảnh (Google Drive):</label>
-                            <input type="file" id="swal_fileInput" class="form-control form-control-sm mb-1" multiple onchange="handleEditHistoryFilesSelect(event)">
+                            <label class="form-label fw-semibold">Đính Kèm Mọi Loại Tệp (Google Drive):</label>
+                            <input type="file" id="swal_fileInput" class="form-control form-control-sm mb-1" accept="*/*" multiple onchange="handleEditHistoryFilesSelect(event)">
                             <div id="swal_fileDetailList" class="mt-2 border rounded p-2 bg-white" style="max-height: 120px; overflow-y: auto;"></div>
                         </div>
                     </div>
@@ -1241,12 +1239,12 @@
             container.innerHTML = '';
 
             if (editHistoryFilesList.length === 0 && editHistoryExistingDriveUrls.length === 0) {
-                container.innerHTML = `<span class="text-muted small fst-italic">Chưa có file đính kèm nào.</span>`;
+                container.innerHTML = `<span class="text-muted small fst-italic">Chưa có tệp đính kèm nào.</span>`;
                 return;
             }
 
             editHistoryExistingDriveUrls.forEach((url, idx) => {
-                let fName = url.split('/').pop().split('?')[0] || `Drive_File_${idx + 1}.jpg`;
+                let fName = url.split('/').pop().split('?')[0] || `Drive_File_${idx + 1}`;
                 const div = document.createElement('div');
                 div.className = 'file-detail-item';
                 div.innerHTML = `
