@@ -1,3 +1,4 @@
+<textarea style="width: 100%; height: 100vh; font-family: monospace; box-sizing: border-box;" readonly>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -103,6 +104,16 @@
             border-radius: 6px;
             margin-top: 6px;
             background: #525659;
+        }
+
+        .inline-img-container {
+            max-width: 100%;
+            max-height: 350px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            margin-top: 6px;
+            object-fit: contain;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
     </style>
 </head>
@@ -459,10 +470,16 @@
                 existingDriveUrls.forEach((url, index) => {
                     let fName = url.split('/').pop().split('?')[0] || `Drive_File_${index + 1}`;
                     let isPdf = fName.toLowerCase().endsWith('.pdf') || url.includes('.pdf');
+                    let isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.includes('image/');
+                    
                     const div = document.createElement('div');
                     div.className = 'file-detail-item';
                     
-                    let pdfBtnHtml = isPdf ? `<button type="button" class="btn btn-outline-info btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="toggleInlinePdf('drive_asset_${index}', '${url}')" title="Xem PDF Inline bên dưới"><i class="fa-solid fa-file-pdf"></i> Inline</button>` : '';
+                    let inlineBtnHtml = '';
+                    if (isPdf || isImage) {
+                        let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
+                        inlineBtnHtml = `<button type="button" class="btn btn-outline-info btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="toggleInlineMedia('drive_asset_${index}', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline bên dưới"><i class="fa-solid ${iconClass}"></i> Inline</button>`;
+                    }
 
                     div.innerHTML = `
                         <div class="d-flex align-items-center justify-content-between">
@@ -470,12 +487,12 @@
                                 <i class="fa-solid fa-file me-1"></i> ${fName}
                             </span>
                             <div>
-                                ${pdfBtnHtml}
+                                ${inlineBtnHtml}
                                 <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showDriveViewer('${url}', '${fName}')" title="Xem tệp Popup"><i class="fa-solid fa-eye"></i></button>
                                 <button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="deleteDriveFileDirectly('${url}', ${index}, 'asset', null)" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>
                             </div>
                         </div>
-                        <div id="drive_asset_${index}_pdf" class="d-none"></div>
+                        <div id="drive_asset_${index}_media" class="d-none"></div>
                     `;
                     container.appendChild(div);
                 });
@@ -494,10 +511,16 @@
 
                 tempFilesList.forEach((file, index) => {
                     let isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+                    let isImage = file.type.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name);
+
                     const div = document.createElement('div');
                     div.className = 'file-detail-item';
 
-                    let pdfBtnHtml = isPdf ? `<button type="button" class="btn btn-outline-info btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="toggleInlinePdf('temp_asset_${index}', '${tempBase64List[index]}')" title="Xem PDF Inline bên dưới"><i class="fa-solid fa-file-pdf"></i> Inline</button>` : '';
+                    let inlineBtnHtml = '';
+                    if (isPdf || isImage) {
+                        let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
+                        inlineBtnHtml = `<button type="button" class="btn btn-outline-info btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="toggleInlineMedia('temp_asset_${index}', '${tempBase64List[index]}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline bên dưới"><i class="fa-solid ${iconClass}"></i> Inline</button>`;
+                    }
 
                     div.innerHTML = `
                         <div class="d-flex align-items-center justify-content-between">
@@ -505,20 +528,20 @@
                                 <i class="fa-solid fa-file text-success me-1"></i> ${file.name}
                             </span>
                             <div>
-                                ${pdfBtnHtml}
+                                ${inlineBtnHtml}
                                 <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showSingleTempViewer(${index})" title="Xem tệp Popup"><i class="fa-solid fa-eye"></i></button>
                                 <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeTempFile(${index})" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark"></i></button>
                             </div>
                         </div>
-                        <div id="temp_asset_${index}_pdf" class="d-none"></div>
+                        <div id="temp_asset_${index}_media" class="d-none"></div>
                     `;
                     container.appendChild(div);
                 });
             }
         }
 
-        function toggleInlinePdf(elementPrefixId, pdfUrlOrBase64) {
-            const targetContainer = document.getElementById(`${elementPrefixId}_pdf`);
+        function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType = 'pdf') {
+            const targetContainer = document.getElementById(`${elementPrefixId}_media`);
             if (!targetContainer) return;
 
             if (!targetContainer.classList.contains('d-none')) {
@@ -527,43 +550,54 @@
                 return;
             }
 
-            let embedSrc = pdfUrlOrBase64;
-            let objectUrlToRevoke = null;
+            let embedSrc = urlOrBase64;
 
-            if (pdfUrlOrBase64.startsWith('data:application/pdf;base64,')) {
-                try {
-                    const base64Data = pdfUrlOrBase64.split(',')[1];
-                    const binaryStr = atob(base64Data);
-                    const len = binaryStr.length;
-                    const bytes = new Uint8Array(len);
-                    for (let i = 0; i < len; i++) {
-                        bytes[i] = binaryStr.charCodeAt(i);
+            if (mediaType === 'pdf') {
+                if (urlOrBase64.startsWith('data:application/pdf;base64,')) {
+                    try {
+                        const base64Data = urlOrBase64.split(',')[1];
+                        const binaryStr = atob(base64Data);
+                        const len = binaryStr.length;
+                        const bytes = new Uint8Array(len);
+                        for (let i = 0; i < len; i++) {
+                            bytes[i] = binaryStr.charCodeAt(i);
+                        }
+                        const blob = new Blob([bytes], { type: 'application/pdf' });
+                        embedSrc = URL.createObjectURL(blob);
+                    } catch (e) {
+                        console.error('Lỗi tạo Blob URL cho PDF Inline:', e);
                     }
-                    const blob = new Blob([bytes], { type: 'application/pdf' });
-                    embedSrc = URL.createObjectURL(blob);
-                } catch (e) {
-                    console.error('Lỗi tạo Blob URL cho PDF Inline:', e);
+                } else if (urlOrBase64.includes('drive.google.com')) {
+                    let fileId = '';
+                    if (urlOrBase64.includes('/d/')) {
+                        fileId = urlOrBase64.split('/d/')[1].split('/')[0];
+                    } else if (urlOrBase64.includes('id=')) {
+                        fileId = urlOrBase64.split('id=')[1].split('&')[0];
+                    }
+                    if (fileId) {
+                        embedSrc = `https://drive.google.com/file/d/${fileId}/preview`;
+                    }
                 }
-            } else if (pdfUrlOrBase64.includes('drive.google.com')) {
-                let fileId = '';
-                if (pdfUrlOrBase64.includes('/d/')) {
-                    fileId = pdfUrlOrBase64.split('/d/')[1].split('/')[0];
-                } else if (pdfUrlOrBase64.includes('id=')) {
-                    fileId = pdfUrlOrBase64.split('id=')[1].split('&')[0];
-                }
-                if (fileId) {
-                    embedSrc = `https://drive.google.com/file/d/${fileId}/preview`;
-                }
+
+                targetContainer.innerHTML = `
+                    <div class="position-relative mt-2">
+                        <button type="button" class="btn btn-dark btn-sm py-0 px-2 position-absolute top-0 end-0 m-1 shadow" style="z-index: 10; font-size: 0.75rem;" onclick="toggleInlineMedia('${elementPrefixId}', '', 'pdf')">
+                            <i class="fa-solid fa-xmark me-1"></i>Đóng PDF
+                        </button>
+                        <iframe src="${embedSrc}" class="inline-pdf-container"></iframe>
+                    </div>
+                `;
+            } else if (mediaType === 'image') {
+                targetContainer.innerHTML = `
+                    <div class="position-relative text-center mt-2">
+                        <button type="button" class="btn btn-dark btn-sm py-0 px-2 position-absolute top-0 end-0 m-1 shadow" style="z-index: 10; font-size: 0.75rem;" onclick="toggleInlineMedia('${elementPrefixId}', '', 'image')">
+                            <i class="fa-solid fa-xmark me-1"></i>Đóng Ảnh
+                        </button>
+                        <img src="${embedSrc}" class="inline-img-container" alt="Inline Image Preview" />
+                    </div>
+                `;
             }
 
-            targetContainer.innerHTML = `
-                <div class="position-relative mt-2">
-                    <button type="button" class="btn btn-dark btn-sm py-0 px-2 position-absolute top-0 end-0 m-1 shadow" style="z-index: 10; font-size: 0.75rem;" onclick="toggleInlinePdf('${elementPrefixId}', '')">
-                        <i class="fa-solid fa-xmark me-1"></i>Đóng PDF
-                    </button>
-                    <iframe src="${embedSrc}" class="inline-pdf-container"></iframe>
-                </div>
-            `;
             targetContainer.classList.remove('d-none');
         }
 
@@ -846,13 +880,18 @@
                             urls.forEach((url, idx) => {
                                 let fName = url.split('/').pop().split('?')[0] || `Asset_File_${idx + 1}`;
                                 let isPdf = fName.toLowerCase().endsWith('.pdf') || url.includes('.pdf');
+                                let isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.includes('image/');
                                 let targetId = `tbl_asset_${meta.row}_${idx}`;
 
-                                let pdfBtnHtml = isPdf ? `
-                                    <button class="btn btn-outline-info btn-sm py-0 px-1 me-1" style="font-size: 0.65rem;" onclick="toggleInlinePdf('${targetId}', '${url}')" title="Xem PDF Inline">
-                                        <i class="fa-solid fa-file-pdf"></i>
-                                    </button>
-                                ` : '';
+                                let inlineBtnHtml = '';
+                                if (isPdf || isImage) {
+                                    let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
+                                    inlineBtnHtml = `
+                                        <button class="btn btn-outline-info btn-sm py-0 px-1 me-1" style="font-size: 0.65rem;" onclick="toggleInlineMedia('${targetId}', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline">
+                                            <i class="fa-solid ${iconClass}"></i>
+                                        </button>
+                                    `;
+                                }
 
                                 htmlList += `
                                     <div class="mb-1">
@@ -861,13 +900,13 @@
                                                 <i class="fa-solid fa-file text-primary me-1"></i> ${fName}
                                             </span>
                                             <div>
-                                                ${pdfBtnHtml}
+                                                ${inlineBtnHtml}
                                                 <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="showDriveViewer('${url}', '${fName}')" title="Xem Popup">
                                                     <i class="fa-solid fa-eye"></i>
                                                 </button>
                                             </div>
                                         </div>
-                                        <div id="${targetId}_pdf" class="d-none"></div>
+                                        <div id="${targetId}_media" class="d-none"></div>
                                     </div>
                                 `;
                             });
@@ -972,24 +1011,29 @@
                             urls.forEach((url, idx) => {
                                 let fName = url.split('/').pop().split('?')[0] || `File_${idx + 1}`;
                                 let isPdf = fName.toLowerCase().endsWith('.pdf') || url.includes('.pdf');
+                                let isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.includes('image/');
                                 let targetId = `tbl_his_${meta.row}_${idx}`;
 
-                                let pdfBtnHtml = isPdf ? `
-                                    <button class="btn btn-outline-info btn-sm py-0 px-1 me-1" style="font-size: 0.6rem;" onclick="toggleInlinePdf('${targetId}', '${url}')" title="Xem PDF Inline">
-                                        <i class="fa-solid fa-file-pdf"></i>
-                                    </button>
-                                ` : '';
+                                let inlineBtnHtml = '';
+                                if (isPdf || isImage) {
+                                    let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
+                                    inlineBtnHtml = `
+                                        <button class="btn btn-outline-info btn-sm py-0 px-1 me-1" style="font-size: 0.6rem;" onclick="toggleInlineMedia('${targetId}', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline">
+                                            <i class="fa-solid ${iconClass}"></i>
+                                        </button>
+                                    `;
+                                }
 
                                 htmlList += `
                                     <div class="mb-1">
                                         <div class="d-flex align-items-center justify-content-between bg-white border rounded px-1 py-0 shadow-sm" style="font-size: 0.75rem;">
                                             <span class="text-truncate me-1 text-secondary" style="max-width: 65px;" title="${fName}">${fName}</span>
                                             <div>
-                                                ${pdfBtnHtml}
+                                                ${inlineBtnHtml}
                                                 <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.6rem;" onclick="showDriveViewer('${url}', '${fName}')" title="Xem Popup"><i class="fa-solid fa-eye"></i></button>
                                             </div>
                                         </div>
-                                        <div id="${targetId}_pdf" class="d-none"></div>
+                                        <div id="${targetId}_media" class="d-none"></div>
                                     </div>
                                 `;
                             });
@@ -1420,6 +1464,8 @@
                     </div>
                 `,
                 width: '650px',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
                 showCancelButton: true,
                 confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> Lưu Cập Nhật DB',
                 cancelButtonText: 'Hủy',
@@ -1529,42 +1575,54 @@
             editHistoryExistingDriveUrls.forEach((url, idx) => {
                 let fName = url.split('/').pop().split('?')[0] || `Drive_File_${idx + 1}`;
                 let isPdf = fName.toLowerCase().endsWith('.pdf') || url.includes('.pdf');
+                let isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.includes('image/');
+
                 const div = document.createElement('div');
                 div.className = 'file-detail-item';
 
-                let pdfBtnHtml = isPdf ? `<button type="button" class="btn btn-outline-info btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="toggleInlinePdf('swal_drive_${idx}', '${url}')" title="Xem PDF Inline bên dưới"><i class="fa-solid fa-file-pdf"></i> Inline</button>` : '';
+                let inlineBtnHtml = '';
+                if (isPdf || isImage) {
+                    let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
+                    inlineBtnHtml = `<button type="button" class="btn btn-outline-info btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="toggleInlineMedia('swal_drive_${idx}', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline bên dưới"><i class="fa-solid ${iconClass}"></i> Inline</button>`;
+                }
 
                 div.innerHTML = `
                     <div class="d-flex align-items-center justify-content-between">
                         <span class="text-truncate me-2 text-primary" style="max-width: 200px;" title="${fName}"><i class="fa-solid fa-cloud-arrow-up me-1"></i> ${fName}</span>
                         <div>
-                            ${pdfBtnHtml}
+                            ${inlineBtnHtml}
                             <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showDriveViewer('${url}', '${fName}')"><i class="fa-solid fa-eye"></i></button>
                             <button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="deleteDriveFileDirectly('${url}', ${idx}, 'history', ${historyId})" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>
                         </div>
                     </div>
-                    <div id="swal_drive_${idx}_pdf" class="d-none"></div>
+                    <div id="swal_drive_${idx}_media" class="d-none"></div>
                 `;
                 container.appendChild(div);
             });
 
             editHistoryFilesList.forEach((file, idx) => {
                 let isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+                let isImage = file.type.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name);
+
                 const div = document.createElement('div');
                 div.className = 'file-detail-item';
 
-                let pdfBtnHtml = isPdf ? `<button type="button" class="btn btn-outline-info btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="toggleInlinePdf('swal_temp_${idx}', '${editHistoryBase64List[idx]}')" title="Xem PDF Inline bên dưới"><i class="fa-solid fa-file-pdf"></i> Inline</button>` : '';
+                let inlineBtnHtml = '';
+                if (isPdf || isImage) {
+                    let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
+                    inlineBtnHtml = `<button type="button" class="btn btn-outline-info btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="toggleInlineMedia('swal_temp_${idx}', '${editHistoryBase64List[idx]}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline bên dưới"><i class="fa-solid ${iconClass}"></i> Inline</button>`;
+                }
 
                 div.innerHTML = `
                     <div class="d-flex align-items-center justify-content-between">
                         <span class="text-truncate me-2 text-success" style="max-width: 200px;" title="${file.name}"><i class="fa-solid fa-circle-plus me-1"></i> ${file.name}</span>
                         <div>
-                            ${pdfBtnHtml}
+                            ${inlineBtnHtml}
                             <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showSingleEditHistoryTempViewer(${idx})" title="Xem trước tệp tạm"><i class="fa-solid fa-eye"></i></button>
                             <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeEditTempFile(${idx}, ${historyId})" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                     </div>
-                    <div id="swal_temp_${idx}_pdf" class="d-none"></div>
+                    <div id="swal_temp_${idx}_media" class="d-none"></div>
                 `;
                 container.appendChild(div);
             });
