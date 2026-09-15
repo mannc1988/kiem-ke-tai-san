@@ -529,8 +529,8 @@
             renderImageDetailList();
         }
 
-        // --- HỆ THỐNG XEM TỆP ---
-        // 1. Xem tệp tạm (chỉ cho phép xem Ảnh và PDF, các định dạng khác nhắc tải về)
+        // --- QUẢN LÝ XEM TỆP ---
+        // 1. Tệp tạm (chỉ cho xem Ảnh và PDF, còn lại yêu cầu tải về)
         function showViewer(urlsString) {
             let urls = urlsString.split(',').map(s => s.trim()).filter(Boolean);
             if (urls.length === 0) return;
@@ -547,7 +547,6 @@
         function openTempViewer(url, mimeType, title = 'Xem trước tệp') {
             mimeType = mimeType || '';
             
-            // Chỉ hỗ trợ Ảnh và PDF
             if (mimeType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(title)) {
                 const container = document.getElementById('viewerContainer');
                 container.innerHTML = '';
@@ -571,7 +570,6 @@
                 return;
             }
 
-            // Các định dạng khác trong tệp tạm không cho xem trực tiếp
             Swal.fire({
                 title: 'Không hỗ trợ xem trực tiếp',
                 text: `Định dạng tệp "${title}" không hỗ trợ xem online ở trạng thái tệp tạm. Bạn có muốn tải về máy không?`,
@@ -586,15 +584,25 @@
             });
         }
 
-        // 2. Xem tệp trên Google Drive (Hỗ trợ online tất cả các định dạng qua Google Docs Viewer / Viewer.js)
+        // 2. Tệp trên Google Drive (Xem online tất cả định dạng thông qua link preview trực tiếp của Google Drive)
         function showDriveViewer(url, title = 'Xem tệp Drive') {
-            let fileName = url.split('/').pop().split('?')[0].toLowerCase();
-            let mimeType = '';
-            if (fileName.endsWith('.pdf')) mimeType = 'application/pdf';
-            else if (fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.gif')) mimeType = 'image/';
-            else if (fileName.endsWith('.doc') || fileName.endsWith('.docx') || fileName.endsWith('.xls') || fileName.endsWith('.xlsx')) mimeType = 'document';
+            let embedUrl = url;
+            
+            // Nếu url là dạng link drive thông thường chứa id file, chuyển sang dạng /preview chuẩn để vượt qua X-Frame-Options
+            if (url.includes('drive.google.com')) {
+                let fileId = '';
+                if (url.includes('/d/')) {
+                    fileId = url.split('/d/')[1].split('/')[0];
+                } else if (url.includes('id=')) {
+                    fileId = url.split('id=')[1].split('&')[0];
+                }
+                if (fileId) {
+                    embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+                }
+            }
 
-            if (mimeType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(fileName)) {
+            let fileName = title.toLowerCase();
+            if (fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.gif')) {
                 const container = document.getElementById('viewerContainer');
                 container.innerHTML = '';
                 const img = document.createElement('img');
@@ -608,25 +616,14 @@
                 return;
             }
 
-            if (mimeType.includes('pdf') || /\.pdf$/i.test(fileName)) {
-                Swal.fire({
-                    title: `<span class="text-primary">${title}</span>`,
-                    html: `<iframe src="${url}" style="width:100%; height:75vh; border:none;" allowfullscreen></iframe>`,
-                    width: '85vw', showCloseButton: true, showConfirmButton: false
-                });
-                return;
-            }
-
-            // Tất cả định dạng khác từ Google Drive đều xem online bằng Google Docs Viewer
-            let encodedUrl = encodeURIComponent(url);
-            let googleViewerUrl = `https://docs.google.com/gview?url=${encodedUrl}&embedded=true`;
+            // Mở iframe sử dụng Google Drive Preview Viewer chính hãng (đảm bảo không bị lỗi gview)
             Swal.fire({
                 title: `<span class="text-primary">${title}</span>`,
-                html: `<iframe src="${googleViewerUrl}" style="width:100%; height:75vh; border:none;" allowfullscreen></iframe>`,
+                html: `<iframe src="${embedUrl}" style="width:100%; height:75vh; border:none;" allowfullscreen></iframe>`,
                 width: '85vw', showCloseButton: true, showConfirmButton: false
             });
         }
-        // --- KẾT THÚC HỆ THỐNG XEM TỆP ---
+        // --- KẾT THÚC QUẢN LÝ XEM TỆP ---
 
         function playBeep() {
             try {
