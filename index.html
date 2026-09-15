@@ -547,126 +547,70 @@
             openUniversalViewer(url, mimeType, fileName);
         }
 
-        function dataURItoBlob(dataURI) {
-    let byteString;
-    if (dataURI.split(',')[0].indexOf('base64') >= 0)
-        byteString = atob(dataURI.split(',')[1]);
-    else
-        byteString = decodeURI(dataURI.split(',')[1]);
-
-    let mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-    let ab = new ArrayBuffer(byteString.length);
-    let ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
-    }
-    return new Blob([ab], {type: mimeString});
-}
-
-function openUniversalViewer(url, mimeType, title = 'Xem trước tệp') {
-    mimeType = mimeType || '';
-    
-    let displayUrl = url;
-
-    // Nếu là dữ liệu Base64 (tệp chọn từ máy chưa lên Drive), đổi thành Blob URL để iframe hiển thị được nội dung
-    if (url.startsWith('data:')) {
-        try {
-            let blob = dataURItoBlob(url);
-            displayUrl = URL.createObjectURL(blob);
-            mimeType = mimeType || blob.type;
-        } catch (e) {}
-    }
-
-    // 1. Nếu là Ảnh
-    if (mimeType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(title)) {
-        const container = document.getElementById('viewerContainer');
-        container.innerHTML = '';
-        const img = document.createElement('img');
-        img.src = displayUrl;
-        container.appendChild(img);
-        const viewer = new Viewer(container, {
-            inline: false,
-            button: true,
-            navbar: false,
-            title: false,
-            toolbar: true,
-            hidden: function () { 
-                viewer.destroy(); 
-                if (displayUrl.startsWith('blob:')) URL.revokeObjectURL(displayUrl);
+        function openUniversalViewer(url, mimeType, title = 'Xem trước tệp') {
+            mimeType = mimeType || '';
+            
+            // 1. Nếu là Ảnh
+            if (mimeType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(title)) {
+                const container = document.getElementById('viewerContainer');
+                container.innerHTML = '';
+                const img = document.createElement('img');
+                img.src = url;
+                container.appendChild(img);
+                const viewer = new Viewer(container, {
+                    inline: false,
+                    button: true,
+                    navbar: false,
+                    title: false,
+                    toolbar: true,
+                    hidden: function () { viewer.destroy(); }
+                });
+                viewer.show();
+                return;
             }
-        });
-        viewer.show();
-        return;
-    }
 
-    // 2. Nếu là PDF
-    if (mimeType.includes('pdf') || /\.pdf$/i.test(title)) {
-        Swal.fire({
-            title: `${title}`,
-            html: ``,
-            width: '85vw',
-            showCloseButton: true,
-            showConfirmButton: false,
-            didClose: () => {
-                if (displayUrl.startsWith('blob:')) URL.revokeObjectURL(displayUrl);
+            // 2. Nếu là PDF (Dùng Blob / Iframe)
+            if (mimeType.includes('pdf') || /\.pdf$/i.test(title)) {
+                Swal.fire({
+                    title: `<span class="text-primary">${title}</span>`,
+                    html: `<iframe src="${url}" style="width:100%; height:75vh; border:none;" allowfullscreen></iframe>`,
+                    width: '85vw',
+                    showCloseButton: true,
+                    showConfirmButton: false
+                });
+                return;
             }
-        });
-        return;
-    }
 
-    // 3. Nếu là Word / Excel
-    if (mimeType.includes('word') || mimeType.includes('excel') || mimeType.includes('sheet') || /\.(doc|docx|xls|xlsx)$/i.test(title)) {
-        let viewerEmbedUrl = '';
+            // 3. Nếu là Word / Excel (Dùng Google Docs Viewer nhúng)
+            if (mimeType.includes('word') || mimeType.includes('excel') || mimeType.includes('sheet') || /\.(doc|docx|xls|xlsx)$/i.test(title)) {
+                let encodedUrl = encodeURIComponent(url);
+                let googleViewerUrl = `https://docs.google.com/gview?url=${encodedUrl}&embedded=true`;
+                Swal.fire({
+                    title: `<span class="text-primary">${title}</span>`,
+                    html: `<iframe src="${googleViewerUrl}" style="width:100%; height:75vh; border:none;" allowfullscreen></iframe>`,
+                    width: '85vw',
+                    showCloseButton: true,
+                    showConfirmButton: false
+                });
+                return;
+            }
 
-        if (displayUrl.startsWith('blob:') || displayUrl.startsWith('data:') || displayUrl.length > 1500) {
-            // Đối với file văn phòng cục bộ chưa có link Drive công khai, cho phép tải về hoặc mở trực tiếp
+            // 4. Các định dạng khác: Mở tab mới hoặc thông báo tải về
             Swal.fire({
-                title: 'Tệp cục bộ',
-                text: `Tệp "${title}" chưa được đồng bộ lên Google Drive nên không thể xem trực tuyến văn phòng. Bạn có muốn tải về máy để xem không?`,
+                title: 'Không hỗ trợ xem trực tiếp',
+                text: `Định dạng tệp "${title}" không hỗ trợ hiển thị inline. Bạn có muốn mở/tải về không?`,
                 icon: 'info',
                 showCancelButton: true,
                 confirmButtonText: 'Tải về / Mở',
                 cancelButtonText: 'Đóng'
             }).then((res) => {
                 if (res.isConfirmed) {
-                    let a = document.createElement('a');
-                    a.href = displayUrl;
-                    a.download = title;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
+                    window.open(url, '_blank');
                 }
             });
-            return;
-        } else {
-            // Nếu là link Google Drive công khai
-            viewerEmbedUrl = `https://docs.google.com/gview?url=${encodeURIComponent(displayUrl)}&embedded=true`;
         }
+        // --- KẾT THÚC BỔ SUNG XEM FILE ---
 
-        Swal.fire({
-            title: `${title}`,
-            html: ``,
-            width: '85vw',
-            showCloseButton: true,
-            showConfirmButton: false
-        });
-        return;
-    }
-
-    // 4. Các định dạng khác
-    Swal.fire({
-        title: 'Mở tệp',
-        text: `Bạn có muốn mở hoặc tải về tệp "${title}" không?`,
-        icon: 'info',
-        showCancelButton: true,
-        confirmButtonText: 'Mở',
-        cancelButtonText: 'Đóng'
-    }).then((res) => {
-        if (res.isConfirmed) {
-            window.open(displayUrl, '_blank');
-        }
-    });
-}
         function playBeep() {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
