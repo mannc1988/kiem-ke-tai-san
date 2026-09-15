@@ -372,27 +372,32 @@ module.exports = async (req, res) => {
         }
 
         // 9. XÓA DRIVE THỰC TẾ QUA GOOGLE APPS SCRIPT
-        if (action === 'delete_drive' && req.method === 'POST') {
-            const { fileUrl, fileId } = req.body;
-            const SCRIPT_WEB_APP_URL = process.env.GOOGLE_SCRIPT_WEB_APP_URL;
+if (action === 'delete_drive' && req.method === 'POST') {
+    const { fileUrl, fileId } = req.body;
+    const SCRIPT_WEB_APP_URL = process.env.GOOGLE_SCRIPT_WEB_APP_URL;
 
-            if (!SCRIPT_WEB_APP_URL) {
-                return res.status(500).json({ success: false, error: 'Chưa cấu hình GOOGLE_SCRIPT_WEB_APP_URL trong biến môi trường!' });
-            }
+    if (!SCRIPT_WEB_APP_URL) {
+        return res.status(500).json({ success: false, error: 'Chưa cấu hình GOOGLE_SCRIPT_WEB_APP_URL!' });
+    }
 
-            if (!fileUrl && !fileId) {
-                return res.status(400).json({ success: false, error: 'Thiếu fileUrl hoặc fileId để xóa!' });
-            }
+    if (!fileUrl && !fileId) {
+        return res.status(400).json({ success: false, error: 'Thiếu fileUrl hoặc fileId để xóa!' });
+    }
 
-            const response = await fetch(SCRIPT_WEB_APP_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'delete', fileUrl, fileId })
-            });
+    // Gửi action: 'delete_drive' vào trong BODY JSON
+    const response = await fetch(SCRIPT_WEB_APP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            action: 'delete_drive', 
+            fileUrl: fileUrl, 
+            fileId: fileId 
+        })
+    });
 
-            const result = await response.json();
-            return res.json(result);
-        }
+    const result = await response.json();
+    return res.json(result);
+}
 
         return res.status(404).json({ success: false, error: 'Action không hợp lệ' });
 
