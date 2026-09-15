@@ -398,6 +398,27 @@ if (action === 'delete_drive' && req.method === 'POST') {
     const result = await response.json();
     return res.json(result);
 }
+        // Thêm action này vào api/index.js
+if (action === 'remove_asset_file' && req.method === 'POST') {
+    const { ma_tai_san, removeUrl } = req.body;
+    if (!ma_tai_san || !removeUrl) {
+        return res.status(400).json({ success: false, error: 'Thiếu mã tài sản hoặc URL cần xóa!' });
+    }
+
+    const [rows] = await connection.execute('SELECT hinh_anh FROM danh_sach_tai_san WHERE ma_tai_san = ?', [ma_tai_san]);
+    if (rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Không tìm thấy tài sản!' });
+    }
+
+    // Giải mã, lọc bỏ URL đã xóa và mã hóa lại
+    let decryptedHinhAnh = decryptData(rows[0].hinh_anh) || '';
+    let urlList = decryptedHinhAnh.split(',').map(s => s.trim()).filter(Boolean);
+    let updatedList = urlList.filter(url => url !== removeUrl);
+    let newHinhAnhEncrypted = encryptData(updatedList.join(','));
+
+    await connection.execute('UPDATE danh_sach_tai_san SET hinh_anh = ? WHERE ma_tai_san = ?', [newHinhAnhEncrypted, ma_tai_san]);
+    return res.json({ success: true, message: 'Đã cập nhật CSDL sau khi xóa file Drive!' });
+}
 
         return res.status(404).json({ success: false, error: 'Action không hợp lệ' });
 
