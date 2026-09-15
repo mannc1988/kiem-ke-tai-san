@@ -399,27 +399,48 @@ if (action === 'delete_drive' && req.method === 'POST') {
     return res.json(result);
 }
         // Thêm action này vào api/index.js
+// Action remove_asset_file chuẩn hóa trong Node.js Backend API
 if (action === 'remove_asset_file' && req.method === 'POST') {
     const { ma_tai_san, removeUrl } = req.body;
+    
     if (!ma_tai_san || !removeUrl) {
         return res.status(400).json({ success: false, error: 'Thiếu mã tài sản hoặc URL cần xóa!' });
     }
 
-    const [rows] = await connection.execute('SELECT hinh_anh FROM danh_sach_tai_san WHERE ma_tai_san = ?', [ma_tai_san]);
-    if (rows.length === 0) {
-        return res.status(404).json({ success: false, error: 'Không tìm thấy tài sản!' });
+    // Lấy toàn bộ mã tài sản để đối chiếu giải mã (tránh lỗi lệch chuỗi AES mã hóa)
+    const [allAssets] = await connection.execute('SELECT ma_tai_san, hinh_anh FROM danh_sach_tai_san');
+
+    let matchedDbKey = null;
+    let currentHinhAnhEncrypted = '';
+
+    for (let row of allAssets) {
+        if (decryptData(row.ma_tai_san) === ma_tai_san || row.ma_tai_san === ma_tai_san) {
+            matchedDbKey = row.ma_tai_san;
+            currentHinhAnhEncrypted = row.hinh_anh;
+            break;
+        }
     }
 
-    // Giải mã, lọc bỏ URL đã xóa và mã hóa lại
-    let decryptedHinhAnh = decryptData(rows[0].hinh_anh) || '';
+    if (!matchedDbKey) {
+        return res.status(404).json({ success: false, error: 'Không tìm thấy tài sản trong CSDL!' });
+    }
+
+    // Giải mã chuỗi hình ảnh, loại bỏ URL tệp đã xóa
+    let decryptedHinhAnh = decryptData(currentHinhAnhEncrypted) || '';
     let urlList = decryptedHinhAnh.split(',').map(s => s.trim()).filter(Boolean);
     let updatedList = urlList.filter(url => url !== removeUrl);
+    
+    // Mã hóa lại chuỗi hình ảnh mới
     let newHinhAnhEncrypted = encryptData(updatedList.join(','));
 
-    await connection.execute('UPDATE danh_sach_tai_san SET hinh_anh = ? WHERE ma_tai_san = ?', [newHinhAnhEncrypted, ma_tai_san]);
-    return res.json({ success: true, message: 'Đã cập nhật CSDL sau khi xóa file Drive!' });
-}
+    // Cập nhật CSDL
+    await connection.execute(
+        'UPDATE danh_sach_tai_san SET hinh_anh = ? WHERE ma_tai_san = ?', 
+        [newHinhAnhEncrypted, matchedDbKey]
+    );
 
+    return res.json({ success: true, message: 'Đã cập nhật CSDL thành công!' });
+}
         return res.status(404).json({ success: false, error: 'Action không hợp lệ' });
 
     } catch (error) {
