@@ -496,51 +496,90 @@
         }
 
         // HÀM XÓA FILE TRỰC TIẾP TRÊN GOOGLE DRIVE
-        async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
-            const confirmRes = await Swal.fire({
-                title: 'Xóa tệp trên Google Drive?',
-                text: 'Hành động này sẽ xóa vĩnh viễn tệp trên Google Drive ngay lập tức!',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Xóa trên Drive',
-                cancelButtonText: 'Hủy'
+       // HÀM XÓA FILE DRIVE VÀ CẬP NHẬT ĐỒNG THỜI VÀO CSDL
+async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
+    if (!fileUrl || typeof fileUrl !== 'string') {
+        Swal.fire('Lỗi', 'Đường dẫn tệp không hợp lệ!', 'error');
+        return;
+    }
+
+    const confirmRes = await Swal.fire({
+        title: 'Xóa tệp trên Google Drive & CSDL?',
+        text: 'Tệp sẽ bị xóa vĩnh viễn trên Google Drive và tự động loại bỏ khỏi CSDL!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Xóa Drive & Cập nhật DB',
+        cancelButtonText: 'Hủy'
+    });
+
+    if (!confirmRes.isConfirmed) return;
+
+    Swal.fire({
+        title: 'Đang xử lý đồng bộ...',
+        text: 'Đang xóa tệp trên Google Drive và cập nhật CSDL...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    try {
+        // BƯỚC 1: Gọi API xóa file thực tế trên Google Drive
+        const driveRes = await fetch(`${API_URL}?action=delete_drive`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileUrl: fileUrl })
+        });
+        const driveResult = await driveRes.json();
+
+        if (!driveResult.success) {
+            Swal.fire('Lỗi Drive', driveResult.error || 'Không thể xóa tệp trên Google Drive!', 'error');
+            return;
+        }
+
+        // BƯỚC 2: Cập nhật loại bỏ URL tệp khỏi CSDL
+        const currentMaTS = document.getElementById('ma_tai_san').value.trim();
+        
+        if (context === 'asset' && currentMaTS) {
+            const dbRes = await fetch(`${API_URL}?action=remove_asset_file`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    ma_tai_san: encryptData(currentMaTS), 
+                    removeUrl: fileUrl 
+                })
             });
-
-            if (confirmRes.isConfirmed) {
-                Swal.fire({
-                    title: 'Đang xóa tệp trên Google Drive...',
-                    allowOutsideClick: false,
-                    didOpen: () => { Swal.showLoading(); }
-                });
-
-                try {
-                    const response = await fetch(`${API_URL}?action=delete_drive`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ fileUrl: fileUrl })
-                    });
-                    const result = await response.json();
-
-                    if (result.success) {
-                        Swal.fire({ icon: 'success', title: 'Đã xóa tệp trên Drive thành công!', timer: 1200, showConfirmButton: false });
-                        
-                        if (context === 'asset') {
-                            existingDriveUrls.splice(index, 1);
-                            renderImageDetailList();
-                        } else if (context === 'history') {
-                            editHistoryExistingDriveUrls.splice(index, 1);
-                            renderEditHistoryFileList();
-                        }
-                    } else {
-                        Swal.fire('Lỗi', result.error || 'Không thể xóa tệp trên Google Drive!', 'error');
-                    }
-                } catch (err) {
-                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
-                }
+            const dbResult = await dbRes.json();
+            
+            if (!dbResult.success) {
+                Swal.fire('Cảnh báo', 'Đã xóa file Drive nhưng không thể cập nhật CSDL!', 'warning');
+                return;
             }
         }
+
+        // BƯỚC 3: Cập nhật lại giao diện Form & Bảng dữ liệu
+        if (context === 'asset') {
+            existingDriveUrls.splice(index, 1);
+            document.getElementById('hinh_anh_url').value = existingDriveUrls.join(',');
+            renderImageDetailList();
+        } else if (context === 'history') {
+            editHistoryExistingDriveUrls.splice(index, 1);
+            renderEditHistoryFileList();
+        }
+
+        refreshData(); // Tải lại DataTables
+        Swal.fire({ 
+            icon: 'success', 
+            title: 'Thành công!', 
+            text: 'Đã xóa tệp trên Google Drive và cập nhật CSDL thành công.', 
+            timer: 1500, 
+            showConfirmButton: false 
+        });
+
+    } catch (err) {
+        Swal.fire('Lỗi', 'Không thể kết nối máy chủ để xử lý đồng bộ!', 'error');
+    }
+}
 
         function showSingleTempViewer(index) {
             let file = tempFilesList[index];
