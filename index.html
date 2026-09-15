@@ -1,3 +1,4 @@
+<textarea class="form-control" rows="20" readonly style="font-family: monospace; font-size: 12px;">
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -529,7 +530,7 @@
             renderImageDetailList();
         }
 
-        // --- HỆ THỐNG XEM & TẢI VỀ ĐA ĐỊNH DẠNG ---
+        // --- HỆ THỐNG XEM ONLINE & TẢI VỀ TRỰC TIẾP TRÊN MỌI THIẾT BỊ ---
         function showViewer(urlsString) {
             let urls = urlsString.split(',').map(s => s.trim()).filter(Boolean);
             if (urls.length === 0) return;
@@ -550,7 +551,22 @@
             mimeType = mimeType || '';
             let isLocalData = url.startsWith('data:') || url.startsWith('blob:');
 
+            // Tạo nút tải về máy đi kèm trên giao diện xem
             let downloadBtnHtml = `<div class="mb-2 text-start"><a href="${url}" download="${title}" class="btn btn-primary btn-sm"><i class="fa-solid fa-download me-1"></i> Tải về máy</a></div>`;
+
+            // Xử lý chuyển đổi Base64/Blob cục bộ thành Blob URL an toàn cho điện thoại xem trực tiếp
+            let displaySrc = url;
+            if (isLocalData) {
+                try {
+                    let byteString = url.split(',')[0].indexOf('base64') >= 0 ? atob(url.split(',')[1]) : decodeURI(url.split(',')[1]);
+                    let mimeString = url.split(',')[0].split(':')[1].split(';')[0] || mimeType;
+                    let ab = new ArrayBuffer(byteString.length);
+                    let ia = new Uint8Array(ab);
+                    for (let i = 0; i < byteString.length; i++) { ia[i] = byteString.charCodeAt(i); }
+                    let blob = new Blob([ab], {type: mimeString});
+                    displaySrc = URL.createObjectURL(blob);
+                } catch(e) {}
+            }
 
             // 1. Nếu là Ảnh
             if (mimeType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(title)) {
@@ -558,7 +574,7 @@
                     title: `<span class="text-primary">${title}</span>`,
                     html: `
                         ${downloadBtnHtml}
-                        <div style="max-height: 65vh; overflow: auto;"><img src="${url}" style="max-width: 100%; height: auto; border-radius: 6px;" /></div>
+                        <div style="max-height: 65vh; overflow: auto;"><img src="${displaySrc}" style="max-width: 100%; height: auto; border-radius: 6px;" /></div>
                     `,
                     width: '75vw',
                     showCloseButton: true,
@@ -569,24 +585,11 @@
 
             // 2. Nếu là PDF
             if (mimeType.includes('pdf') || /\.pdf$/i.test(title)) {
-                let pdfSrc = url;
-                if (isLocalData) {
-                    try {
-                        let byteString = url.split(',')[0].indexOf('base64') >= 0 ? atob(url.split(',')[1]) : decodeURI(url.split(',')[1]);
-                        let mimeString = url.split(',')[0].split(':')[1].split(';')[0];
-                        let ab = new ArrayBuffer(byteString.length);
-                        let ia = new Uint8Array(ab);
-                        for (let i = 0; i < byteString.length; i++) { ia[i] = byteString.charCodeAt(i); }
-                        let blob = new Blob([ab], {type: mimeString});
-                        pdfSrc = URL.createObjectURL(blob);
-                    } catch(e) {}
-                }
-
                 Swal.fire({
                     title: `<span class="text-primary">${title}</span>`,
                     html: `
                         ${downloadBtnHtml}
-                        <iframe src="${pdfSrc}" style="width:100%; height:70vh; border:none;" allowfullscreen></iframe>
+                        <iframe src="${displaySrc}" style="width:100%; height:70vh; border:none;" allowfullscreen></iframe>
                     `,
                     width: '85vw',
                     showCloseButton: true,
@@ -595,18 +598,22 @@
                 return;
             }
 
-            // 3. Nếu là Word / Excel
+            // 3. Nếu là Word / Excel (Hỗ trợ cả file chọn tạm trên máy lẫn file trên Drive)
             if (mimeType.includes('word') || mimeType.includes('excel') || mimeType.includes('sheet') || /\.(doc|docx|xls|xlsx)$/i.test(title)) {
                 let viewerContent = '';
                 
                 if (isLocalData) {
+                    // Dùng Office Online Viewer hoặc Google Docs Viewer tích hợp với Blob/Object URL tạm thời
+                    // Sử dụng Microsoft Office Viewer trực tuyến cho file docx/xlsx cục bộ
+                    let encodedLocalUrl = encodeURIComponent(displaySrc);
+                    let officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodedLocalUrl}`;
+                    
                     viewerContent = `
                         ${downloadBtnHtml}
-                        <div class="alert alert-warning text-center mt-2">
-                            <i class="fa-solid fa-triangle-exclamation me-1"></i> Tệp này đang ở dạng chọn tạm trên máy (chưa đẩy lên Google Drive). Bạn có thể bấm nút <b>"Tải về máy"</b> ở trên để mở xem trực tiếp bằng phần mềm Office trên máy tính.
-                        </div>
+                        <iframe src="${officeViewerUrl}" style="width:100%; height:70vh; border:none;" allowfullscreen></iframe>
                     `;
                 } else {
+                    // File đã có link Google Drive công khai -> Dùng Google Docs Viewer
                     let googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
                     viewerContent = `
                         ${downloadBtnHtml}
