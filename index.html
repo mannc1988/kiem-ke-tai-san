@@ -56,7 +56,6 @@
             font-size: 0.82rem;
         }
 
-        /* FIX TRIỆT ĐỂ LỖI DƯ KHOẢNG TRẮNG / LỀ PHẢI CỦA VIEWER.JS */
         .viewer-container {
             background-color: rgba(0, 0, 0, 0.9) !important;
             display: flex !important;
@@ -83,7 +82,7 @@
             bottom: 0 !important;
             left: 0 !important;
             right: 0 !important;
-            transform: none !important; /* Ghi đè toàn bộ tính toán lệch tâm của thư viện */
+            transform: none !important;
             box-shadow: 0 5px 25px rgba(0,0,0,0.6);
             border-radius: 4px;
         }
@@ -920,11 +919,12 @@
 
             Swal.fire({
                 title: 'Đang đồng bộ tệp & dữ liệu...',
-                text: 'Đang xử lý xóa/thêm tệp trên Google Drive...',
+                text: 'Đang xử lý xóa tệp cũ trên Google Drive & cập nhật CSDL...',
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
 
+            // 1. Tự động tìm & xóa các file Drive đã bị gỡ bỏ trong Form Sửa
             const originalDriveUrlString = document.getElementById('hinh_anh_url').value;
             let originalDriveUrls = originalDriveUrlString ? originalDriveUrlString.split(',').map(s => s.trim()).filter(Boolean) : [];
             let deletedDriveUrls = originalDriveUrls.filter(url => !existingDriveUrls.includes(url));
@@ -939,6 +939,7 @@
                 } catch (err) {}
             }
 
+            // 2. Upload các file mới chọn lên Google Drive
             let finalImageUrls = [...existingDriveUrls];
             for (let file of tempFilesList) {
                 try {
@@ -962,6 +963,7 @@
             const finalImageUrlString = finalImageUrls.join(',');
             const currentTimestamp = new Date().toLocaleString('vi-VN');
 
+            // 3. Đóng gói dữ liệu AES mã hóa chuẩn để gửi lưu Server
             const payload = {
                 ma_tai_san: encryptData(ma_tai_san),
                 don_vi: encryptData(rawDonVi),
@@ -990,7 +992,7 @@
                 const result = await response.json();
                 
                 if (response.ok && result.success) {
-                    Swal.fire({ icon: 'success', title: 'Thành công!', text: 'Đã lưu tài sản thành công.', timer: 1500, showConfirmButton: false });
+                    Swal.fire({ icon: 'success', title: 'Thành công!', text: 'Đã cập nhật dữ liệu & xóa/thêm tệp trên Google Drive thành công.', timer: 1500, showConfirmButton: false });
                     resetForm();
                     refreshData();
                 } else {
@@ -1057,25 +1059,25 @@
 
         async function deleteAsset(ma_tai_san) {
             const confirmRes = await Swal.fire({
-                title: 'Xác nhận xóa?',
-                text: `Bạn có chắc muốn xóa tài sản mã ${ma_tai_san}? (Tất cả tệp đính kèm trên Google Drive cũng sẽ bị xóa vĩnh viễn)`,
+                title: 'Xác nhận xóa tài sản?',
+                text: `Bạn có chắc muốn xóa tài sản mã ${ma_tai_san}? Tất cả các file đính kèm trên Google Drive của tài sản này sẽ bị xóa luôn!`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
                 cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Xóa',
+                confirmButtonText: 'Xóa DB & Drive',
                 cancelButtonText: 'Hủy'
             });
 
             if (confirmRes.isConfirmed) {
                 Swal.fire({
                     title: 'Đang xóa tài sản & tệp liên quan...',
-                    text: 'Đang đồng bộ xóa tệp trên Google Drive...',
+                    text: 'Đang đồng bộ xóa tệp trên Google Drive & xóa dữ liệu trong DB...',
                     allowOutsideClick: false,
                     didOpen: () => { Swal.showLoading(); }
                 });
 
-                // Tìm tài sản trong cache hoặc DOM để xóa các tệp đính kèm trên Drive
+                // Tìm tài sản trong danh sách cache để lấy danh sách URL tệp trên Google Drive
                 const assetObj = danhSachTS.find(t => String(t.ma_tai_san) === String(ma_tai_san));
                 if (assetObj && assetObj.hinh_anh) {
                     let urlsToDelete = assetObj.hinh_anh.split(',').map(s => s.trim()).filter(Boolean);
@@ -1090,6 +1092,7 @@
                     }
                 }
 
+                // Thực hiện gọi API xóa dòng tài sản khỏi CSDL
                 try {
                     const response = await fetch(`${API_URL}?action=delete_asset`, {
                         method: 'POST',
@@ -1098,8 +1101,10 @@
                     });
                     const result = await response.json();
                     if (result.success) {
-                        Swal.fire({ icon: 'success', title: 'Đã xóa!', timer: 1200, showConfirmButton: false });
+                        Swal.fire({ icon: 'success', title: 'Đã xóa tài sản & toàn bộ tệp trên Drive thành công!', timer: 1500, showConfirmButton: false });
                         refreshData();
+                    } else {
+                        Swal.fire('Lỗi', result.error || 'Không thể xóa dữ liệu trên máy chủ!', 'error');
                     }
                 } catch (err) {
                     Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
@@ -1110,12 +1115,12 @@
         async function deleteHistory(id) {
             const confirmRes = await Swal.fire({
                 title: 'Xóa lịch sử?',
-                text: 'Bạn có chắc muốn xóa dòng lịch sử này? (Các tệp đính kèm liên quan trên Drive sẽ được gỡ bỏ)',
+                text: 'Bạn có chắc muốn xóa dòng lịch sử này? (Tất cả tệp đính kèm trên Google Drive liên quan sẽ bị xóa vĩnh viễn)',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
                 cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Xóa',
+                confirmButtonText: 'Xóa DB & Drive',
                 cancelButtonText: 'Hủy'
             });
 
@@ -1127,7 +1132,7 @@
                     didOpen: () => { Swal.showLoading(); }
                 });
 
-                // Tìm dòng lịch sử trong cache để xóa tệp đính kèm trên Drive
+                // Tìm dòng lịch sử trong cache để lấy danh sách tệp xóa trên Google Drive
                 const historyObj = lichSuKiemKeCache.find(h => String(h.id) === String(id));
                 if (historyObj && historyObj.tep_dinh_kem) {
                     let urlsToDelete = historyObj.tep_dinh_kem.split(',').map(s => s.trim()).filter(Boolean);
@@ -1150,8 +1155,10 @@
                     });
                     const result = await response.json();
                     if (result.success) {
-                        Swal.fire({ icon: 'success', title: 'Đã xóa!', timer: 1000, showConfirmButton: false });
+                        Swal.fire({ icon: 'success', title: 'Đã xóa lịch sử & tệp Drive thành công!', timer: 1200, showConfirmButton: false });
                         refreshData();
+                    } else {
+                        Swal.fire('Lỗi', result.error || 'Không thể xóa lịch sử trên máy chủ!', 'error');
                     }
                 } catch (err) {
                     Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
@@ -1261,7 +1268,6 @@
                     didOpen: () => { Swal.showLoading(); }
                 });
 
-                // Xử lý CRUD xóa file cũ trên Google Drive nếu bị gỡ bỏ
                 let originalHistoryUrls = item.tep_dinh_kem ? item.tep_dinh_kem.split(',').map(s => s.trim()).filter(Boolean) : [];
                 let deletedHistoryUrls = originalHistoryUrls.filter(url => !editHistoryExistingDriveUrls.includes(url));
 
