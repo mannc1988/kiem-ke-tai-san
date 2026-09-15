@@ -460,7 +460,7 @@
                         </span>
                         <div>
                             <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showDriveViewer('${url}', '${fName}')" title="Xem tệp"><i class="fa-solid fa-eye"></i></button>
-                            <button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="deleteDriveFileDirectly('${url}', ${index}, 'asset')" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>
+                            <button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="deleteDriveFileDirectly('${url}', ${index}, 'asset', null)" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>
                         </div>
                     `;
                     container.appendChild(div);
@@ -495,95 +495,111 @@
             }
         }
 
-        // HÀM XÓA FILE TRỰC TIẾP TRÊN GOOGLE DRIVE
-       // HÀM XÓA FILE DRIVE VÀ CẬP NHẬT ĐỒNG THỜI VÀO CSDL
-// HÀM XÓA FILE ĐỒNG THỜI (DB TRƯỚC -> DRIVE SAU)
-async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
-    if (!fileUrl || typeof fileUrl !== 'string') {
-        Swal.fire('Lỗi', 'Đường dẫn tệp không hợp lệ!', 'error');
-        return;
-    }
-
-    const currentMaTS = document.getElementById('ma_tai_san').value.trim();
-
-    if (context === 'asset' && !currentMaTS) {
-        Swal.fire('Lỗi', 'Chưa xác định được Mã Tài Sản! Vui lòng chọn nút Sửa tài sản trước khi xóa tệp.', 'warning');
-        return;
-    }
-
-    const confirmRes = await Swal.fire({
-        title: 'Xóa tệp trên CSDL & Google Drive?',
-        text: 'Hệ thống sẽ cập nhật CSDL và xóa tệp trên Google Drive!',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#6c757d',
-        confirmButtonText: 'Xóa CSDL & Drive',
-        cancelButtonText: 'Hủy'
-    });
-
-    if (!confirmRes.isConfirmed) return;
-
-    Swal.fire({
-        title: 'Đang xử lý đồng bộ...',
-        text: 'Đang cập nhật CSDL và xóa tệp trên Google Drive...',
-        allowOutsideClick: false,
-        didOpen: () => { Swal.showLoading(); }
-    });
-
-    try {
-        // BƯỚC 1: Cập nhật loại bỏ URL tệp khỏi CSDL trước
-        if (context === 'asset' && currentMaTS) {
-            const dbRes = await fetch(`${API_URL}?action=remove_asset_file`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    ma_tai_san: currentMaTS, 
-                    removeUrl: fileUrl 
-                })
-            });
-            
-            const dbResult = await dbRes.json();
-            if (!dbResult.success) {
-                Swal.fire('Lỗi CSDL', dbResult.error || 'Không thể cập nhật CSDL!', 'error');
+        async function deleteDriveFileDirectly(fileUrl, index, context = 'asset', historyId = null) {
+            if (!fileUrl || typeof fileUrl !== 'string') {
+                Swal.fire('Lỗi', 'Đường dẫn tệp không hợp lệ!', 'error');
                 return;
             }
-        }
 
-        // BƯỚC 2: Gọi API xóa file thực tế trên Google Drive sau
-        try {
-            await fetch(`${API_URL}?action=delete_drive`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileUrl: fileUrl })
+            const currentMaTS = document.getElementById('ma_tai_san').value.trim();
+
+            if (context === 'asset' && !currentMaTS) {
+                Swal.fire('Lỗi', 'Chưa xác định được Mã Tài Sản! Vui lòng chọn nút Sửa tài sản trước khi xóa tệp.', 'warning');
+                return;
+            }
+
+            if (context === 'history' && !historyId) {
+                Swal.fire('Lỗi', 'Chưa xác định được ID lịch sử kiểm kê!', 'warning');
+                return;
+            }
+
+            const confirmRes = await Swal.fire({
+                title: 'Xóa tệp trên CSDL & Google Drive?',
+                text: 'Hệ thống sẽ cập nhật CSDL trước, sau đó xóa tệp trên Google Drive!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Đồng ý xóa',
+                cancelButtonText: 'Hủy'
             });
-        } catch (driveErr) {
-            console.warn("Lỗi gửi request xóa Drive:", driveErr);
+
+            if (!confirmRes.isConfirmed) return;
+
+            Swal.fire({
+                title: 'Đang xử lý đồng bộ...',
+                text: 'Đang cập nhật CSDL và xóa tệp trên Google Drive...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                // Bước 1: Đồng bộ CSDL trước
+                if (context === 'asset' && currentMaTS) {
+                    const dbRes = await fetch(`${API_URL}?action=remove_asset_file`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            ma_tai_san: currentMaTS, 
+                            removeUrl: fileUrl 
+                        })
+                    });
+                    
+                    const dbResult = await dbRes.json();
+                    if (!dbResult.success) {
+                        Swal.fire('Lỗi CSDL', dbResult.error || 'Không thể cập nhật CSDL!', 'error');
+                        return;
+                    }
+                } else if (context === 'history' && historyId) {
+                    const dbRes = await fetch(`${API_URL}?action=remove_history_file`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            id: historyId, 
+                            removeUrl: fileUrl 
+                        })
+                    });
+                    
+                    const dbResult = await dbRes.json();
+                    if (!dbResult.success) {
+                        Swal.fire('Lỗi CSDL', dbResult.error || 'Không thể cập nhật CSDL lịch sử!', 'error');
+                        return;
+                    }
+                }
+
+                // Bước 2: Sau khi CSDL xóa thành công, tiến hành xóa trên Google Drive
+                try {
+                    await fetch(`${API_URL}?action=delete_drive`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fileUrl: fileUrl })
+                    });
+                } catch (driveErr) {
+                    console.warn("Lỗi gửi request xóa Drive:", driveErr);
+                }
+
+                if (context === 'asset') {
+                    existingDriveUrls.splice(index, 1);
+                    document.getElementById('hinh_anh_url').value = existingDriveUrls.join(',');
+                    renderImageDetailList();
+                } else if (context === 'history') {
+                    editHistoryExistingDriveUrls.splice(index, 1);
+                    renderEditHistoryFileList(historyId);
+                }
+
+                refreshData();
+                Swal.fire({ 
+                    icon: 'success', 
+                    title: 'Thành công!', 
+                    text: 'Đã cập nhật CSDL và xóa tệp trên Google Drive!', 
+                    timer: 1500, 
+                    showConfirmButton: false 
+                });
+
+            } catch (err) {
+                Swal.fire('Lỗi', 'Không thể kết nối máy chủ để xử lý!', 'error');
+            }
         }
-
-        // BƯỚC 3: Cập nhật biến tạm và giao diện Form
-        if (context === 'asset') {
-            existingDriveUrls.splice(index, 1);
-            document.getElementById('hinh_anh_url').value = existingDriveUrls.join(',');
-            renderImageDetailList();
-        } else if (context === 'history') {
-            editHistoryExistingDriveUrls.splice(index, 1);
-            renderEditHistoryFileList();
-        }
-
-        refreshData(); // Tải lại bảng DataTables
-        Swal.fire({ 
-            icon: 'success', 
-            title: 'Thành công!', 
-            text: 'Đã cập nhật CSDL và xóa tệp trên Google Drive!', 
-            timer: 1500, 
-            showConfirmButton: false 
-        });
-
-    } catch (err) {
-        Swal.fire('Lỗi', 'Không thể kết nối máy chủ để xử lý!', 'error');
-    }
-}
 
         function showSingleTempViewer(index) {
             let file = tempFilesList[index];
@@ -1009,7 +1025,6 @@ async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
                 didOpen: () => { Swal.showLoading(); }
             });
 
-            // Upload các file mới chọn lên Google Drive
             let finalImageUrls = [...existingDriveUrls];
             for (let file of tempFilesList) {
                 try {
@@ -1033,7 +1048,6 @@ async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
             const finalImageUrlString = finalImageUrls.join(',');
             const currentTimestamp = new Date().toLocaleString('vi-VN');
 
-            // Đóng gói dữ liệu AES mã hóa chuẩn để gửi lưu Server
             const payload = {
                 ma_tai_san: encryptData(ma_tai_san),
                 don_vi: encryptData(rawDonVi),
@@ -1273,7 +1287,7 @@ async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
                         </div>
                         <div class="mb-2">
                             <label class="form-label fw-semibold">Đính Kèm Mọi Loại Tệp (Google Drive):</label>
-                            <input type="file" id="swal_fileInput" class="form-control form-control-sm mb-1" accept="*/*" multiple onchange="handleEditHistoryFilesSelect(event)">
+                            <input type="file" id="swal_fileInput" class="form-control form-control-sm mb-1" accept="*/*" multiple onchange="handleEditHistoryFilesSelect(event, ${item.id})">
                             <div id="swal_fileDetailList" class="mt-2 border rounded p-2 bg-white" style="max-height: 120px; overflow-y: auto;"></div>
                         </div>
                     </div>
@@ -1284,7 +1298,7 @@ async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
                 cancelButtonText: 'Hủy',
                 confirmButtonColor: '#198754',
                 didOpen: () => {
-                    renderEditHistoryFileList();
+                    renderEditHistoryFileList(item.id);
                 },
                 preConfirm: () => {
                     return {
@@ -1356,7 +1370,7 @@ async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
             }
         }
 
-        async function handleEditHistoryFilesSelect(event) {
+        async function handleEditHistoryFilesSelect(event, historyId) {
             const files = event.target.files;
             if (!files || files.length === 0) return;
             for (let i = 0; i < files.length; i++) {
@@ -1364,11 +1378,11 @@ async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
                 let b64 = await toBase64(files[i]);
                 editHistoryBase64List.push(b64);
             }
-            renderEditHistoryFileList();
+            renderEditHistoryFileList(historyId);
             event.target.value = '';
         }
 
-        function renderEditHistoryFileList() {
+        function renderEditHistoryFileList(historyId) {
             const container = document.getElementById('swal_fileDetailList');
             if (!container) return;
             container.innerHTML = '';
@@ -1386,7 +1400,7 @@ async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
                     <span class="text-truncate me-2 text-primary" style="max-width: 200px;" title="${fName}"><i class="fa-solid fa-cloud-arrow-up me-1"></i> ${fName}</span>
                     <div>
                         <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showDriveViewer('${url}', '${fName}')"><i class="fa-solid fa-eye"></i></button>
-                        <button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="deleteDriveFileDirectly('${url}', ${idx}, 'history')" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>
+                        <button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="deleteDriveFileDirectly('${url}', ${idx}, 'history', ${historyId})" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>
                     </div>
                 `;
                 container.appendChild(div);
@@ -1398,17 +1412,17 @@ async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
                 div.innerHTML = `
                     <span class="text-truncate me-2 text-success" style="max-width: 250px;" title="${file.name}"><i class="fa-solid fa-circle-plus me-1"></i> ${file.name}</span>
                     <div>
-                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeEditTempFile(${idx})" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark"></i></button>
+                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeEditTempFile(${idx}, ${historyId})" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                 `;
                 container.appendChild(div);
             });
         }
 
-        function removeEditTempFile(idx) {
+        function removeEditTempFile(idx, historyId) {
             editHistoryFilesList.splice(idx, 1);
             editHistoryBase64List.splice(idx, 1);
-            renderEditHistoryFileList();
+            renderEditHistoryFileList(historyId);
         }
 
         function generateModalHtml(scannedCode, assetObj, previousHistories, currentDotName) {
