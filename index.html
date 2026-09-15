@@ -1883,6 +1883,7 @@
                         let rawGCL = row['gia_tri_con_lai'] !== undefined ? row['gia_tri_con_lai'] : (row['Giá Trị Còn Lại'] !== undefined ? row['Giá Trị Còn Lại'] : '');
                         let gcl = rawGCL !== '' && rawGCL !== null ? Number(rawGCL) : (ng - hm);
 
+                        // --- KIỂM TRA NGHIÊM NGẶT ĐỊNH DẠNG NGÀY ĐƯA VÀO SD ---
                         const rawNgaySD = row['ngay_dua_vao_sd'] !== undefined ? row['ngay_dua_vao_sd'] : (row['Ngày Đưa Vào SD'] !== undefined ? row['Ngày Đưa Vào SD'] : '');
                         let ngay_dua_vao_sd = '';
                         let isDateValid = false;
@@ -1890,6 +1891,7 @@
                         if (rawNgaySD !== undefined && rawNgaySD !== null && String(rawNgaySD).trim() !== '') {
                             let sDate = String(rawNgaySD).trim();
                             
+                            // Trường hợp 1: Nếu là số Serial chuẩn của Excel (Ví dụ: 46063)
                             if (!isNaN(sDate) && Number(sDate) > 1000) {
                                 let serial = Number(sDate);
                                 let utcDays = Math.floor(serial - 25569);
@@ -1900,11 +1902,12 @@
                                     let month = String(dateInfo.getUTCMonth() + 1).padStart(2, '0');
                                     let year = dateInfo.getUTCFullYear();
                                     if (year >= 1900 && year <= 2100) {
-                                        ngay_dua_vao_sd = `${day}/${month}/${year}`;
+                                        ngay_dua_vao_sd = `\({day}/\){month}/${year}`;
                                         isDateValid = true;
                                     }
                                 }
                             }
+                            // Trường hợp 2: Kiểm tra nếu khớp chính xác định dạng dd/MM/yyyy
                             else if (/^\d{2}\/\d{2}\/\d{4}$/.test(sDate)) {
                                 let parts = sDate.split('/');
                                 let d = parseInt(parts[0], 10);
@@ -1915,6 +1918,7 @@
                                     isDateValid = true;
                                 }
                             }
+                            // Trường hợp 3: Kiểm tra định dạng yyyy-MM-dd hoặc yyyy-MM-ddTHH:mm:ss
                             else if (sDate.includes('-')) {
                                 let cleanDatePart = sDate.split('T')[0];
                                 let parts = cleanDatePart.split('-');
@@ -1925,7 +1929,7 @@
                                     if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
                                         let dayStr = String(d).padStart(2, '0');
                                         let monthStr = String(m).padStart(2, '0');
-                                        ngay_dua_vao_sd = `${dayStr}/${monthStr}/${y}`;
+                                        ngay_dua_vao_sd = `\({dayStr}/\){monthStr}/${y}`;
                                         isDateValid = true;
                                     }
                                 }
@@ -1933,6 +1937,7 @@
                         } else {
                             isDateValid = true; 
                         }
+                        // -----------------------------------------------------
 
                         const trang_thai_sd = String(row['trang_thai_sd'] || row['Trạng Thái SD'] || 'Đang sử dụng').trim();
                         const trang_thai_qt = String(row['trang_thai_qt'] || row['Trạng Thái QT'] || 'Đã quyết toán').trim();
@@ -1948,6 +1953,7 @@
                         if (!ten_tai_san) rowErrors.push('Cột [Tên tài sản] bị trống');
                         if (!phong_ban_quan_ly) rowErrors.push('Cột [Phòng ban quản lý] bị trống');
                         
+                        // Báo lỗi ngay nếu ngày không đúng định dạng chuẩn (Sử dụng backtick chính xác)
                         if (!isDateValid) {
                             rowErrors.push(`Lỗi định dạng [Ngày đưa vào SD]: "${rawNgaySD}" không đúng chuẩn dd/MM/yyyy`);
                         }
@@ -1958,7 +1964,7 @@
                         if (!isNaN(ng) && !isNaN(hm) && hm > ng) rowErrors.push('Lỗi logic: [Hao mòn] > [Nguyên giá]');
 
                         if (rowErrors.length > 0) {
-                            errorDetails.push(`Dòng ${rowIndex} [Mã:${ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
+                            errorDetails.push(`Dòng \({rowIndex} [Mã:\){ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
                             continue;
                         }
 
@@ -1978,7 +1984,7 @@
                             phong_ban_quan_ly: encryptData(phong_ban_quan_ly),
                             so_serial: encryptData(so_serial),
                             hinh_anh: encryptData(hinh_anh),
-                            import_at: encryptData(currentTimestamp)
+                            import_at: encryptData(import_at)
                         });
                     }
 
@@ -2029,37 +2035,39 @@
                         htmlMsg += `<div id="errorListContainer" class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
                     }
                     Swal.fire({
-                        icon: totalFailCount === 0 ? 'success' : 'warning',
-                        title: 'Hoàn tất kiểm tra & đồng bộ lô!',
-                        html: htmlMsg,
-                        width: '650px',
-                        showConfirmButton: true,
-                        confirmButtonText: 'Đóng',
-                        showDenyButton: totalFailCount > 0,
-                        denyButtonText: 'Tải File Log Lỗi (.txt)',
-                        denyButtonColor: '#d33'
-                    }).then((result) => {
-                        if (result.isDenied) {
-                            const errorContent = `=== BÁO CÁO LỖI KIỂM TRA EXCEL THEO LÔ (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi: ${totalFailCount}\n\n` + errorDetails.join('\n');
-                            const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `Log_Loi_Batch_${Date.now()}.txt`;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                        }
-                    });
+                    icon: totalFailCount === 0 ? 'success' : 'warning',
+                    title: 'Hoàn tất kiểm tra & đồng bộ lô!',
+                    html: htmlMsg,
+                    width: '650px',
+                    showConfirmButton: true,
+                    confirmButtonText: 'Đóng',
+                    showDenyButton: totalFailCount > 0,
+                    denyButtonText: '** Tải File Log Lỗi (.txt)',
+                    denyButtonColor: '#d33'
+                }).then((result) => {
+                    // Khi người bấm vào nút Tải File Log Lỗi (Nút deny trong SweetAlert)
+                    if (result.isDenied) {
+                        const errorContent = `=== BÁO CÁO LỖI KIỂM TRA EXCEL THEO LÔ (\({new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi:\){totalFailCount}\n\n` + errorDetails.join('\n');
+                        const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href.value = url;
+                        a.href = url;
+                        a.download = `Log_Loi_Batch_${Date.now()}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }
+                });
 
-                } catch (error) {
-                    Swal.fire('Lỗi', 'Không thể đọc cấu trúc file Excel này!', 'error');
-                    document.getElementById('excelFile').value = '';
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
+            } catch (error) {
+                Swal.fire('Lỗi', 'Không thể đọc cấu trúc file Excel này!', 'error');
+                document.getElementById('excelFile').value = '';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
     </script>
 </body>
 </html>
