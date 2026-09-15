@@ -1058,7 +1058,7 @@
         async function deleteAsset(ma_tai_san) {
             const confirmRes = await Swal.fire({
                 title: 'Xác nhận xóa?',
-                text: `Bạn có chắc muốn xóa tài sản mã ${ma_tai_san}?`,
+                text: `Bạn có chắc muốn xóa tài sản mã ${ma_tai_san}? (Tất cả tệp đính kèm trên Google Drive cũng sẽ bị xóa vĩnh viễn)`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
@@ -1068,6 +1068,28 @@
             });
 
             if (confirmRes.isConfirmed) {
+                Swal.fire({
+                    title: 'Đang xóa tài sản & tệp liên quan...',
+                    text: 'Đang đồng bộ xóa tệp trên Google Drive...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                // Tìm tài sản trong cache hoặc DOM để xóa các tệp đính kèm trên Drive
+                const assetObj = danhSachTS.find(t => String(t.ma_tai_san) === String(ma_tai_san));
+                if (assetObj && assetObj.hinh_anh) {
+                    let urlsToDelete = assetObj.hinh_anh.split(',').map(s => s.trim()).filter(Boolean);
+                    for (let deleteUrl of urlsToDelete) {
+                        try {
+                            await fetch(`${API_URL}?action=delete_drive`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ fileUrl: deleteUrl })
+                            });
+                        } catch (err) {}
+                    }
+                }
+
                 try {
                     const response = await fetch(`${API_URL}?action=delete_asset`, {
                         method: 'POST',
@@ -1088,7 +1110,7 @@
         async function deleteHistory(id) {
             const confirmRes = await Swal.fire({
                 title: 'Xóa lịch sử?',
-                text: 'Bạn có chắc muốn xóa dòng lịch sử này?',
+                text: 'Bạn có chắc muốn xóa dòng lịch sử này? (Các tệp đính kèm liên quan trên Drive sẽ được gỡ bỏ)',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
@@ -1098,6 +1120,28 @@
             });
 
             if (confirmRes.isConfirmed) {
+                Swal.fire({
+                    title: 'Đang xóa dòng lịch sử...',
+                    text: 'Đang kiểm tra và xóa tệp liên quan trên Google Drive...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                // Tìm dòng lịch sử trong cache để xóa tệp đính kèm trên Drive
+                const historyObj = lichSuKiemKeCache.find(h => String(h.id) === String(id));
+                if (historyObj && historyObj.tep_dinh_kem) {
+                    let urlsToDelete = historyObj.tep_dinh_kem.split(',').map(s => s.trim()).filter(Boolean);
+                    for (let deleteUrl of urlsToDelete) {
+                        try {
+                            await fetch(`${API_URL}?action=delete_drive`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ fileUrl: deleteUrl })
+                            });
+                        } catch (err) {}
+                    }
+                }
+
                 try {
                     const response = await fetch(`${API_URL}?action=delete_history`, {
                         method: 'POST',
