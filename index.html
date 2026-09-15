@@ -538,24 +538,25 @@ async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
         }
 
         // BƯỚC 2: Cập nhật loại bỏ URL tệp khỏi CSDL
-        const currentMaTS = document.getElementById('ma_tai_san').value.trim();
-        
-        if (context === 'asset' && currentMaTS) {
-            const dbRes = await fetch(`${API_URL}?action=remove_asset_file`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    ma_tai_san: encryptData(currentMaTS), 
-                    removeUrl: fileUrl 
-                })
-            });
-            const dbResult = await dbRes.json();
-            
-            if (!dbResult.success) {
-                Swal.fire('Cảnh báo', 'Đã xóa file Drive nhưng không thể cập nhật CSDL!', 'warning');
-                return;
-            }
-        }
+        // Gọi API cập nhật loại bỏ URL tệp khỏi CSDL
+const currentMaTS = document.getElementById('ma_tai_san').value.trim();
+
+if (context === 'asset' && currentMaTS) {
+    const dbRes = await fetch(`${API_URL}?action=remove_asset_file`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            ma_tai_san: currentMaTS, // Truyền chuỗi mã tài sản thuần (không dùng encryptData)
+            removeUrl: fileUrl 
+        })
+    });
+    
+    const dbResult = await dbRes.json();
+    if (!dbResult.success) {
+        Swal.fire('Cảnh báo', dbResult.error || 'Đã xóa file Drive nhưng không thể cập nhật CSDL!', 'warning');
+        return;
+    }
+}
 
         // BƯỚC 3: Cập nhật lại giao diện Form & Bảng dữ liệu
         if (context === 'asset') {
