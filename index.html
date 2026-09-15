@@ -5,31 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ Thống Kiểm Kê Tài Sản QR Pro (Viewer.js & Google Drive)</title>
     
-    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- FontAwesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- SweetAlert2 CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <!-- DataTables Bootstrap 5 CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
-    <!-- Viewer.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.css">
     
-    <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-    <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- DataTables JS -->
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-    <!-- Viewer.js JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.js"></script>
-    <!-- Crypto-JS dùng để mã hóa AES -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <!-- Thư viện SheetJS đọc file Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- QR Scanner Library -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <style>
@@ -103,13 +91,11 @@
 <body class="py-4">
 
     <div class="container-fluid px-4">
-        <!-- Header -->
         <div class="text-center mb-4">
             <h2 class="fw-bold text-primary"><i class="fa-solid fa-boxes-stacked me-2"></i>QUẢN LÝ & KIỂM KẾ TÀI SẢN (AES & GOOGLE DRIVE)</h2>
             <p class="text-muted">Hệ thống bảo mật dữ liệu đầu cuối & lưu trữ tệp trực tiếp lên Google Drive</p>
         </div>
 
-        <!-- PHẦN 1: QUẢN LÝ DANH MỤC TÀI SẢN -->
         <div class="card shadow-sm">
             <div class="card-header bg-success text-white d-flex justify-content-between align-items-center py-3">
                 <h5 class="mb-0"><i class="fa-solid fa-laptop me-2"></i> 1. Quản Lý Danh Mục Tài Sản</h5>
@@ -124,7 +110,6 @@
                 </div>
             </div>
             <div class="card-body">
-                <!-- Form thêm/sửa tài sản -->
                 <form id="assetForm" onsubmit="saveAsset(event)" class="mb-4 pb-3 border-bottom">
                     <div class="row g-3">
                         <div class="col-md-3">
@@ -198,7 +183,6 @@
                     </div>
                 </form>
 
-                <!-- Bảng hiển thị danh mục tài sản -->
                 <div class="table-responsive">
                     <table id="assetsTable" class="table table-striped table-hover align-middle w-100">
                         <thead class="table-light">
@@ -229,7 +213,6 @@
             </div>
         </div>
 
-        <!-- PHẦN 2: QUÉT QR KIỂM KẾ THEO ĐỢT -->
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white py-3">
                 <h5 class="mb-0"><i class="fa-solid fa-camera me-2"></i> 2. Quét QR Kiểm Kê Theo Đợt</h5>
@@ -263,7 +246,6 @@
             </div>
         </div>
 
-        <!-- PHẦN 3: LỊCH SỬ KIỂM KẾ -->
         <div class="card shadow-sm">
             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
                 <h5 class="mb-0"><i class="fa-solid fa-clock-rotate-left me-2"></i> 3. Lịch Sử Đã Kiểm Kê (Theo Đợt)</h5>
@@ -297,15 +279,12 @@
 
     </div>
 
-    <!-- Container ẩn cho Viewer.js / Modal xem tệp linh hoạt -->
     <div id="viewerContainer" style="display: none;"></div>
 
-    <!-- SweetAlert2 & Eruda Console Debug -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
 
-    <!-- Script Logic Frontend -->
     <script>
         const API_URL = 'https://kiem-ke-tai-san-vercel.vercel.app/api';
         const SECRET_KEY = 'ManNC@2026_SecureKeyAivenMySQL!'; 
@@ -550,10 +529,8 @@
             mimeType = mimeType || '';
             let isLocalData = url.startsWith('data:') || url.startsWith('blob:');
 
-            // Tạo nút tải về máy đi kèm trên giao diện xem
             let downloadBtnHtml = `<div class="mb-2 text-start"><a href="${url}" download="${title}" class="btn btn-primary btn-sm"><i class="fa-solid fa-download me-1"></i> Tải về máy</a></div>`;
 
-            // Xử lý chuyển đổi Base64/Blob cục bộ thành Blob URL an toàn cho điện thoại xem trực tiếp
             let displaySrc = url;
             if (isLocalData) {
                 try {
@@ -597,22 +574,19 @@
                 return;
             }
 
-            // 3. Nếu là Word / Excel (Hỗ trợ cả file chọn tạm trên máy lẫn file trên Drive)
+            // 3. Nếu là Word / Excel (Hỗ trợ xem online qua Microsoft Office Viewer / Google Docs Viewer)
             if (mimeType.includes('word') || mimeType.includes('excel') || mimeType.includes('sheet') || /\.(doc|docx|xls|xlsx)$/i.test(title)) {
                 let viewerContent = '';
                 
                 if (isLocalData) {
-                    // Dùng Office Online Viewer hoặc Google Docs Viewer tích hợp với Blob/Object URL tạm thời
-                    // Sử dụng Microsoft Office Viewer trực tuyến cho file docx/xlsx cục bộ
-                    let encodedLocalUrl = encodeURIComponent(displaySrc);
-                    let officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodedLocalUrl}`;
-                    
+                    // File chọn tạm trên máy: Dùng Microsoft Office Viewer trực tuyến kết hợp Blob/Object URL để xem trực tiếp trên điện thoại
+                    let officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(displaySrc)}`;
                     viewerContent = `
                         ${downloadBtnHtml}
                         <iframe src="${officeViewerUrl}" style="width:100%; height:70vh; border:none;" allowfullscreen></iframe>
                     `;
                 } else {
-                    // File đã có link Google Drive công khai -> Dùng Google Docs Viewer
+                    // File đã có link Google Drive công khai: Dùng Google Docs Viewer trực tuyến
                     let googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
                     viewerContent = `
                         ${downloadBtnHtml}
