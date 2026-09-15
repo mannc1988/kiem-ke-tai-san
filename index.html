@@ -59,22 +59,31 @@
         /* FIX TRIỆT ĐỂ LỖI DƯ KHOẢNG TRẮNG / LỀ PHẢI CỦA VIEWER.JS */
         .viewer-container {
             background-color: rgba(0, 0, 0, 0.9) !important;
-        }
-        .viewer-canvas {
-            width: 100% !important;
-            height: 100% !important;
-            max-width: 100% !important;
-            max-height: 100% !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
         }
+        .viewer-canvas {
+            position: absolute !important;
+            top: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            overflow: hidden !important;
+        }
         .viewer-canvas > img {
-            max-width: 90vw !important;
+            max-width: 85vw !important;
             max-height: 85vh !important;
             object-fit: contain !important;
-            border-radius: 6px;
+            margin: auto !important;
+            position: relative !important;
+            left: 0 !important;
+            right: 0 !important;
             box-shadow: 0 5px 25px rgba(0,0,0,0.6);
+            border-radius: 4px;
         }
 
         .file-detail-item {
