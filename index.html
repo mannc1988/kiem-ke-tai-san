@@ -329,6 +329,7 @@
         let editHistoryFilesList = [];
         let editHistoryBase64List = [];
         let editHistoryExistingDriveUrls = [];
+        let currentEditingHistoryContext = null; 
 
         function encryptData(plainText) {
             if (plainText === undefined || plainText === null || plainText === '') return '';
@@ -739,6 +740,7 @@
 
         function openTempViewer(url, mimeType, title = 'Xem trước tệp') {
             mimeType = mimeType || '';
+            let savedHistoryContext = saveCurrentModalStateIfOpen();
             
             if (mimeType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(title)) {
                 const container = document.getElementById('viewerContainer');
@@ -748,7 +750,10 @@
                 container.appendChild(img);
                 const viewer = new Viewer(container, {
                     inline: false, button: true, navbar: false, title: false, toolbar: true,
-                    hidden: function () { viewer.destroy(); }
+                    hidden: function () { 
+                        viewer.destroy(); 
+                        restoreModalStateIfSaved(savedHistoryContext);
+                    }
                 });
                 viewer.show();
                 return;
@@ -785,6 +790,7 @@
                         if (objectUrlToRevoke) {
                             URL.revokeObjectURL(objectUrlToRevoke);
                         }
+                        restoreModalStateIfSaved(savedHistoryContext);
                     }
                 });
                 return;
@@ -796,7 +802,10 @@
                 icon: 'info',
                 showCancelButton: true,
                 confirmButtonText: 'Tải về / Mở',
-                cancelButtonText: 'Đóng'
+                cancelButtonText: 'Đóng',
+                willClose: () => {
+                    restoreModalStateIfSaved(savedHistoryContext);
+                }
             }).then((res) => {
                 if (res.isConfirmed) {
                     window.open(url, '_blank');
@@ -806,6 +815,7 @@
 
         function showDriveViewer(url, title = 'Xem tệp Drive') {
             let embedUrl = url;
+            let savedHistoryContext = saveCurrentModalStateIfOpen();
             
             if (url.includes('drive.google.com')) {
                 let fileId = '';
@@ -828,7 +838,10 @@
                 container.appendChild(img);
                 const viewer = new Viewer(container, {
                     inline: false, button: true, navbar: false, title: false, toolbar: true,
-                    hidden: function () { viewer.destroy(); }
+                    hidden: function () { 
+                        viewer.destroy(); 
+                        restoreModalStateIfSaved(savedHistoryContext);
+                    }
                 });
                 viewer.show();
                 return;
@@ -837,8 +850,42 @@
             Swal.fire({
                 title: `<span class="text-primary">${title}</span>`,
                 html: `<iframe src="${embedUrl}" style="width:100%; height:75vh; border:none;" allowfullscreen></iframe>`,
-                width: '85vw', showCloseButton: true, showConfirmButton: false
+                width: '85vw', 
+                showCloseButton: true, 
+                showConfirmButton: false,
+                willClose: () => {
+                    restoreModalStateIfSaved(savedHistoryContext);
+                }
             });
+        }
+
+        function saveCurrentModalStateIfOpen() {
+            if (currentEditingHistoryContext) {
+                const phongBan = document.getElementById('swal_phong_ban');
+                const soSerial = document.getElementById('swal_so_serial');
+                const nguoiKK = document.getElementById('swal_nguoiKK');
+                const ketQuaKK = document.getElementById('swal_ket_qua_kk');
+                const phuongAnXL = document.getElementById('swal_phuong_an_xl');
+                const ghiChu = document.getElementById('swal_ghiChu');
+
+                if (phongBan) currentEditingHistoryContext.item.phong_ban = phongBan.value;
+                if (soSerial) currentEditingHistoryContext.item.so_serial = soSerial.value.trim();
+                if (nguoiKK) currentEditingHistoryContext.item.nguoiKK = nguoiKK.value;
+                if (ketQuaKK) currentEditingHistoryContext.item.ket_qua_kk = ketQuaKK.value;
+                if (phuongAnXL) currentEditingHistoryContext.item.phuong_an_xl = phuongAnXL.value;
+                if (ghiChu) currentEditingHistoryContext.item.ghiChu = ghiChu.value.trim();
+
+                return JSON.parse(JSON.stringify(currentEditingHistoryContext));
+            }
+            return null;
+        }
+
+        function restoreModalStateIfSaved(savedContext) {
+            if (savedContext) {
+                setTimeout(() => {
+                    openEditHistoryModal(encodeURIComponent(JSON.stringify(savedContext.item)), savedContext.filesList, savedContext.base64List, savedContext.driveUrls);
+                }, 150);
+            }
         }
 
         function playBeep() {
@@ -1388,11 +1435,19 @@
             }
         }
 
-        async function openEditHistoryModal(encodedJsonStr) {
+        async function openEditHistoryModal(encodedJsonStr, overrideFilesList = null, overrideBase64List = null, overrideDriveUrls = null) {
             const item = JSON.parse(decodeURIComponent(encodedJsonStr));
-            editHistoryFilesList = [];
-            editHistoryBase64List = [];
-            editHistoryExistingDriveUrls = item.tep_dinh_kem ? item.tep_dinh_kem.split(',').map(s => s.trim()).filter(Boolean) : [];
+            
+            editHistoryFilesList = overrideFilesList || [];
+            editHistoryBase64List = overrideBase64List || [];
+            editHistoryExistingDriveUrls = overrideDriveUrls || (item.tep_dinh_kem ? item.tep_dinh_kem.split(',').map(s => s.trim()).filter(Boolean) : []);
+
+            currentEditingHistoryContext = {
+                item: item,
+                filesList: editHistoryFilesList,
+                base64List: editHistoryBase64List,
+                driveUrls: editHistoryExistingDriveUrls
+            };
 
             let phongBanSet = new Set(['340 - TRUNG TÂM XỬ LÝ NỢ', 'Phòng Hành Chính', 'Phòng Kế Toán', 'Phòng CNTT']);
             danhSachTS.forEach(t => { if (t.phong_ban_quan_ly) phongBanSet.add(t.phong_ban_quan_ly); });
@@ -1471,6 +1526,9 @@
                 confirmButtonColor: '#198754',
                 didOpen: () => {
                     renderEditHistoryFileList(item.id);
+                },
+                willClose: () => {
+                    currentEditingHistoryContext = null;
                 },
                 preConfirm: () => {
                     return {
