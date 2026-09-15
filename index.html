@@ -1382,6 +1382,13 @@
             event.target.value = '';
         }
 
+        function showSingleEditHistoryTempViewer(index) {
+            let file = editHistoryFilesList[index];
+            if (!file) return;
+            let fileUrl = editHistoryBase64List[index];
+            openTempViewer(fileUrl, file.type, file.name);
+        }
+
         function renderEditHistoryFileList(historyId) {
             const container = document.getElementById('swal_fileDetailList');
             if (!container) return;
@@ -1410,8 +1417,9 @@
                 const div = document.createElement('div');
                 div.className = 'file-detail-item';
                 div.innerHTML = `
-                    <span class="text-truncate me-2 text-success" style="max-width: 250px;" title="${file.name}"><i class="fa-solid fa-circle-plus me-1"></i> ${file.name}</span>
+                    <span class="text-truncate me-2 text-success" style="max-width: 200px;" title="${file.name}"><i class="fa-solid fa-circle-plus me-1"></i> ${file.name}</span>
                     <div>
+                        <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showSingleEditHistoryTempViewer(${idx})" title="Xem trước tệp tạm"><i class="fa-solid fa-eye"></i></button>
                         <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeEditTempFile(${idx}, ${historyId})" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                 `;
