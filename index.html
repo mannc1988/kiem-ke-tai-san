@@ -19,6 +19,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.25/dist/docx-preview.min.js"></script>
     
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -525,13 +528,14 @@
             openUniversalViewer(url, mimeType, fileName);
         }
 
-        function openUniversalViewer(url, mimeType, title = 'Xem trước tệp') {
+        async function openUniversalViewer(url, mimeType, title = 'Xem trước tệp') {
             mimeType = mimeType || '';
             let isLocalData = url.startsWith('data:') || url.startsWith('blob:');
 
             let downloadBtnHtml = `<div class="mb-2 text-start"><a href="${url}" download="${title}" class="btn btn-primary btn-sm"><i class="fa-solid fa-download me-1"></i> Tải về máy</a></div>`;
 
             let displaySrc = url;
+            let blobData = null;
             if (isLocalData) {
                 try {
                     let byteString = url.split(',')[0].indexOf('base64') >= 0 ? atob(url.split(',')[1]) : decodeURI(url.split(',')[1]);
@@ -539,8 +543,8 @@
                     let ab = new ArrayBuffer(byteString.length);
                     let ia = new Uint8Array(ab);
                     for (let i = 0; i < byteString.length; i++) { ia[i] = byteString.charCodeAt(i); }
-                    let blob = new Blob([ab], {type: mimeString});
-                    displaySrc = URL.createObjectURL(blob);
+                    blobData = new Blob([ab], {type: mimeString});
+                    displaySrc = URL.createObjectURL(blobData);
                 } catch(e) {}
             }
 
@@ -574,19 +578,53 @@
                 return;
             }
 
-            // 3. Nếu là Word / Excel (Hỗ trợ xem online qua Microsoft Office Viewer / Google Docs Viewer)
-            if (mimeType.includes('word') || mimeType.includes('excel') || mimeType.includes('sheet') || /\.(doc|docx|xls|xlsx)$/i.test(title)) {
+            // 3. Nếu là Word (.docx) -> Dùng docx-preview hiển thị trực tiếp ở client-side
+            if (mimeType.includes('word') || /\.docx$/i.test(title)) {
+                Swal.fire({
+                    title: `<span class="text-primary">${title}</span>`,
+                    html: `
+                        ${downloadBtnHtml}
+                        <div id="wordViewerContainer" style="width:100%; height:70vh; overflow-y:auto; background:#fff; text-align:left; border: 1px solid #ddd; padding: 15px;">
+                            <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Đang tải và giải mã văn bản...</p></div>
+                        </div>
+                    `,
+                    width: '85vw',
+                    showCloseButton: true,
+                    showConfirmButton: false,
+                    didOpen: async () => {
+                        try {
+                            let arrayBuffer;
+                            if (blobData) {
+                                arrayBuffer = await blobData.arrayBuffer();
+                            } else {
+                                let response = await fetch(url);
+                                arrayBuffer = await response.arrayBuffer();
+                            }
+                            let container = document.getElementById("wordViewerContainer");
+                            container.innerHTML = ""; 
+                            await docx.renderAsync(arrayBuffer, container);
+                        } catch (err) {
+                            document.getElementById("wordViewerContainer").innerHTML = `<div class="alert alert-danger">Không thể hiển thị bản xem trước của tài liệu này. Vui lòng tải về máy để xem.</div>`;
+                        }
+                    }
+                });
+                return;
+            }
+
+            // 4. Nếu là Excel (.xlsx / .xls) hoặc file khác -> Sử dụng Google Docs Viewer (nếu online) hoặc tải về
+            if (mimeType.includes('excel') || mimeType.includes('sheet') || /\.(xls|xlsx)$/i.test(title) || /\.doc$/i.test(title)) {
                 let viewerContent = '';
                 
                 if (isLocalData) {
-                    // File chọn tạm trên máy: Dùng Microsoft Office Viewer trực tuyến kết hợp Blob/Object URL để xem trực tiếp trên điện thoại
-                    let officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(displaySrc)}`;
                     viewerContent = `
-                        ${downloadBtnHtml}
-                        <iframe src="${officeViewerUrl}" style="width:100%; height:70vh; border:none;" allowfullscreen></iframe>
+                        <div class="text-center py-4">
+                            <i class="fa-solid fa-file-excel text-success fa-3x mb-3"></i>
+                            <h5>Tệp Excel/Doc cục bộ</h5>
+                            <p class="text-muted small">Định dạng file tạm cần được tải về hoặc lưu lên Google Drive để xem trực tuyến.</p>
+                            ${downloadBtnHtml}
+                        </div>
                     `;
                 } else {
-                    // File đã có link Google Drive công khai: Dùng Google Docs Viewer trực tuyến
                     let googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
                     viewerContent = `
                         ${downloadBtnHtml}
@@ -604,7 +642,7 @@
                 return;
             }
 
-            // 4. Các định dạng khác
+            // 5. Các định dạng khác
             Swal.fire({
                 title: `<span class="text-primary">${title}</span>`,
                 html: `
