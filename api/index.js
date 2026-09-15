@@ -35,8 +35,6 @@ function decryptData(cipherText) {
 }
 
 module.exports = async (req, res) => {
-    // Tăng giới hạn payload body nếu upload file lớn (PDF, Excel nặng)
-    // Lưu ý: Trên Vercel giới hạn body request mặc định khoảng 4.5MB
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -363,20 +361,37 @@ module.exports = async (req, res) => {
                 return res.status(500).json({ success: false, error: 'Chưa cấu hình GOOGLE_SCRIPT_WEB_APP_URL trong biến môi trường!' });
             }
 
-            // Gói toàn bộ dữ liệu file (Base64) gửi sang Apps Script để lưu trữ an toàn
             const response = await fetch(SCRIPT_WEB_APP_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileName, fileData, mimeType })
+                body: JSON.stringify({ action: 'upload', fileName, fileData, mimeType })
             });
 
             const result = await response.json();
             return res.json(result);
         }
 
-        // 9. XÓA DRIVE 
+        // 9. XÓA DRIVE THỰC TẾ QUA GOOGLE APPS SCRIPT
         if (action === 'delete_drive' && req.method === 'POST') {
-            return res.json({ success: true, message: 'Bỏ qua xóa rác Drive trực tiếp qua Apps Script' });
+            const { fileUrl, fileId } = req.body;
+            const SCRIPT_WEB_APP_URL = process.env.GOOGLE_SCRIPT_WEB_APP_URL;
+
+            if (!SCRIPT_WEB_APP_URL) {
+                return res.status(500).json({ success: false, error: 'Chưa cấu hình GOOGLE_SCRIPT_WEB_APP_URL trong biến môi trường!' });
+            }
+
+            if (!fileUrl && !fileId) {
+                return res.status(400).json({ success: false, error: 'Thiếu fileUrl hoặc fileId để xóa!' });
+            }
+
+            const response = await fetch(SCRIPT_WEB_APP_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete', fileUrl, fileId })
+            });
+
+            const result = await response.json();
+            return res.json(result);
         }
 
         return res.status(404).json({ success: false, error: 'Action không hợp lệ' });
