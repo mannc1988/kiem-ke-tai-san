@@ -56,65 +56,34 @@
             font-size: 0.82rem;
         }
 
-        .viewer-container {
-            background-color: rgba(0, 0, 0, 0.9) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
-        .viewer-canvas {
-            position: absolute !important;
-            width: 100% !important;
-            height: 100% !important;
-            top: 0 !important;
-            left: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
-        .viewer-canvas > img {
-            max-width: 85vw !important;
-            max-height: 85vh !important;
-            object-fit: contain !important;
-            position: absolute !important;
-            margin: auto !important;
-            top: 0 !important;
-            bottom: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            transform: none !important;
-            box-shadow: 0 5px 25px rgba(0,0,0,0.6);
-            border-radius: 4px;
-        }
-
         .file-detail-item {
             background: #f8f9fa;
             border: 1px solid #e9ecef;
-            padding: 4px 8px;
-            border-radius: 4px;
-            margin-bottom: 4px;
-            font-size: 0.8rem;
+            padding: 6px 10px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
         }
 
-        /* Mở rộng cửa sổ xem Inline */
+        /* Mở rộng tối đa (Full Width & Large Height) cho Inline Viewer */
         .inline-pdf-container {
             width: 100%;
-            height: 650px;
-            border: 1px solid #ced4da;
-            border-radius: 6px;
-            margin-top: 6px;
+            height: 80vh;
+            border: 2px solid #0d6efd;
+            border-radius: 8px;
+            margin-top: 8px;
             background: #525659;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
         }
 
         .inline-img-container {
             max-width: 100%;
-            max-height: 550px;
-            border: 1px solid #ced4da;
-            border-radius: 6px;
-            margin-top: 6px;
+            max-height: 75vh;
+            border: 2px solid #0d6efd;
+            border-radius: 8px;
+            margin-top: 8px;
             object-fit: contain;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
         }
     </style>
 </head>
@@ -477,14 +446,14 @@
                     let inlineBtnHtml = '';
                     if (isPdf || isImage) {
                         let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
-                        inlineBtnHtml = `<button type="button" class="btn btn-outline-info btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia('drive_asset_${index}', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline"><i class="fa-solid ${iconClass} me-1"></i> Xem Inline</button>`;
+                        inlineBtnHtml = `<button type="button" class="btn btn-info btn-sm text-white py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia('drive_asset_${index}', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline Full Size"><i class="fa-solid ${iconClass} me-1"></i> Xem Inline</button>`;
                     } else {
                         inlineBtnHtml = `<a href="${url}" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>`;
                     }
 
                     div.innerHTML = `
                         <div class="d-flex align-items-center justify-content-between">
-                            <span class="text-truncate me-2 text-primary" style="max-width: 200px;" title="${fName}">
+                            <span class="text-truncate me-2 text-primary" style="max-width: 220px;" title="${fName}">
                                 <i class="fa-solid fa-file me-1"></i> ${fName}
                             </span>
                             <div>
@@ -519,12 +488,12 @@
                     let inlineBtnHtml = '';
                     if (isPdf || isImage) {
                         let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
-                        inlineBtnHtml = `<button type="button" class="btn btn-outline-info btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia('temp_asset_${index}', '${tempBase64List[index]}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline"><i class="fa-solid ${iconClass} me-1"></i> Xem Inline</button>`;
+                        inlineBtnHtml = `<button type="button" class="btn btn-info btn-sm text-white py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia('temp_asset_${index}', '${tempBase64List[index]}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline Full Size"><i class="fa-solid ${iconClass} me-1"></i> Xem Inline</button>`;
                     }
 
                     div.innerHTML = `
                         <div class="d-flex align-items-center justify-content-between">
-                            <span class="text-truncate me-2" style="max-width: 200px;" title="${file.name}">
+                            <span class="text-truncate me-2" style="max-width: 220px;" title="${file.name}">
                                 <i class="fa-solid fa-file text-success me-1"></i> ${file.name}
                             </span>
                             <div>
@@ -580,18 +549,28 @@
 
                 targetContainer.innerHTML = `
                     <div class="position-relative mt-2">
-                        <button type="button" class="btn btn-dark btn-sm py-0 px-2 position-absolute top-0 end-0 m-2 shadow" style="z-index: 10; font-size: 0.75rem;" onclick="toggleInlineMedia('${elementPrefixId}', '', 'pdf')">
-                            <i class="fa-solid fa-xmark me-1"></i>Thu gọn PDF
-                        </button>
+                        <div class="position-absolute top-0 end-0 m-2" style="z-index: 10;">
+                            <a href="${embedSrc}" target="_blank" class="btn btn-primary btn-sm py-0 px-2 me-1 shadow" style="font-size: 0.75rem;">
+                                <i class="fa-solid fa-up-right-from-square me-1"></i>Mở Tab Mới
+                            </a>
+                            <button type="button" class="btn btn-dark btn-sm py-0 px-2 shadow" style="font-size: 0.75rem;" onclick="toggleInlineMedia('${elementPrefixId}', '', 'pdf')">
+                                <i class="fa-solid fa-xmark me-1"></i>Thu Gọn
+                            </button>
+                        </div>
                         <iframe src="${embedSrc}" class="inline-pdf-container"></iframe>
                     </div>
                 `;
             } else if (mediaType === 'image') {
                 targetContainer.innerHTML = `
                     <div class="position-relative text-center mt-2">
-                        <button type="button" class="btn btn-dark btn-sm py-0 px-2 position-absolute top-0 end-0 m-2 shadow" style="z-index: 10; font-size: 0.75rem;" onclick="toggleInlineMedia('${elementPrefixId}', '', 'image')">
-                            <i class="fa-solid fa-xmark me-1"></i>Thu gọn Ảnh
-                        </button>
+                        <div class="position-absolute top-0 end-0 m-2" style="z-index: 10;">
+                            <a href="${embedSrc}" target="_blank" class="btn btn-primary btn-sm py-0 px-2 me-1 shadow" style="font-size: 0.75rem;">
+                                <i class="fa-solid fa-up-right-from-square me-1"></i>Mở Tab Mới
+                            </a>
+                            <button type="button" class="btn btn-dark btn-sm py-0 px-2 shadow" style="font-size: 0.75rem;" onclick="toggleInlineMedia('${elementPrefixId}', '', 'image')">
+                                <i class="fa-solid fa-xmark me-1"></i>Thu Gọn
+                            </button>
+                        </div>
                         <img src="${embedSrc}" class="inline-img-container" alt="Inline Image Preview" />
                     </div>
                 `;
@@ -751,7 +730,7 @@
                             let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
                             if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có tệp</span>';
 
-                            let htmlList = '<div style="min-width: 150px;">';
+                            let htmlList = '<div style="min-width: 170px;">';
                             urls.forEach((url, idx) => {
                                 let fName = url.split('/').pop().split('?')[0] || `Asset_File_${idx + 1}`;
                                 let isPdf = fName.toLowerCase().endsWith('.pdf') || url.includes('.pdf');
@@ -762,7 +741,7 @@
                                 if (isPdf || isImage) {
                                     let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
                                     inlineBtnHtml = `
-                                        <button class="btn btn-outline-info btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="toggleInlineMedia('${targetId}', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline">
+                                        <button class="btn btn-info btn-sm text-white py-0 px-2" style="font-size: 0.7rem;" onclick="toggleInlineMedia('${targetId}', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline Full Size">
                                             <i class="fa-solid ${iconClass} me-1"></i> Xem Inline
                                         </button>
                                     `;
@@ -773,7 +752,7 @@
                                 htmlList += `
                                     <div class="mb-1">
                                         <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 shadow-sm">
-                                            <span class="text-truncate me-2 small text-secondary" style="max-width: 100px;" title="${fName}">
+                                            <span class="text-truncate me-2 small text-secondary" style="max-width: 110px;" title="${fName}">
                                                 <i class="fa-solid fa-file text-primary me-1"></i> ${fName}
                                             </span>
                                             <div>
@@ -881,7 +860,7 @@
                             let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
                             if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có file</span>';
 
-                            let htmlList = '<div style="min-width: 150px;">';
+                            let htmlList = '<div style="min-width: 170px;">';
                             urls.forEach((url, idx) => {
                                 let fName = url.split('/').pop().split('?')[0] || `File_${idx + 1}`;
                                 let isPdf = fName.toLowerCase().endsWith('.pdf') || url.includes('.pdf');
@@ -892,7 +871,7 @@
                                 if (isPdf || isImage) {
                                     let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
                                     inlineBtnHtml = `
-                                        <button class="btn btn-outline-info btn-sm py-0 px-2" style="font-size: 0.65rem;" onclick="toggleInlineMedia('${targetId}', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline">
+                                        <button class="btn btn-info btn-sm text-white py-0 px-2" style="font-size: 0.65rem;" onclick="toggleInlineMedia('${targetId}', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline Full Size">
                                             <i class="fa-solid ${iconClass} me-1"></i> Xem Inline
                                         </button>
                                     `;
@@ -903,7 +882,7 @@
                                 htmlList += `
                                     <div class="mb-1">
                                         <div class="d-flex align-items-center justify-content-between bg-white border rounded px-1 py-1 shadow-sm" style="font-size: 0.75rem;">
-                                            <span class="text-truncate me-1 text-secondary" style="max-width: 80px;" title="${fName}">${fName}</span>
+                                            <span class="text-truncate me-1 text-secondary" style="max-width: 90px;" title="${fName}">${fName}</span>
                                             <div>
                                                 ${inlineBtnHtml}
                                             </div>
@@ -1287,11 +1266,12 @@
             let phuongAnList = ['Giữ nguyên', 'Thu hồi', 'Điều chuyển', 'Thanh lý'];
             let phuongAnOptions = phuongAnList.map(pa => `<option value="${pa}" ${pa === item.phuong_an_xl ? 'selected' : ''}>${pa}</option>`).join('');
 
+            /* Mở rộng cửa sổ Swal Modal lên 95vw */
             const { value: formValues } = await Swal.fire({
-                title: `<span class="text-primary"><i class="fa-solid fa-pen-to-square me-2"></i>Sửa Lịch Sử Kiểm Kê</span>`,
+                title: `<span class="text-primary"><i class="fa-solid fa-pen-to-square me-2"></i>Sửa Lịch Sử Kiểm Kê Tài Sản</span>`,
                 html: `
-                    <div class="text-start" style="font-size: 0.9rem;">
-                        <div class="row g-2 mb-2">
+                    <div class="text-start" style="font-size: 0.95rem;">
+                        <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Mã Tài Sản:</label>
                                 <input type="text" id="swal_tsId" class="form-control form-control-sm bg-light" value="${item.tsId}" readonly>
@@ -1301,9 +1281,9 @@
                                 <input type="text" id="swal_tsName" class="form-control form-control-sm bg-light" value="${item.tsName}" readonly>
                             </div>
                         </div>
-                        <div class="row g-2 mb-2">
+                        <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Phòng Ban:</label>
+                                <label class="form-label fw-semibold">Phòng Ban Quản Lý:</label>
                                 <select id="swal_phong_ban" class="form-select form-select-sm">${phongBanOptions}</select>
                             </div>
                             <div class="col-md-6">
@@ -1311,7 +1291,7 @@
                                 <input type="text" id="swal_so_serial" class="form-control form-control-sm" value="${item.so_serial || ''}">
                             </div>
                         </div>
-                        <div class="row g-2 mb-2">
+                        <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Cán Bộ Kiểm Kê:</label>
                                 <select id="swal_nguoiKK" class="form-select form-select-sm">${canBoOptions}</select>
@@ -1321,7 +1301,7 @@
                                 <select id="swal_ket_qua_kk" class="form-select form-select-sm">${ketQuaOptions}</select>
                             </div>
                         </div>
-                        <div class="row g-2 mb-2">
+                        <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Phương Án XL:</label>
                                 <select id="swal_phuong_an_xl" class="form-select form-select-sm">${phuongAnOptions}</select>
@@ -1331,14 +1311,14 @@
                                 <input type="text" id="swal_ghiChu" class="form-control form-control-sm" value="${item.ghiChu || ''}">
                             </div>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label fw-semibold">Đính Kèm Mọi Loại Tệp (Google Drive):</label>
-                            <input type="file" id="swal_fileInput" class="form-control form-control-sm mb-1" accept="*/*" multiple onchange="handleEditHistoryFilesSelect(event, ${item.id})">
-                            <div id="swal_fileDetailList" class="mt-2 border rounded p-2 bg-white" style="max-height: 350px; overflow-y: auto;"></div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Đính Kèm Tệp/Ảnh (Google Drive):</label>
+                            <input type="file" id="swal_fileInput" class="form-control form-control-sm mb-2" accept="*/*" multiple onchange="handleEditHistoryFilesSelect(event, ${item.id})">
+                            <div id="swal_fileDetailList" class="border rounded p-3 bg-white" style="max-height: 500px; overflow-y: auto;"></div>
                         </div>
                     </div>
                 `,
-                width: '750px',
+                width: '95vw',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showCancelButton: true,
@@ -1451,17 +1431,17 @@
                 let inlineBtnHtml = '';
                 if (isPdf || isImage) {
                     let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
-                    inlineBtnHtml = `<button type="button" class="btn btn-outline-info btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia('swal_drive_${idx}', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline"><i class="fa-solid ${iconClass} me-1"></i> Xem Inline</button>`;
+                    inlineBtnHtml = `<button type="button" class="btn btn-info btn-sm text-white py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia('swal_drive_${idx}', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline Full Size"><i class="fa-solid ${iconClass} me-1"></i> Xem Inline</button>`;
                 } else {
                     inlineBtnHtml = `<a href="${url}" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>`;
                 }
 
                 div.innerHTML = `
                     <div class="d-flex align-items-center justify-content-between">
-                        <span class="text-truncate me-2 text-primary" style="max-width: 220px;" title="${fName}"><i class="fa-solid fa-cloud-arrow-up me-1"></i> ${fName}</span>
+                        <span class="text-truncate me-2 text-primary" style="max-width: 60%;" title="${fName}"><i class="fa-solid fa-cloud-arrow-up me-1"></i> ${fName}</span>
                         <div>
                             ${inlineBtnHtml}
-                            <button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="deleteDriveFileDirectly('${url}', ${idx}, 'history', ${historyId})" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>
+                            <button type="button" class="btn btn-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="deleteDriveFileDirectly('${url}', ${idx}, 'history', ${historyId})" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>
                         </div>
                     </div>
                     <div id="swal_drive_${idx}_media" class="d-none"></div>
@@ -1479,15 +1459,15 @@
                 let inlineBtnHtml = '';
                 if (isPdf || isImage) {
                     let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
-                    inlineBtnHtml = `<button type="button" class="btn btn-outline-info btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia('swal_temp_${idx}', '${editHistoryBase64List[idx]}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline"><i class="fa-solid ${iconClass} me-1"></i> Xem Inline</button>`;
+                    inlineBtnHtml = `<button type="button" class="btn btn-info btn-sm text-white py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia('swal_temp_${idx}', '${editHistoryBase64List[idx]}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline Full Size"><i class="fa-solid ${iconClass} me-1"></i> Xem Inline</button>`;
                 }
 
                 div.innerHTML = `
                     <div class="d-flex align-items-center justify-content-between">
-                        <span class="text-truncate me-2 text-success" style="max-width: 220px;" title="${file.name}"><i class="fa-solid fa-circle-plus me-1"></i> ${file.name}</span>
+                        <span class="text-truncate me-2 text-success" style="max-width: 60%;" title="${file.name}"><i class="fa-solid fa-circle-plus me-1"></i> ${file.name}</span>
                         <div>
                             ${inlineBtnHtml}
-                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeEditTempFile(${idx}, ${historyId})" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark"></i></button>
+                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="removeEditTempFile(${idx}, ${historyId})" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark me-1"></i> Bỏ chọn</button>
                         </div>
                     </div>
                     <div id="swal_temp_${idx}_media" class="d-none"></div>
