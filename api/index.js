@@ -367,83 +367,121 @@ module.exports = async (req, res) => {
                 body: JSON.stringify({ action: 'upload', fileName, fileData, mimeType })
             });
 
-            const result = await response.json();
-            return res.json(result);
+            const textRes = await response.text();
+            try {
+                return res.json(JSON.parse(textRes));
+            } catch (err) {
+                return res.status(500).json({ success: false, error: 'Lỗi phản hồi từ Google Drive (không phải JSON).' });
+            }
         }
 
         // 9. XÓA DRIVE THỰC TẾ QUA GOOGLE APPS SCRIPT
-if (action === 'delete_drive' && req.method === 'POST') {
-    const { fileUrl, fileId } = req.body;
-    const SCRIPT_WEB_APP_URL = process.env.GOOGLE_SCRIPT_WEB_APP_URL;
+        if (action === 'delete_drive' && req.method === 'POST') {
+            const { fileUrl, fileId } = req.body;
+            const SCRIPT_WEB_APP_URL = process.env.GOOGLE_SCRIPT_WEB_APP_URL;
 
-    if (!SCRIPT_WEB_APP_URL) {
-        return res.status(500).json({ success: false, error: 'Chưa cấu hình GOOGLE_SCRIPT_WEB_APP_URL!' });
-    }
+            if (!SCRIPT_WEB_APP_URL) {
+                return res.status(500).json({ success: false, error: 'Chưa cấu hình GOOGLE_SCRIPT_WEB_APP_URL!' });
+            }
 
-    if (!fileUrl && !fileId) {
-        return res.status(400).json({ success: false, error: 'Thiếu fileUrl hoặc fileId để xóa!' });
-    }
+            if (!fileUrl && !fileId) {
+                return res.status(400).json({ success: false, error: 'Thiếu fileUrl hoặc fileId để xóa!' });
+            }
 
-    // Gửi action: 'delete_drive' vào trong BODY JSON
-    const response = await fetch(SCRIPT_WEB_APP_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            action: 'delete_drive', 
-            fileUrl: fileUrl, 
-            fileId: fileId 
-        })
-    });
+            const response = await fetch(SCRIPT_WEB_APP_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    action: 'delete_drive', 
+                    fileUrl: fileUrl, 
+                    fileId: fileId 
+                })
+            });
 
-    const result = await response.json();
-    return res.json(result);
-}
-       // Action remove_asset_file chuẩn hóa trong Node.js Backend API
-if (action === 'remove_asset_file' && req.method === 'POST') {
-    const { ma_tai_san, removeUrl } = req.body;
-    
-    if (!ma_tai_san || !removeUrl) {
-        return res.status(400).json({ success: false, error: 'Thiếu mã tài sản hoặc URL tệp cần xóa!' });
-    }
-
-    // 1. Tìm tài sản trong CSDL bằng cách so sánh mã sau khi giải mã
-    const [allAssets] = await connection.execute('SELECT ma_tai_san, hinh_anh FROM danh_sach_tai_san');
-
-    let matchedDbKey = null;
-    let currentHinhAnhEncrypted = '';
-
-    for (let row of allAssets) {
-        let decMa = decryptData(row.ma_tai_san);
-        if (decMa === ma_tai_san || row.ma_tai_san === ma_tai_san) {
-            matchedDbKey = row.ma_tai_san;
-            currentHinhAnhEncrypted = row.hinh_anh;
-            break;
+            const textRes = await response.text();
+            try {
+                return res.json(JSON.parse(textRes));
+            } catch (err) {
+                return res.status(500).json({ success: false, error: 'Lỗi phản hồi từ Google Drive (không phải JSON).' });
+            }
         }
-    }
 
-    if (!matchedDbKey) {
-        return res.status(404).json({ success: false, error: 'Không tìm thấy tài sản trong CSDL!' });
-    }
+        // 10. LOẠI BỎ TỆP DANH MỤC TÀI SẢN KHỎI CSDL
+        if (action === 'remove_asset_file' && req.method === 'POST') {
+            const { ma_tai_san, removeUrl } = req.body;
+            
+            if (!ma_tai_san || !removeUrl) {
+                return res.status(400).json({ success: false, error: 'Thiếu mã tài sản hoặc URL tệp cần xóa!' });
+            }
 
-    // 2. Bóc tách và loại bỏ URL tệp khỏi CSDL
-    let decryptedHinhAnh = decryptData(currentHinhAnhEncrypted) || '';
-    let urlList = decryptedHinhAnh.split(',').map(s => s.trim()).filter(Boolean);
-    let updatedList = urlList.filter(url => url !== removeUrl.trim());
-    
-    let newHinhAnhEncrypted = encryptData(updatedList.join(','));
+            const [allAssets] = await connection.execute('SELECT ma_tai_san, hinh_anh FROM danh_sach_tai_san');
 
-    // 3. Cập nhật lại CSDL
-    await connection.execute(
-        'UPDATE danh_sach_tai_san SET hinh_anh = ? WHERE ma_tai_san = ?', 
-        [newHinhAnhEncrypted, matchedDbKey]
-    );
+            let matchedDbKey = null;
+            let currentHinhAnhEncrypted = '';
 
-    return res.json({ 
-        success: true, 
-        message: 'Đã cập nhật CSDL thành công!',
-        remainingUrls: updatedList.join(',')
-    });
-}
+            for (let row of allAssets) {
+                let decMa = decryptData(row.ma_tai_san);
+                if (decMa === ma_tai_san || row.ma_tai_san === ma_tai_san) {
+                    matchedDbKey = row.ma_tai_san;
+                    currentHinhAnhEncrypted = row.hinh_anh;
+                    break;
+                }
+            }
+
+            if (!matchedDbKey) {
+                return res.status(404).json({ success: false, error: 'Không tìm thấy tài sản trong CSDL!' });
+            }
+
+            let decryptedHinhAnh = decryptData(currentHinhAnhEncrypted) || '';
+            let urlList = decryptedHinhAnh.split(',').map(s => s.trim()).filter(Boolean);
+            let updatedList = urlList.filter(url => url !== removeUrl.trim());
+            
+            let newHinhAnhEncrypted = encryptData(updatedList.join(','));
+
+            await connection.execute(
+                'UPDATE danh_sach_tai_san SET hinh_anh = ? WHERE ma_tai_san = ?', 
+                [newHinhAnhEncrypted, matchedDbKey]
+            );
+
+            return res.json({ 
+                success: true, 
+                message: 'Đã cập nhật CSDL thành công!',
+                remainingUrls: updatedList.join(',')
+            });
+        }
+
+        // 11. LOẠI BỎ TỆP LỊCH SỬ KIỂM KÊ KHỎI CSDL
+        if (action === 'remove_history_file' && req.method === 'POST') {
+            const { historyId, removeUrl } = req.body;
+            
+            if (!historyId || !removeUrl) {
+                return res.status(400).json({ success: false, error: 'Thiếu ID lịch sử hoặc URL tệp cần xóa!' });
+            }
+
+            const [rows] = await connection.execute('SELECT tep_dinh_kem FROM lich_su_kk WHERE id = ?', [historyId]);
+
+            if (rows.length === 0) {
+                return res.status(404).json({ success: false, error: 'Không tìm thấy dòng lịch sử trong CSDL!' });
+            }
+
+            let decryptedTep = decryptData(rows[0].tep_dinh_kem) || '';
+            let urlList = decryptedTep.split(',').map(s => s.trim()).filter(Boolean);
+            let updatedList = urlList.filter(url => url !== removeUrl.trim());
+            
+            let newTepEncrypted = encryptData(updatedList.join(','));
+
+            await connection.execute(
+                'UPDATE lich_su_kk SET tep_dinh_kem = ? WHERE id = ?', 
+                [newTepEncrypted, historyId]
+            );
+
+            return res.json({ 
+                success: true, 
+                message: 'Đã cập nhật tệp đính kèm lịch sử trong CSDL thành công!',
+                remainingUrls: updatedList.join(',')
+            });
+        }
+
         return res.status(404).json({ success: false, error: 'Action không hợp lệ' });
 
     } catch (error) {
