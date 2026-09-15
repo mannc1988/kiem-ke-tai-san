@@ -20,9 +20,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
-    <!-- Thư viện bổ sung xem Word (.docx) và xử lý file -->
+    <!-- Thư viện bổ sung xử lý file -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.25/dist/docx-preview.min.js"></script>
     
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -58,25 +58,6 @@
 
         .table tbody td {
             font-size: 0.82rem;
-        }
-
-        .viewer-container {
-            background-color: rgba(0, 0, 0, 0.85) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
-        .viewer-canvas {
-            max-width: 70vw !important;
-            max-height: 70vh !important;
-            margin: auto !important;
-        }
-        .viewer-canvas > img {
-            max-width: 100% !important;
-            max-height: 100% !important;
-            object-fit: contain !important;
-            box-shadow: 0 5px 25px rgba(0,0,0,0.5);
-            border-radius: 6px;
         }
 
         .file-detail-item {
@@ -282,8 +263,6 @@
         </div>
 
     </div>
-
-    <div id="viewerContainer" style="display: none;"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
@@ -512,7 +491,7 @@
             renderImageDetailList();
         }
 
-        // --- HỆ THỐNG XEM ONLINE & TẢI VỀ TRỰC TIẾP TRÊN MỌI THIẾT BỊ (HỖ TRỢ .doc, .docx, .xlsx, .xls) ---
+        // --- HỆ THỐNG XEM ONLINE & CHUYỂN ĐỔI PDF ĐỒNG BỘ ---
         function showViewer(urlsString) {
             let urls = urlsString.split(',').map(s => s.trim()).filter(Boolean);
             if (urls.length === 0) return;
@@ -579,7 +558,7 @@
                 return;
             }
 
-            // 3. Nếu là Word (.docx) -> Hiển thị trực tiếp nội dung bằng docx-preview
+            // 3. Nếu là Word (.docx) -> Hiển thị trực tiếp qua docx-preview
             if (mimeType.includes('word') || /\.docx$/i.test(title)) {
                 Swal.fire({
                     title: `<span class="text-primary">${title}</span>`,
@@ -605,21 +584,21 @@
                             container.innerHTML = ""; 
                             await docx.renderAsync(arrayBuffer, container);
                         } catch (err) {
-                            document.getElementById("wordViewerContainer").innerHTML = `<div class="alert alert-danger">Không thể hiển thị bản xem trước của tài liệu Word này. Vui lòng tải về máy để xem.</div>`;
+                            document.getElementById("wordViewerContainer").innerHTML = `<div class="alert alert-danger">Không thể hiển thị bản xem trước của tài liệu này. Vui lòng tải về máy để xem.</div>`;
                         }
                     }
                 });
                 return;
             }
 
-            // 4. Nếu là Word cũ (.doc) hoặc Excel (.xlsx / .xls) -> Hiển thị bảng nội dung trực tiếp qua SheetJS (đối với Excel) hoặc trình xem thông minh
+            // 4. Nếu là Excel (.xlsx / .xls) -> Chuyển đổi và xem trực tiếp dưới dạng bảng tính cấu trúc
             if (/\.xls$|\.xlsx$/i.test(title)) {
                 Swal.fire({
                     title: `<span class="text-primary">${title}</span>`,
                     html: `
                         ${downloadBtnHtml}
                         <div id="excelViewerContainer" style="width:100%; height:70vh; overflow:auto; background:#fff; text-align:left; border: 1px solid #ddd; padding: 15px;">
-                            <div class="text-center py-5"><div class="spinner-border text-success" role="status"></div><p class="mt-2 text-muted">Đang đọc dữ liệu bảng tính...</p></div>
+                            <div class="text-center py-5"><div class="spinner-border text-success" role="status"></div><p class="mt-2 text-muted">Đang chuyển đổi và đọc dữ liệu Excel...</p></div>
                         </div>
                     `,
                     width: '85vw',
@@ -640,21 +619,21 @@
                             let htmlTable = XLSX.utils.sheet_to_html(worksheet, {header: '<table class="table table-bordered table-striped table-sm" style="font-size:0.8rem;">'});
                             document.getElementById("excelViewerContainer").innerHTML = htmlTable;
                         } catch(e) {
-                            document.getElementById("excelViewerContainer").innerHTML = `<div class="alert alert-danger">Không thể đọc trực tiếp file Excel này. Vui lòng nhấn tải về máy.</div>`;
+                            document.getElementById("excelViewerContainer").innerHTML = `<div class="alert alert-danger">Không thể đọc file này. Vui lòng tải về máy.</div>`;
                         }
                     }
                 });
                 return;
             }
 
-            // 5. Đối với định dạng .doc hoặc file khác -> Dùng Google Docs Viewer hoặc thông báo tải về
+            // 5. Định dạng khác hoặc .doc cũ -> Dùng Google Docs Viewer hoặc tải về
             let viewerContent = '';
             if (isLocalData && /\.doc$/i.test(title)) {
                 viewerContent = `
                     <div class="text-center py-4">
                         <i class="fa-solid fa-file-word text-primary fa-3x mb-3"></i>
                         <h5>Tệp Word (.doc) Cục Bộ</h5>
-                        <p class="text-muted small">Định dạng file .doc cũ cần được lưu lên Google Drive để xem trực tuyến, hoặc bạn có thể tải về để mở bằng Microsoft Word.</p>
+                        <p class="text-muted small">Định dạng file .doc cũ cần được lưu lên Google Drive để xem trực tuyến.</p>
                         ${downloadBtnHtml}
                     </div>
                 `;
@@ -674,7 +653,7 @@
                 showConfirmButton: false
             });
         }
-        // --- KẾT THÚC HỆ THỐNG XEM & TẢI VỀ ---
+        // --- KẾT THÚC HỆ THỐNG XEM & CHUYỂN ĐỔI ---
 
         function playBeep() {
             try {
