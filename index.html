@@ -3,26 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ Thống Kiểm Kê Tài Sản QR Pro (Viewer.js & Google Drive)</title>
+    <title>Hệ Thống Kiểm Kê Tài Sản QR Pro (Convert to PDF & View)</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.css">
     
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
-    <!-- Thư viện bổ sung xử lý file -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.15/dist/docx-preview.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -304,10 +302,7 @@
         function formatDateToDMY(dateInput) {
             if (dateInput === undefined || dateInput === null || dateInput === '') return '';
             let s = dateInput.toString().trim();
-            
-            if (!s || s === '0000-00-00' || s.startsWith('0000') || s === '0' || s === '0.0' || s === 'NaN') {
-                return '';
-            }
+            if (!s || s === '0000-00-00' || s.startsWith('0000') || s === '0' || s === '0.0' || s === 'NaN') return '';
             
             if (!isNaN(dateInput) && Number(dateInput) > 1000) {
                 let serial = Number(dateInput);
@@ -318,24 +313,17 @@
                     let day = String(dateInfo.getUTCDate()).padStart(2, '0');
                     let month = String(dateInfo.getUTCMonth() + 1).padStart(2, '0');
                     let year = dateInfo.getUTCFullYear();
-                    if (year >= 1900 && year <= 2100) {
-                        return `${day}/${month}/${year}`;
-                    }
+                    if (year >= 1900 && year <= 2100) return `${day}/${month}/${year}`;
                 }
             }
 
-            if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
-                return s;
-            }
+            if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
 
             if (s.includes('-')) {
                 let cleanDatePart = s.split('T')[0];
                 let parts = cleanDatePart.split('-');
                 if (parts.length === 3 && parts[0].length === 4) {
-                    let year = parts[0];
-                    let month = parts[1];
-                    let day = parts[2];
-                    return `${day}/${month}/${year}`;
+                    return `${parts[2]}-${parts[1]}-${parts[0]}`;
                 }
             }
             
@@ -344,9 +332,7 @@
                 let day = String(d.getDate()).padStart(2, '0');
                 let month = String(d.getMonth() + 1).padStart(2, '0');
                 let year = d.getFullYear();
-                if (year >= 1900 && year <= 2100) {
-                    return `${day}/${month}/${year}`;
-                }
+                if (year >= 1900 && year <= 2100) return `${day}/${month}/${year}`;
             }
 
             return s;
@@ -360,9 +346,7 @@
                 let parts = s.split('/');
                 return `${parts[2]}-${parts[1]}-${parts[0]}`;
             }
-            if (s.includes('-')) {
-                return s.split('T')[0];
-            }
+            if (s.includes('-')) return s.split('T')[0];
             return '';
         }
 
@@ -373,10 +357,7 @@
 
         function formatCurrencyInput(input) {
             let value = input.value.replace(/\D/g, '');
-            if (!value) {
-                input.value = '0';
-                return;
-            }
+            if (!value) { input.value = '0'; return; }
             input.value = Number(value).toLocaleString('vi-VN');
         }
 
@@ -396,7 +377,6 @@
         async function handleTempImagesSelect(event) {
             const files = event.target.files;
             if (!files || files.length === 0) return;
-
             for (let i = 0; i < files.length; i++) {
                 tempFilesList.push(files[i]);
                 let b64 = await toBase64(files[i]);
@@ -431,7 +411,7 @@
                         </span>
                         <div>
                             <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showViewer('${url}')" title="Xem tệp"><i class="fa-solid fa-eye"></i></button>
-                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeExistingDriveImage(${index})" title="Xóa tệp cũ"><i class="fa-solid fa-xmark"></i></button>
+                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeExistingDriveImage(${index})" title="Xóa"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                     `;
                     container.appendChild(div);
@@ -443,7 +423,7 @@
                 headerTemp.className = 'd-flex justify-content-between align-items-center mt-2 mb-1';
                 headerTemp.innerHTML = `
                     <span class="text-success fw-semibold small"><i class="fa-solid fa-circle-plus me-1"></i> Tệp mới chọn (${tempFilesList.length}):</span>
-                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllTempImages()" title="Xóa hết tệp mới">
+                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllTempImages()" title="Xóa hết">
                         <i class="fa-solid fa-trash-can me-1"></i> Xóa hết
                     </button>
                 `;
@@ -491,7 +471,7 @@
             renderImageDetailList();
         }
 
-        // --- HỆ THỐNG XEM ONLINE & CHUYỂN ĐỔI PDF ĐỒNG BỘ ---
+        // --- HỆ THỐNG CHUYỂN ĐỔI SANG PDF VÀ XEM TRƯỚC ---
         function showViewer(urlsString) {
             let urls = urlsString.split(',').map(s => s.trim()).filter(Boolean);
             if (urls.length === 0) return;
@@ -512,8 +492,6 @@
             mimeType = mimeType || '';
             let isLocalData = url.startsWith('data:') || url.startsWith('blob:');
 
-            let downloadBtnHtml = `<div class="mb-2 text-start"><a href="${url}" download="${title}" class="btn btn-primary btn-sm"><i class="fa-solid fa-download me-1"></i> Tải về máy</a></div>`;
-
             let displaySrc = url;
             let blobData = null;
             if (isLocalData) {
@@ -528,145 +506,124 @@
                 } catch(e) {}
             }
 
-            // 1. Nếu là Ảnh
+            // 1. Nếu là Ảnh hoặc PDF sẵn -> Hiển thị trực tiếp
             if (mimeType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(title)) {
+                let downloadBtn = `<div class="mb-2 text-start"><a href="${url}" download="${title}" class="btn btn-primary btn-sm"><i class="fa-solid fa-download me-1"></i> Tải về máy</a></div>`;
                 Swal.fire({
                     title: `<span class="text-primary">${title}</span>`,
-                    html: `
-                        ${downloadBtnHtml}
-                        <div style="max-height: 65vh; overflow: auto;"><img src="${displaySrc}" style="max-width: 100%; height: auto; border-radius: 6px;" /></div>
-                    `,
-                    width: '75vw',
-                    showCloseButton: true,
-                    showConfirmButton: false
+                    html: `${downloadBtn}<div style="max-height: 65vh; overflow: auto;"><img src="${displaySrc}" style="max-width: 100%; height: auto; border-radius: 6px;" /></div>`,
+                    width: '75vw', showCloseButton: true, showConfirmButton: false
                 });
                 return;
             }
 
-            // 2. Nếu là PDF
             if (mimeType.includes('pdf') || /\.pdf$/i.test(title)) {
+                let downloadBtn = `<div class="mb-2 text-start"><a href="${url}" download="${title}" class="btn btn-primary btn-sm"><i class="fa-solid fa-download me-1"></i> Tải về máy</a></div>`;
                 Swal.fire({
                     title: `<span class="text-primary">${title}</span>`,
-                    html: `
-                        ${downloadBtnHtml}
-                        <iframe src="${displaySrc}" style="width:100%; height:70vh; border:none;" allowfullscreen></iframe>
-                    `,
-                    width: '85vw',
-                    showCloseButton: true,
-                    showConfirmButton: false
+                    html: `${downloadBtn}<iframe src="${displaySrc}" style="width:100%; height:70vh; border:none;" allowfullscreen></iframe>`,
+                    width: '85vw', showCloseButton: true, showConfirmButton: false
                 });
                 return;
             }
 
-            // 3. Nếu là Word (.docx) -> Hiển thị trực tiếp qua docx-preview
-            if (mimeType.includes('word') || /\.docx$/i.test(title)) {
-                Swal.fire({
-                    title: `<span class="text-primary">${title}</span>`,
-                    html: `
-                        ${downloadBtnHtml}
-                        <div id="wordViewerContainer" style="width:100%; height:70vh; overflow-y:auto; background:#fff; text-align:left; border: 1px solid #ddd; padding: 15px;">
-                            <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Đang tải và giải mã văn bản Word...</p></div>
-                        </div>
-                    `,
-                    width: '85vw',
-                    showCloseButton: true,
-                    showConfirmButton: false,
-                    didOpen: async () => {
-                        try {
-                            let arrayBuffer;
-                            if (blobData) {
-                                arrayBuffer = await blobData.arrayBuffer();
-                            } else {
-                                let response = await fetch(url);
-                                arrayBuffer = await response.arrayBuffer();
-                            }
-                            let container = document.getElementById("wordViewerContainer");
-                            container.innerHTML = ""; 
-                            await docx.renderAsync(arrayBuffer, container);
-                        } catch (err) {
-                            document.getElementById("wordViewerContainer").innerHTML = `<div class="alert alert-danger">Không thể hiển thị bản xem trước của tài liệu này. Vui lòng tải về máy để xem.</div>`;
-                        }
-                    }
-                });
-                return;
-            }
-
-            // 4. Nếu là Excel (.xlsx / .xls) -> Chuyển đổi và xem trực tiếp dưới dạng bảng tính cấu trúc
-            if (/\.xls$|\.xlsx$/i.test(title)) {
-                Swal.fire({
-                    title: `<span class="text-primary">${title}</span>`,
-                    html: `
-                        ${downloadBtnHtml}
-                        <div id="excelViewerContainer" style="width:100%; height:70vh; overflow:auto; background:#fff; text-align:left; border: 1px solid #ddd; padding: 15px;">
-                            <div class="text-center py-5"><div class="spinner-border text-success" role="status"></div><p class="mt-2 text-muted">Đang chuyển đổi và đọc dữ liệu Excel...</p></div>
-                        </div>
-                    `,
-                    width: '85vw',
-                    showCloseButton: true,
-                    showConfirmButton: false,
-                    didOpen: async () => {
-                        try {
-                            let data;
-                            if (blobData) {
-                                data = await blobData.arrayBuffer();
-                            } else {
-                                let res = await fetch(url);
-                                data = await res.arrayBuffer();
-                            }
-                            let workbook = XLSX.read(data, {type: 'array'});
-                            let firstSheetName = workbook.SheetNames[0];
-                            let worksheet = workbook.Sheets[firstSheetName];
-                            let htmlTable = XLSX.utils.sheet_to_html(worksheet, {header: '<table class="table table-bordered table-striped table-sm" style="font-size:0.8rem;">'});
-                            document.getElementById("excelViewerContainer").innerHTML = htmlTable;
-                        } catch(e) {
-                            document.getElementById("excelViewerContainer").innerHTML = `<div class="alert alert-danger">Không thể đọc file này. Vui lòng tải về máy.</div>`;
-                        }
-                    }
-                });
-                return;
-            }
-
-            // 5. Định dạng khác hoặc .doc cũ -> Dùng Google Docs Viewer hoặc tải về
-            let viewerContent = '';
-            if (isLocalData && /\.doc$/i.test(title)) {
-                viewerContent = `
-                    <div class="text-center py-4">
-                        <i class="fa-solid fa-file-word text-primary fa-3x mb-3"></i>
-                        <h5>Tệp Word (.doc) Cục Bộ</h5>
-                        <p class="text-muted small">Định dạng file .doc cũ cần được lưu lên Google Drive để xem trực tuyến.</p>
-                        ${downloadBtnHtml}
-                    </div>
-                `;
-            } else {
-                let googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
-                viewerContent = `
-                    ${downloadBtnHtml}
-                    <iframe src="${googleViewerUrl}" style="width:100%; height:70vh; border:none;" allowfullscreen></iframe>
-                `;
-            }
-
+            // 2. Nếu là Word (.docx) hoặc Excel (.xls, .xlsx) -> Chuyển đổi sang PDF thông qua pdfmake
             Swal.fire({
-                title: `<span class="text-primary">${title}</span>`,
-                html: viewerContent,
-                width: '85vw',
-                showCloseButton: true,
-                showConfirmButton: false
+                title: 'Đang chuyển đổi tệp sang PDF...',
+                text: 'Hệ thống đang biên dịch tài liệu sang định dạng PDF để hiển thị...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
             });
+
+            try {
+                let fileBuffer;
+                if (blobData) {
+                    fileBuffer = await blobData.arrayBuffer();
+                } else {
+                    let res = await fetch(url);
+                    fileBuffer = await res.arrayBuffer();
+                }
+
+                let pdfDefinition = {
+                    content: [
+                        { text: `BẢN XEM TRƯỚC: ${title.toUpperCase()}`, fontSize: 16, bold: true, color: '#0d6efd', margin: [0, 0, 0, 15] },
+                        { text: `Nguồn: ${url}`, fontSize: 8, color: '#6c757d', margin: [0, 0, 0, 10] }
+                    ],
+                    defaultStyle: { font: 'Roboto' }
+                };
+
+                if (/\.docx$/i.test(title)) {
+                    let zip = new JSZip();
+                    let zipContent = await zip.loadAsync(fileBuffer);
+                    let docXml = await zipContent.file("word/document.xml").async("string");
+                    let parser = new DOMParser();
+                    let xmlDoc = parser.parseFromString(docXml, "text/xml");
+                    let paragraphs = xmlDoc.getElementsByTagName("w:p");
+                    
+                    let pContent = [];
+                    for (let p of paragraphs) {
+                        let textNodes = p.getElementsByTagName("w:t");
+                        let pText = "";
+                        for (let t of textNodes) { pText += t.textContent; }
+                        if (pText.trim() !== "") {
+                            pContent.push({ text: pText, margin: [0, 0, 0, 5], fontSize: 10 });
+                        }
+                    }
+                    if (pContent.length > 0) {
+                        pdfDefinition.content.push({ stack: pContent });
+                    } else {
+                        pdfDefinition.content.push({ text: "(Tài liệu Word trống)", italics: true });
+                    }
+                } 
+                else if (/\.xls$|\.xlsx$/i.test(title)) {
+                    let workbook = XLSX.read(fileBuffer, {type: 'array'});
+                    let firstSheetName = workbook.SheetNames[0];
+                    let worksheet = workbook.Sheets[firstSheetName];
+                    let jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+
+                    if (jsonData.length > 0) {
+                        let tableBody = jsonData.slice(0, 50).map(row => {
+                            return row.map(cell => ({ text: String(cell !== undefined ? cell : ''), fontSize: 7 }));
+                        });
+                        if (tableBody.length > 0) {
+                            pdfDefinition.content.push({
+                                table: { body: tableBody },
+                                layout: 'lightHorizontalLines'
+                            });
+                        }
+                    } else {
+                        pdfDefinition.content.push({ text: "(File Excel không có dữ liệu)", italics: true });
+                    }
+                } else {
+                    pdfDefinition.content.push({ text: "Định dạng tệp này không hỗ trợ chuyển đổi trực tiếp sang PDF.", color: 'red' });
+                }
+
+                pdfMake.createPdf(pdfDefinition).getBlob((pdfBlob) => {
+                    let pdfUrl = URL.createObjectURL(pdfBlob);
+                    let downloadBtn = `<div class="mb-2 text-start"><a href="${pdfUrl}" download="${title}.pdf" class="btn btn-primary btn-sm"><i class="fa-solid fa-download me-1"></i> Tải PDF về máy</a></div>`;
+                    
+                    Swal.fire({
+                        title: `<span class="text-primary">${title} (Đã chuyển sang PDF)</span>`,
+                        html: `${downloadBtn}<iframe src="${pdfUrl}" style="width:100%; height:70vh; border:none;" allowfullscreen></iframe>`,
+                        width: '85vw', showCloseButton: true, showConfirmButton: false
+                    });
+                });
+
+            } catch (err) {
+                Swal.fire('Lỗi', 'Không thể chuyển đổi tài liệu sang PDF!', 'error');
+            }
         }
-        // --- KẾT THÚC HỆ THỐNG XEM & CHUYỂN ĐỔI ---
+        // --- KẾT THÚC HỆ THỐNG CHUYỂN ĐỔI PDF ---
 
         function playBeep() {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.value = 800;
+                osc.type = 'sine'; osc.frequency.value = 800;
                 gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 0.15);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(); osc.stop(ctx.currentTime + 0.15);
             } catch (e) {}
         }
 
@@ -674,10 +631,7 @@
             assetsTable = $('#assetsTable').DataTable({
                 serverSide: true,
                 processing: true,
-                ajax: {
-                    url: `${API_URL}?action=server_assets`,
-                    type: 'GET'
-                },
+                ajax: { url: `${API_URL}?action=server_assets`, type: 'GET' },
                 columns: [
                     { data: null, render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 },
                     { 
@@ -697,7 +651,7 @@
                                         <span class="text-truncate me-2 small text-secondary" style="max-width: 90px;" title="${fName}">
                                             <i class="fa-solid fa-file text-primary me-1"></i> ${fName}
                                         </span>
-                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="showViewer('${url}')" title="Xem tệp">
+                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="showViewer('${url}')" title="Xem PDF">
                                             <i class="fa-solid fa-eye"></i>
                                         </button>
                                     </div>
@@ -714,10 +668,7 @@
                     { data: 'nguyen_gia', render: data => { let v = decryptData(data); return v ? Number(v).toLocaleString('vi-VN') + ' đ' : '0'; } },
                     { data: 'hao_mon_luy_ke', render: data => { let v = decryptData(data); return v ? Number(v).toLocaleString('vi-VN') + ' đ' : '0'; } },
                     { data: 'gia_tri_con_lai', render: data => { let v = decryptData(data); return v ? Number(v).toLocaleString('vi-VN') + ' đ' : '0'; } },
-                    { 
-                        data: 'ngay_dua_vao_sd', 
-                        render: data => `<small class="text-muted">${formatDateToDMY(decryptData(data))}</small>` 
-                    },
+                    { data: 'ngay_dua_vao_sd', render: data => `<small class="text-muted">${formatDateToDMY(decryptData(data))}</small>` },
                     { data: 'trang_thai_sd', render: data => `<span class="badge bg-success-subtle text-success border">${decryptData(data)}</span>` },
                     { data: 'trang_thai_qt', render: data => `<span class="badge bg-primary-subtle text-primary border">${decryptData(data)}</span>` },
                     { data: 'bo_so', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
@@ -754,12 +705,10 @@
                     }
                 ],
                 language: {
-                    search: "Tìm kiếm:",
-                    lengthMenu: "Hiển thị _MENU_ dòng",
+                    search: "Tìm kiếm:", lengthMenu: "Hiển thị _MENU_ dòng",
                     info: "Hiển thị _START_ đến _END_ của _TOTAL_ dòng",
                     paginate: { first: "Đầu", last: "Cuối", next: "Sau", previous: "Trước" },
-                    zeroRecords: "Không tìm thấy dữ liệu",
-                    processing: "Đang tải dữ liệu..."
+                    zeroRecords: "Không tìm thấy dữ liệu", processing: "Đang tải dữ liệu..."
                 }
             });
 
@@ -769,9 +718,7 @@
                 ajax: {
                     url: `${API_URL}?action=server_history`,
                     type: 'GET',
-                    data: function(d) {
-                        d.dot_id = $('#selectDot').val();
-                    }
+                    data: function(d) { d.dot_id = $('#selectDot').val(); }
                 },
                 columns: [
                     { data: null, render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 },
@@ -806,7 +753,7 @@
                                 htmlList += `
                                     <div class="d-flex align-items-center justify-content-between bg-white border rounded px-1 py-0 mb-1 shadow-sm" style="font-size: 0.75rem;">
                                         <span class="text-truncate me-1 text-secondary" style="max-width: 75px;" title="${fName}">${fName}</span>
-                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="showViewer('${url}')" title="Xem"><i class="fa-solid fa-eye"></i></button>
+                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="showViewer('${url}')" title="Xem PDF"><i class="fa-solid fa-eye"></i></button>
                                     </div>
                                 `;
                             });
@@ -845,12 +792,10 @@
                     }
                 ],
                 language: {
-                    search: "Tìm kiếm:",
-                    lengthMenu: "Hiển thị _MENU_ dòng",
+                    search: "Tìm kiếm:", lengthMenu: "Hiển thị _MENU_ dòng",
                     info: "Hiển thị _START_ đến _END_ của _TOTAL_ dòng",
                     paginate: { first: "Đầu", last: "Cuối", next: "Sau", previous: "Trước" },
-                    zeroRecords: "Không tìm thấy dữ liệu",
-                    processing: "Đang tải dữ liệu..."
+                    zeroRecords: "Không tìm thấy dữ liệu", processing: "Đang tải dữ liệu..."
                 }
             });
 
@@ -883,35 +828,22 @@
                     
                     lichSuKiemKeCache = (result.lich_su || []).map(h => ({
                         ...h,
-                        dotId: decryptData(h.dotId),
-                        tsId: decryptData(h.tsId),
-                        tsName: decryptData(h.tsName),
-                        phong_ban: decryptData(h.phong_ban),
-                        so_serial: decryptData(h.so_serial),
-                        nguoiKK: decryptData(h.nguoiKK) || h.nguoiKK,
-                        ket_qua_kk: decryptData(h.ket_qua_kk),
-                        phuong_an_xl: decryptData(h.phuong_an_xl),
-                        tep_dinh_kem: decryptData(h.tep_dinh_kem),
-                        thoiGian: decryptData(h.thoiGian) || h.thoiGian,
-                        ghiChu: decryptData(h.ghiChu)
+                        dotId: decryptData(h.dotId), tsId: decryptData(h.tsId), tsName: decryptData(h.tsName),
+                        phong_ban: decryptData(h.phong_ban), so_serial: decryptData(h.so_serial),
+                        nguoiKK: decryptData(h.nguoiKK) || h.nguoiKK, ket_qua_kk: decryptData(h.ket_qua_kk),
+                        phuong_an_xl: decryptData(h.phuong_an_xl), tep_dinh_kem: decryptData(h.tep_dinh_kem),
+                        thoiGian: decryptData(h.thoiGian) || h.thoiGian, ghiChu: decryptData(h.ghiChu)
                     }));
 
                     listDotKiemKe = result.dot_kiem_ke || [];
                     const selectDot = document.getElementById('selectDot');
                     selectDot.innerHTML = '';
-                    listDotKiemKe.forEach(d => {
-                        selectDot.innerHTML += `<option value="${d.id}">${d.name}</option>`;
-                    });
+                    listDotKiemKe.forEach(d => { selectDot.innerHTML += `<option value="${d.id}">${d.name}</option>`; });
                 }
             } catch (e) {}
         }
 
-        function filterHistoryByDot() {
-            if (historyTable) {
-                historyTable.ajax.reload();
-            }
-        }
-
+        function filterHistoryByDot() { if (historyTable) historyTable.ajax.reload(); }
         function refreshData() {
             if (assetsTable) assetsTable.ajax.reload(null, false);
             if (historyTable) historyTable.ajax.reload(null, false);
@@ -919,21 +851,9 @@
         }
 
         function validateAssetData(maTS, tenTS, phongBan) {
-            if (!maTS) {
-                Swal.fire('Lỗi dữ liệu', 'Mã tài sản không được để trống!', 'warning');
-                document.getElementById('ma_tai_san').focus();
-                return false;
-            }
-            if (!tenTS) {
-                Swal.fire('Lỗi dữ liệu', 'Tên tài sản không được để trống!', 'warning');
-                document.getElementById('ten_tai_san').focus();
-                return false;
-            }
-            if (!phongBan) {
-                Swal.fire('Lỗi dữ liệu', 'Phòng ban quản lý không được để trống!', 'warning');
-                document.getElementById('phong_ban_quan_ly').focus();
-                return false;
-            }
+            if (!maTS) { Swal.fire('Lỗi', 'Mã tài sản trống!', 'warning'); document.getElementById('ma_tai_san').focus(); return false; }
+            if (!tenTS) { Swal.fire('Lỗi', 'Tên tài sản trống!', 'warning'); document.getElementById('ten_tai_san').focus(); return false; }
+            if (!phongBan) { Swal.fire('Lỗi', 'Phòng ban trống!', 'warning'); document.getElementById('phong_ban_quan_ly').focus(); return false; }
             return true;
         }
 
@@ -948,9 +868,7 @@
             const finalHaoMon = getCleanNumber('hao_mon_luy_ke');
             const finalConLai = getCleanNumber('gia_tri_con_lai');
 
-            let rawNgaySD = document.getElementById('ngay_dua_vao_sd').value;
-            let formattedNgaySD = formatDateToDMY(rawNgaySD);
-
+            let formattedNgaySD = formatDateToDMY(document.getElementById('ngay_dua_vao_sd').value);
             const rawTrangThaiSD = document.getElementById('trang_thai_sd').value.trim() || 'Đang sử dụng';
             const rawTrangThaiQT = document.getElementById('trang_thai_qt').value.trim() || 'Đã quyết toán';
             const rawBoSo = document.getElementById('bo_so').value.trim();
@@ -958,16 +876,9 @@
             const rawPhong = document.getElementById('phong_ban_quan_ly').value.trim();
             const rawSerial = document.getElementById('so_serial').value.trim();
 
-            if (!validateAssetData(ma_tai_san, rawTen, rawPhong)) {
-                return;
-            }
+            if (!validateAssetData(ma_tai_san, rawTen, rawPhong)) return;
 
-            Swal.fire({
-                title: 'Đang đồng bộ tệp & dữ liệu...',
-                text: 'Đang xử lý xóa/thêm tệp trên Google Drive...',
-                allowOutsideClick: false,
-                didOpen: () => { Swal.showLoading(); }
-            });
+            Swal.fire({ title: 'Đang đồng bộ tệp...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
             const originalDriveUrlString = document.getElementById('hinh_anh_url').value;
             let originalDriveUrls = originalDriveUrlString ? originalDriveUrlString.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -976,8 +887,7 @@
             for (let deleteUrl of deletedDriveUrls) {
                 try {
                     await fetch(`${API_URL}?action=delete_drive`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fileUrl: deleteUrl })
                     });
                 } catch (err) {}
@@ -988,61 +898,38 @@
                 try {
                     let base64String = await toBase64(file);
                     const response = await fetch(`${API_URL}?action=upload_drive`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            fileName: `Asset_${Date.now()}_${file.name}`,
-                            fileData: base64String,
-                            mimeType: file.type
-                        })
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fileName: `Asset_${Date.now()}_${file.name}`, fileData: base64String, mimeType: file.type })
                     });
                     const result = await response.json();
-                    if (result.success) {
-                        finalImageUrls.push(result.url);
-                    }
+                    if (result.success) finalImageUrls.push(result.url);
                 } catch (err) {}
             }
 
-            const finalImageUrlString = finalImageUrls.join(',');
-            const currentTimestamp = new Date().toLocaleString('vi-VN');
-
             const payload = {
-                ma_tai_san: encryptData(ma_tai_san),
-                don_vi: encryptData(rawDonVi),
-                ten_tai_san: encryptData(rawTen),
-                nhom_tai_san: encryptData(rawNhom),
-                nguyen_gia: encryptData(finalGia),
-                hao_mon_luy_ke: encryptData(finalHaoMon),
-                gia_tri_con_lai: encryptData(finalConLai),
-                ngay_dua_vao_sd: encryptData(formattedNgaySD),
-                trang_thai_sd: encryptData(rawTrangThaiSD),
-                trang_thai_qt: encryptData(rawTrangThaiQT),
-                bo_so: encryptData(rawBoSo),
-                can_bo_su_dung: encryptData(rawCanBo),
-                phong_ban_quan_ly: encryptData(rawPhong),
-                so_serial: encryptData(rawSerial),
-                hinh_anh: encryptData(finalImageUrlString),
-                import_at: encryptData(currentTimestamp)
+                ma_tai_san: encryptData(ma_tai_san), don_vi: encryptData(rawDonVi),
+                ten_tai_san: encryptData(rawTen), nhom_tai_san: encryptData(rawNhom),
+                nguyen_gia: encryptData(finalGia), hao_mon_luy_ke: encryptData(finalHaoMon),
+                gia_tri_con_lai: encryptData(finalConLai), ngay_dua_vao_sd: encryptData(formattedNgaySD),
+                trang_thai_sd: encryptData(rawTrangThaiSD), trang_thai_qt: encryptData(rawTrangThaiQT),
+                bo_so: encryptData(rawBoSo), can_bo_su_dung: encryptData(rawCanBo),
+                phong_ban_quan_ly: encryptData(rawPhong), so_serial: encryptData(rawSerial),
+                hinh_anh: encryptData(finalImageUrls.join(',')), import_at: encryptData(new Date().toLocaleString('vi-VN'))
             };
 
             try {
                 const response = await fetch(`${API_URL}?action=save_asset`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 const result = await response.json();
-                
                 if (response.ok && result.success) {
-                    Swal.fire({ icon: 'success', title: 'Thành công!', text: 'Đã lưu tài sản thành công.', timer: 1500, showConfirmButton: false });
-                    resetForm();
-                    refreshData();
+                    Swal.fire({ icon: 'success', title: 'Thành công!', timer: 1500, showConfirmButton: false });
+                    resetForm(); refreshData();
                 } else {
-                    Swal.fire('Cảnh báo trùng lặp', result.error || 'Đã có lỗi xảy ra từ máy chủ!', 'warning');
+                    Swal.fire('Cảnh báo', result.error || 'Lỗi server!', 'warning');
                 }
-            } catch (err) {
-                Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
-            }
+            } catch (err) { Swal.fire('Lỗi', 'Không thể kết nối server!', 'error'); }
         }
 
         function toBase64(file) {
@@ -1060,26 +947,20 @@
             document.getElementById('don_vi').value = don_vi;
             document.getElementById('ten_tai_san').value = ten_tai_san;
             document.getElementById('nhom_tai_san').value = nhom_tai_san;
-            
             document.getElementById('nguyen_gia').value = nguyen_gia ? Number(nguyen_gia).toLocaleString('vi-VN') : '';
             document.getElementById('hao_mon_luy_ke').value = hao_mon_luy_ke ? Number(hao_mon_luy_ke).toLocaleString('vi-VN') : '0';
             document.getElementById('gia_tri_con_lai').value = gia_tri_con_lai ? Number(gia_tri_con_lai).toLocaleString('vi-VN') : '0';
-
             document.getElementById('ngay_dua_vao_sd').value = formatDateToYMD(ngay_dua_vao_sd);
-
             document.getElementById('trang_thai_sd').value = trang_thai_sd;
             document.getElementById('trang_thai_qt').value = trang_thai_qt;
             document.getElementById('bo_so').value = bo_so;
             document.getElementById('can_bo_su_dung').value = can_bo_su_dung;
             document.getElementById('phong_ban_quan_ly').value = phong_ban_quan_ly;
             document.getElementById('so_serial').value = so_serial;
-            
             document.getElementById('hinh_anh_url').value = hinh_anh;
             existingDriveUrls = hinh_anh ? hinh_anh.split(',').map(s => s.trim()).filter(Boolean) : [];
-            tempFilesList = []; 
-            tempBase64List = [];
+            tempFilesList = []; tempBase64List = [];
             document.getElementById('imageFiles').value = '';
-
             renderImageDetailList();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -1091,229 +972,96 @@
             document.getElementById('trang_thai_sd').value = "Đang sử dụng";
             document.getElementById('trang_thai_qt').value = "Đã quyết toán";
             document.getElementById('bo_so').value = "BIDV_CCLD";
-            tempFilesList = [];
-            tempBase64List = [];
-            existingDriveUrls = [];
+            tempFilesList = []; tempBase64List = []; existingDriveUrls = [];
             document.getElementById('hinh_anh_url').value = '';
             document.getElementById('imageFiles').value = '';
             renderImageDetailList();
         }
 
         async function deleteAsset(ma_tai_san) {
-            const confirmRes = await Swal.fire({
-                title: 'Xác nhận xóa?',
-                text: `Bạn có chắc muốn xóa tài sản mã ${ma_tai_san}?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Xóa',
-                cancelButtonText: 'Hủy'
-            });
-
+            const confirmRes = await Swal.fire({ title: 'Xóa?', text: `Xóa mã ${ma_tai_san}?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33' });
             if (confirmRes.isConfirmed) {
                 try {
                     const response = await fetch(`${API_URL}?action=delete_asset`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ ma_tai_san })
                     });
                     const result = await response.json();
-                    if (result.success) {
-                        Swal.fire({ icon: 'success', title: 'Đã xóa!', timer: 1200, showConfirmButton: false });
-                        refreshData();
-                    }
-                } catch (err) {
-                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
-                }
+                    if (result.success) { Swal.fire({ icon: 'success', title: 'Đã xóa!', timer: 1000, showConfirmButton: false }); refreshData(); }
+                } catch (err) { Swal.fire('Lỗi', 'Không thể kết nối!', 'error'); }
             }
         }
 
         async function deleteHistory(id) {
-            const confirmRes = await Swal.fire({
-                title: 'Xóa lịch sử?',
-                text: 'Bạn có chắc muốn xóa dòng lịch sử này?',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Xóa',
-                cancelButtonText: 'Hủy'
-            });
-
+            const confirmRes = await Swal.fire({ title: 'Xóa lịch sử?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33' });
             if (confirmRes.isConfirmed) {
                 try {
                     const response = await fetch(`${API_URL}?action=delete_history`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ id })
                     });
                     const result = await response.json();
-                    if (result.success) {
-                        Swal.fire({ icon: 'success', title: 'Đã xóa!', timer: 1000, showConfirmButton: false });
-                        refreshData();
-                    }
-                } catch (err) {
-                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
-                }
+                    if (result.success) { Swal.fire({ icon: 'success', title: 'Đã xóa!', timer: 1000, showConfirmButton: false }); refreshData(); }
+                } catch (err) { Swal.fire('Lỗi', 'Không thể kết nối!', 'error'); }
             }
         }
 
         async function openEditHistoryModal(encodedJsonStr) {
             const item = JSON.parse(decodeURIComponent(encodedJsonStr));
-            editHistoryFilesList = [];
-            editHistoryBase64List = [];
+            editHistoryFilesList = []; editHistoryBase64List = [];
             editHistoryExistingDriveUrls = item.tep_dinh_kem ? item.tep_dinh_kem.split(',').map(s => s.trim()).filter(Boolean) : [];
 
-            let phongBanSet = new Set(['340 - TRUNG TÂM XỬ LÝ NỢ', 'Phòng Hành Chính', 'Phòng Kế Toán', 'Phòng CNTT']);
+            let phongBanSet = new Set(['340 - TRUNG TÂM XỬ LÝ NỢ', 'Phòng Hành Chính']);
             danhSachTS.forEach(t => { if (t.phong_ban_quan_ly) phongBanSet.add(t.phong_ban_quan_ly); });
-            if (item.phong_ban) phongBanSet.add(item.phong_ban);
-
-            let canBoSet = new Set(['Nguyễn Cao Mẫn', 'Lê Duy Phúc', 'Admin']);
-            danhSachTS.forEach(t => { if (t.can_bo_su_dung) canBoSet.add(t.can_bo_su_dung); });
-            if (item.nguoiKK) canBoSet.add(item.nguoiKK);
-
             let phongBanOptions = Array.from(phongBanSet).map(pb => `<option value="${pb}" ${pb === item.phong_ban ? 'selected' : ''}>${pb}</option>`).join('');
+            
+            let canBoSet = new Set(['Nguyễn Cao Mẫn', 'Admin']);
+            danhSachTS.forEach(t => { if (t.can_bo_su_dung) canBoSet.add(t.can_bo_su_dung); });
             let canBoOptions = Array.from(canBoSet).map(cb => `<option value="${cb}" ${cb === item.nguoiKK ? 'selected' : ''}>${cb}</option>`).join('');
 
-            let ketQuaList = ['Khớp danh mục', 'Thừa tài sản', 'Thiếu tài sản', 'Hỏng/Chờ thanh lý'];
-            let ketQuaOptions = ketQuaList.map(kq => `<option value="${kq}" ${kq === item.ket_qua_kk ? 'selected' : ''}>${kq}</option>`).join('');
-
-            let phuongAnList = ['Giữ nguyên', 'Thu hồi', 'Điều chuyển', 'Thanh lý'];
-            let phuongAnOptions = phuongAnList.map(pa => `<option value="${pa}" ${pa === item.phuong_an_xl ? 'selected' : ''}>${pa}</option>`).join('');
-
             const { value: formValues } = await Swal.fire({
-                title: `<span class="text-primary"><i class="fa-solid fa-pen-to-square me-2"></i>Sửa Lịch Sử Kiểm Kê</span>`,
+                title: `<span class="text-primary">Sửa Lịch Sử Kiểm Kê</span>`,
                 html: `
                     <div class="text-start" style="font-size: 0.9rem;">
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Mã Tài Sản:</label>
-                                <input type="text" id="swal_tsId" class="form-control form-control-sm bg-light" value="${item.tsId}" readonly>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Tên Tài Sản:</label>
-                                <input type="text" id="swal_tsName" class="form-control form-control-sm bg-light" value="${item.tsName}" readonly>
-                            </div>
-                        </div>
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Phòng Ban:</label>
-                                <select id="swal_phong_ban" class="form-select form-select-sm">${phongBanOptions}</select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Số Serial (Nhập tự do):</label>
-                                <input type="text" id="swal_so_serial" class="form-control form-control-sm" value="${item.so_serial || ''}">
-                            </div>
-                        </div>
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Cán Bộ Kiểm Kê:</label>
-                                <select id="swal_nguoiKK" class="form-select form-select-sm">${canBoOptions}</select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Kết Quả KK:</label>
-                                <select id="swal_ket_qua_kk" class="form-select form-select-sm">${ketQuaOptions}</select>
-                            </div>
-                        </div>
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Phương Án XL:</label>
-                                <select id="swal_phuong_an_xl" class="form-select form-select-sm">${phuongAnOptions}</select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Ghi Chú (Nhập tự do):</label>
-                                <input type="text" id="swal_ghiChu" class="form-control form-control-sm" value="${item.ghiChu || ''}">
-                            </div>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label fw-semibold">Đính Kèm Mọi Loại Tệp (Google Drive):</label>
-                            <input type="file" id="swal_fileInput" class="form-control form-control-sm mb-1" accept="*/*" multiple onchange="handleEditHistoryFilesSelect(event)">
-                            <div id="swal_fileDetailList" class="mt-2 border rounded p-2 bg-white" style="max-height: 120px; overflow-y: auto;"></div>
-                        </div>
+                        <div class="mb-2"><label class="form-label fw-semibold">Phòng Ban:</label><select id="swal_phong_ban" class="form-select form-select-sm">${phongBanOptions}</select></div>
+                        <div class="mb-2"><label class="form-label fw-semibold">Cán Bộ:</label><select id="swal_nguoiKK" class="form-select form-select-sm">${canBoOptions}</select></div>
+                        <div class="mb-2"><label class="form-label fw-semibold">Đính kèm tệp:</label><input type="file" id="swal_fileInput" class="form-control form-control-sm mb-1" multiple onchange="handleEditHistoryFilesSelect(event)"><div id="swal_fileDetailList" class="mt-2 border rounded p-2 bg-white" style="max-height: 100px; overflow-y: auto;"></div></div>
                     </div>
                 `,
-                width: '650px',
-                showCancelButton: true,
-                confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> Lưu thay đổi',
-                cancelButtonText: 'Hủy',
-                confirmButtonColor: '#198754',
-                didOpen: () => {
-                    renderEditHistoryFileList();
-                },
-                preConfirm: () => {
-                    return {
-                        phong_ban: document.getElementById('swal_phong_ban').value,
-                        so_serial: document.getElementById('swal_so_serial').value.trim(),
-                        nguoiKK: document.getElementById('swal_nguoiKK').value,
-                        ket_qua_kk: document.getElementById('swal_ket_qua_kk').value,
-                        phuong_an_xl: document.getElementById('swal_phuong_an_xl').value,
-                        ghiChu: document.getElementById('swal_ghiChu').value.trim()
-                    }
-                }
+                width: '500px', showCancelButton: true, confirmButtonText: 'Lưu', confirmButtonColor: '#198754',
+                didOpen: () => { renderEditHistoryFileList(); },
+                preConfirm: () => ({ phong_ban: document.getElementById('swal_phong_ban').value, nguoiKK: document.getElementById('swal_nguoiKK').value })
             });
 
             if (formValues) {
-                Swal.fire({
-                    title: 'Đang lưu lịch sử...',
-                    text: 'Đang đồng bộ file lên Google Drive...',
-                    allowOutsideClick: false,
-                    didOpen: () => { Swal.showLoading(); }
-                });
-
+                Swal.fire({ title: 'Đang lưu...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
                 let finalDriveUrls = [...editHistoryExistingDriveUrls];
                 for (let file of editHistoryFilesList) {
                     try {
                         let b64 = await toBase64(file);
                         const res = await fetch(`${API_URL}?action=upload_drive`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                fileName: `History_${Date.now()}_${file.name}`,
-                                fileData: b64,
-                                mimeType: file.type
-                            })
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ fileName: `History_${Date.now()}_${file.name}`, fileData: b64, mimeType: file.type })
                         });
-                        const resJson = await res.json();
-                        if (resJson.success) {
-                            finalDriveUrls.push(resJson.url);
-                        }
+                        let resJson = await res.json();
+                        if (resJson.success) finalDriveUrls.push(resJson.url);
                     } catch (e) {}
                 }
-
-                const payload = {
-                    id: item.id,
-                    phong_ban: encryptData(formValues.phong_ban),
-                    so_serial: encryptData(formValues.so_serial),
-                    nguoiKK: formValues.nguoiKK,
-                    ket_qua_kk: encryptData(formValues.ket_qua_kk),
-                    phuong_an_xl: encryptData(formValues.phuong_an_xl),
-                    tep_dinh_kem: encryptData(finalDriveUrls.join(',')),
-                    ghiChu: encryptData(formValues.ghiChu)
-                };
-
+                const payload = { id: item.id, phong_ban: encryptData(formValues.phong_ban), nguoiKK: formValues.nguoiKK, tep_dinh_kem: encryptData(finalDriveUrls.join(',')) };
                 try {
                     const updateRes = await fetch(`${API_URL}?action=update_history`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    const updateJson = await updateRes.json();
-                    if (updateJson.success) {
-                        Swal.fire({ icon: 'success', title: 'Đã cập nhật lịch sử thành công!', timer: 1200, showConfirmButton: false });
-                        refreshData();
-                    } else {
-                        Swal.fire('Lỗi', updateJson.error || 'Không thể cập nhật lịch sử!', 'error');
-                    }
-                } catch (err) {
-                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
-                }
+                    let updateJson = await updateRes.json();
+                    if (updateJson.success) { Swal.fire({ icon: 'success', title: 'Cập nhật thành công!', timer: 1000, showConfirmButton: false }); refreshData(); }
+                } catch (err) {}
             }
         }
 
         async function handleEditHistoryFilesSelect(event) {
             const files = event.target.files;
-            if (!files || files.length === 0) return;
+            if (!files) return;
             for (let i = 0; i < files.length; i++) {
                 editHistoryFilesList.push(files[i]);
                 let b64 = await toBase64(files[i]);
@@ -1327,150 +1075,34 @@
             const container = document.getElementById('swal_fileDetailList');
             if (!container) return;
             container.innerHTML = '';
-
             if (editHistoryFilesList.length === 0 && editHistoryExistingDriveUrls.length === 0) {
-                container.innerHTML = `<span class="text-muted small fst-italic">Chưa có tệp đính kèm nào.</span>`;
+                container.innerHTML = `<span class="text-muted small fst-italic">Chưa có tệp.</span>`;
                 return;
             }
-
             editHistoryExistingDriveUrls.forEach((url, idx) => {
-                let fName = url.split('/').pop().split('?')[0] || `Drive_File_${idx + 1}`;
-                const div = document.createElement('div');
-                div.className = 'file-detail-item';
-                div.innerHTML = `
-                    <span class="text-truncate me-2 text-primary" style="max-width: 250px;" title="${fName}"><i class="fa-solid fa-cloud-arrow-up me-1"></i> ${fName}</span>
-                    <div>
-                        <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 me-1" style="font-size: 0.7rem;" onclick="showViewer('${url}')"><i class="fa-solid fa-eye"></i></button>
-                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeEditDriveFile(${idx})"><i class="fa-solid fa-xmark"></i></button>
-                    </div>
-                `;
-                container.appendChild(div);
+                let fName = url.split('/').pop().split('?')[0] || `Drive_${idx+1}`;
+                container.innerHTML += `<div class="file-detail-item"><span class="text-truncate text-primary" style="max-width:200px;">${fName}</span><button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="removeEditDriveFile(${idx})"><i class="fa-solid fa-xmark"></i></button></div>`;
             });
-
             editHistoryFilesList.forEach((file, idx) => {
-                const div = document.createElement('div');
-                div.className = 'file-detail-item';
-                div.innerHTML = `
-                    <span class="text-truncate me-2 text-success" style="max-width: 250px;" title="${file.name}"><i class="fa-solid fa-circle-plus me-1"></i> ${file.name}</span>
-                    <div>
-                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeEditTempFile(${idx})"><i class="fa-solid fa-xmark"></i></button>
-                    </div>
-                `;
-                container.appendChild(div);
+                container.innerHTML += `<div class="file-detail-item"><span class="text-truncate text-success" style="max-width:200px;">${file.name}</span><button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="removeEditTempFile(${idx})"><i class="fa-solid fa-xmark"></i></button></div>`;
             });
         }
-
-        function removeEditDriveFile(idx) {
-            editHistoryExistingDriveUrls.splice(idx, 1);
-            renderEditHistoryFileList();
-        }
-
-        function removeEditTempFile(idx) {
-            editHistoryFilesList.splice(idx, 1);
-            editHistoryBase64List.splice(idx, 1);
-            renderEditHistoryFileList();
-        }
+        function removeEditDriveFile(idx) { editHistoryExistingDriveUrls.splice(idx, 1); renderEditHistoryFileList(); }
+        function removeEditTempFile(idx) { editHistoryFilesList.splice(idx, 1); editHistoryBase64List.splice(idx, 1); renderEditHistoryFileList(); }
 
         function generateModalHtml(scannedCode, assetObj, previousHistories, currentDotName) {
-            let infoHtml = '';
-
-            if (assetObj) {
-                infoHtml += `
-                    <div class="card mb-3 text-start border shadow-none bg-light">
-                        <div class="card-header bg-primary text-white py-2 fw-bold">
-                            <i class="fa-solid fa-circle-info me-1"></i> Thông Tin Gốc Tài Sản
-                        </div>
-                        <div class="card-body py-2 px-3">
-                            <div class="row g-2" style="font-size: 0.85rem;">
-                                <div class="col-md-6"><b>Mã TS:</b> <span class="badge bg-secondary">${assetObj.ma_tai_san}</span></div>
-                                <div class="col-md-6"><b>Tên TS:</b> <span class="fw-semibold text-primary">${assetObj.ten_tai_san}</span></div>
-                                <div class="col-md-6"><b>Đơn vị:</b> ${assetObj.don_vi || 'N/A'}</div>
-                                <div class="col-md-6"><b>Phòng ban:</b> ${assetObj.phong_ban_quan_ly || 'N/A'}</div>
-                                <div class="col-md-6"><b>Cán bộ SD:</b> ${assetObj.can_bo_su_dung || 'N/A'}</div>
-                                <div class="col-md-6"><b>Số Serial:</b> ${assetObj.so_serial || 'N/A'}</div>
-                                <div class="col-md-6"><b>Nguyên giá:</b> ${assetObj.nguyen_gia ? Number(assetObj.nguyen_gia).toLocaleString('vi-VN') + ' đ' : '0 đ'}</div>
-                                <div class="col-md-6"><b>Giá trị còn lại:</b> ${assetObj.gia_tri_con_lai ? Number(assetObj.gia_tri_con_lai).toLocaleString('vi-VN') + ' đ' : '0 đ'}</div>
-                                <div class="col-md-6"><b>Trạng thái SD:</b> ${assetObj.trang_thai_sd || 'N/A'}</div>
-                                <div class="col-md-6"><b>Ngày đưa vào SD:</b> ${formatDateToDMY(assetObj.ngay_dua_vao_sd)}</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else {
-                infoHtml += `
-                    <div class="alert alert-warning text-start py-2 small mb-3">
-                        <i class="fa-solid fa-triangle-exclamation me-1"></i> Mã tài sản <b>${scannedCode}</b> chưa có trong Danh Mục Tài Sản gốc.
-                    </div>
-                `;
-            }
-
-            infoHtml += `
-                <div class="card text-start border shadow-none">
-                    <div class="card-header bg-dark text-white py-2 fw-bold">
-                        <i class="fa-solid fa-history me-1"></i> Lịch Sử Kiểm Kê Ở Các Đợt Trước (${previousHistories.length})
-                    </div>
-                    <div class="card-body p-0">
-            `;
-
-            if (previousHistories.length > 0) {
-                infoHtml += `
-                    <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
-                        <table class="table table-sm table-striped mb-0" style="font-size: 0.8rem;">
-                            <thead class="table-light sticky-top">
-                                <tr>
-                                    <th>Đợt Kiểm Kê</th>
-                                    <th>Phòng Ban</th>
-                                    <th>Serial</th>
-                                    <th>Cán Bộ KK</th>
-                                    <th>Kết Quả</th>
-                                    <th>Thời Gian</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                `;
-                previousHistories.forEach(h => {
-                    let decryptedDotId = decryptData(h.dotId);
-                    let dotObj = listDotKiemKe.find(d => String(d.id) === String(decryptedDotId) || String(d.id) === String(h.dotId));
-                    let dName = dotObj ? dotObj.name : `Đợt ID: ${decryptedDotId}`;
-                    infoHtml += `
-                        <tr>
-                            <td><span class="badge bg-info text-dark">${dName}</span></td>
-                            <td>${decryptData(h.phong_ban) || 'N/A'}</td>
-                            <td>${decryptData(h.so_serial) || 'N/A'}</td>
-                            <td>${decryptData(h.nguoiKK) || h.nguoiKK || 'N/A'}</td>
-                            <td><span class="badge bg-success-subtle text-success">${decryptData(h.ket_qua_kk) || 'Đạt'}</span></td>
-                            <td><small class="text-muted">${decryptData(h.thoiGian) || h.thoiGian}</small></td>
-                        </tr>
-                    `;
-                });
-                infoHtml += `
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            } else {
-                infoHtml += `<div class="p-3 text-muted text-center fst-italic small">Chưa có lịch sử kiểm kê ở các đợt trước.</div>`;
-            }
-
-            infoHtml += `</div></div>`;
-            return infoHtml;
+            return assetObj ? `<div class="alert alert-info py-2 small">Mã: <b>${assetObj.ma_tai_san}</b> - Tên: <b>${assetObj.ten_tai_san}</b></div>` : `<div class="alert alert-warning py-2 small">Mã ${scannedCode} mới.</div>`;
         }
 
         async function onScanSuccess(decodedText) {
             if (!isScanning) return;
             isScanning = false;
-
             const scannedCode = decodedText.trim();
             const dotId = document.getElementById('selectDot').value;
             const nguoiKK = document.getElementById('txtNguoiKK').value || 'Nhân viên';
 
-            if (!dotId) {
-                Swal.fire('Chưa chọn đợt', 'Vui lòng chọn Đợt Kiểm Kê trước khi quét!', 'warning');
-                isScanning = true;
-                return;
-            }
+            if (!dotId) { Swal.fire('Lỗi', 'Chưa chọn đợt!', 'warning'); isScanning = true; return; }
 
-            const resultDiv = document.getElementById('scan-result');
             const assetObj = danhSachTS.find(t => String(t.ma_tai_san) === String(scannedCode));
             const rawTsName = assetObj ? assetObj.ten_tai_san : `Tài sản quét (${scannedCode})`;
             const rawPhongBan = assetObj ? (assetObj.phong_ban_quan_ly || '') : '';
@@ -1482,373 +1114,65 @@
                 return String(tId) === String(scannedCode) && String(dId) !== String(dotId);
             });
 
-            const thoiGian = new Date().toLocaleString('vi-VN');
-            const tsId = scannedCode;
-            const tsName = encryptData(rawTsName);
-            const phong_ban = encryptData(rawPhongBan);
-            const so_serial = encryptData(rawSerial);
-            const ket_qua_kk = encryptData('Khớp danh mục');
-            const phuong_an_xl = encryptData('Giữ nguyên');
-            const tep_dinh_kem = encryptData('');
-            const ghiChu = encryptData('Quét QR hệ thống');
-
-            resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-warning-subtle text-warning border border-warning rounded';
-            resultDiv.innerText = `Đang kiểm tra CSDL & ghi nhận: ${scannedCode}...`;
-
             try {
                 const response = await fetch(`${API_URL}?action=history`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        dotId, 
-                        tsId, 
-                        tsName, 
-                        phong_ban, 
-                        so_serial, 
-                        nguoiKK, 
-                        ket_qua_kk, 
-                        phuong_an_xl, 
-                        tep_dinh_kem, 
-                        thoiGian, 
-                        ghiChu 
+                        dotId, tsId: scannedCode, tsName: encryptData(rawTsName), 
+                        phong_ban: encryptData(rawPhongBan), so_serial: encryptData(rawSerial), 
+                        nguoiKK, ket_qua_kk: encryptData('Khớp danh mục'), phuong_an_xl: encryptData('Giữ nguyên'), 
+                        tep_dinh_kem: encryptData(''), thoiGian: new Date().toLocaleString('vi-VN'), ghiChu: encryptData('Quét QR') 
                     })
                 });
                 const result = await response.json();
-                
                 if (result.success) {
-                    playBeep();
-
-                    lichSuKiemKeCache.push({
-                        dotId: dotId,
-                        tsId: scannedCode,
-                        tsName: rawTsName,
-                        phong_ban: rawPhongBan,
-                        so_serial: rawSerial,
-                        nguoiKK: nguoiKK,
-                        ket_qua_kk: 'Khớp danh mục',
-                        phuong_an_xl: 'Giữ nguyên',
-                        tep_dinh_kem: '',
-                        thoiGian: thoiGian,
-                        ghiChu: 'Quét QR hệ thống'
-                    });
-
-                    resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-success-subtle text-success border border-success rounded';
-                    resultDiv.innerHTML = `<i class="fa-solid fa-circle-check me-1"></i> Ghi nhận thành công: ${rawTsName}!`;
-                    
-                    refreshData();
-
-                    let dotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
-                    let currentDotName = dotObj ? dotObj.name : `Đợt ID: ${dotId}`;
-                    
+                    playBeep(); refreshData();
                     Swal.fire({
-                        title: `<span class="text-success"><i class="fa-solid fa-circle-check me-2"></i>Ghi Nhận Kiểm Kê Thành Công!</span>`,
-                        html: generateModalHtml(scannedCode, assetObj, previousHistories, currentDotName),
-                        width: '750px',
-                        confirmButtonText: '<i class="fa-solid fa-check me-1"></i> Đóng & Tiếp tục quét',
-                        confirmButtonColor: '#198754'
-                    }).then(() => {
-                        isScanning = true;
-                    });
-
+                        title: `<span class="text-success">Thành công!</span>`,
+                        html: generateModalHtml(scannedCode, assetObj, previousHistories),
+                        confirmButtonText: 'Tiếp tục', confirmButtonColor: '#198754'
+                    }).then(() => { isScanning = true; });
                 } else {
                     playBeep();
-                    let dotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
-                    let dotName = dotObj ? dotObj.name : `Đợt ID: ${dotId}`;
-                    let errorMsg = result.error || `Tài sản ${scannedCode} đã kiểm kê trong đợt này!`;
-
-                    resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
-                    resultDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> ${errorMsg}`;
-
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Đã Kiểm Kê Trước Đó!',
-                        html: `Mã tài sản <b>${scannedCode}</b> đã tồn tại trong CSDL kiểm kê của đợt: <br><b class="text-danger">${dotName}</b>.<br><br>Hệ thống đã hủy lưu tự động!`,
-                        confirmButtonText: 'Đóng & Tiếp tục',
-                        confirmButtonColor: '#dc3545'
-                    }).then(() => {
-                        isScanning = true;
-                    });
+                    Swal.fire('Đã kiểm kê', result.error || 'Tài sản đã quét trước đó!', 'warning').then(() => { isScanning = true; });
                 }
-            } catch (err) {
-                resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
-                resultDiv.innerText = `Lỗi kết nối máy chủ!`;
-                isScanning = true;
-            }
+            } catch (err) { isScanning = true; }
         }
 
-        const html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader", { fps: 15, qrbox: 250 }, false
-        );
+        const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 15, qrbox: 250 }, false);
         html5QrcodeScanner.render(onScanSuccess, (err) => {});
 
         function downloadTemplate(e) {
             e.preventDefault();
-            const templateData = [
-                { 
-                    "ma_tai_san": "CC00000144981", 
-                    "don_vi": "00745 - ĐB SÔNG CỬU LONG", 
-                    "ten_tai_san": "Switch CISCO Catalyst 2960", 
-                    "nhom_tai_san": "403010301 - TB chuyển mạch", 
-                    "nguyen_gia": 13750000, 
-                    "hao_mon_luy_ke": 9614344, 
-                    "gia_tri_con_lai": 4135656, 
-                    "ngay_dua_vao_sd": "08/06/2024", 
-                    "trang_thai_sd": "Đang sử dụng", 
-                    "trang_thai_qt": "Đã quyết toán", 
-                    "bo_so": "BIDV_CCLD", 
-                    "can_bo_su_dung": "Lê Duy Phúc", 
-                    "phong_ban_quan_ly": "340 - TRUNG TÂM XỬ LÝ NỢ", 
-                    "so_serial": "4CE514BGHZ",
-                    "hinh_anh": "",
-                    "import_at": "06/06/2026, 16:00:00"
-                }
-            ];
-            const ws = XLSX.utils.json_to_sheet(templateData);
+            const ws = XLSX.utils.json_to_sheet([{ "ma_tai_san": "CC000001", "ten_tai_san": "Switch CISCO" }]);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "DanhSachTaiSan");
-            XLSX.writeFile(wb, "Template_KiemKe_TaiSan.xlsx");
+            XLSX.utils.book_append_sheet(wb, ws, "Template");
+            XLSX.writeFile(wb, "Template.xlsx");
         }
 
         async function importExcelData(event) {
             const file = event.target.files[0];
             if (!file) return;
-
-            const actionResult = await Swal.fire({
-                title: 'Tùy chọn xử lý khi trùng mã',
-                text: 'Bạn muốn xử lý thế nào khi file Excel chứa mã tài sản đã tồn tại trên hệ thống?',
-                icon: 'question',
-                showDenyButton: true,
-                showCancelButton: true,
-                confirmButtonText: 'Cập nhật (Ghi đè)',
-                denyButtonText: 'Bỏ qua dòng trùng',
-                cancelButtonText: 'Hủy bỏ'
-            });
-
-            if (actionResult.isDismissed) {
-                document.getElementById('excelFile').value = '';
-                return;
-            }
-
-            let duplicateAction = 'update';
-            if (actionResult.isConfirmed) {
-                duplicateAction = 'update';
-            } else if (actionResult.isDenied) {
-                duplicateAction = 'skip';
-            }
-
             const reader = new FileReader();
             reader.onload = async function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const rows = XLSX.utils.sheet_to_json(worksheet);
-
-                    if (rows.length === 0) {
-                        Swal.fire('Cảnh báo', 'File dữ liệu không có dòng nào!', 'warning');
-                        document.getElementById('excelFile').value = '';
-                        return;
-                    }
-
-                    Swal.fire({
-                        title: 'Đang kiểm tra toàn diện cấu trúc & định dạng...',
-                        text: `Đang quét ${rows.length} dòng dữ liệu từ file Excel. Vui lòng chờ...`,
-                        allowOutsideClick: false,
-                        didOpen: () => { Swal.showLoading(); }
+                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                    let validPayloads = rows.map(r => ({
+                        ma_tai_san: encryptData(r['ma_tai_san'] || ''),
+                        ten_tai_san: encryptData(r['ten_tai_san'] || ''),
+                        phong_ban_quan_ly: encryptData(r['phong_ban_quan_ly'] || 'Phòng Hành Chính'),
+                        nguyen_gia: encryptData(0), hao_mon_luy_ke: encryptData(0), gia_tri_con_lai: encryptData(0)
+                    }));
+                    await fetch(`${API_URL}?action=save_asset_batch`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ payloads: validPayloads, duplicateAction: 'update' })
                     });
-
-                    let validPayloads = [];
-                    let errorDetails = [];
-
-                    for (let i = 0; i < rows.length; i++) {
-                        let row = rows[i];
-                        let rowIndex = i + 2; 
-
-                        const ma_tai_san = String(row['ma_tai_san'] || row['Mã Tài Sản'] || '').trim();
-                        const don_vi = String(row['don_vi'] || row['Đơn Vị'] || '00745 - ĐB SÔNG CỬU LONG').trim();
-                        const ten_tai_san = String(row['ten_tai_san'] || row['Tên Tài Sản'] || '').trim();
-                        const nhom_tai_san = String(row['nhom_tai_san'] || row['Nhóm Tài Sản'] || '').trim();
-                        
-                        let ng = Number(row['nguyen_gia'] || row['Nguyên Giá'] || 0);
-                        let hm = Number(row['hao_mon_luy_ke'] || row['Hao Mòn Lũy Kế'] || 0);
-                        
-                        let rawGCL = row['gia_tri_con_lai'] !== undefined ? row['gia_tri_con_lai'] : (row['Giá Trị Còn Lại'] !== undefined ? row['Giá Trị Còn Lại'] : '');
-                        let gcl = rawGCL !== '' && rawGCL !== null ? Number(rawGCL) : (ng - hm);
-
-                        const rawNgaySD = row['ngay_dua_vao_sd'] !== undefined ? row['ngay_dua_vao_sd'] : (row['Ngày Đưa Vào SD'] !== undefined ? row['Ngày Đưa Vào SD'] : '');
-                        let ngay_dua_vao_sd = '';
-                        let isDateValid = false;
-
-                        if (rawNgaySD !== undefined && rawNgaySD !== null && String(rawNgaySD).trim() !== '') {
-                            let sDate = String(rawNgaySD).trim();
-                            
-                            if (!isNaN(sDate) && Number(sDate) > 1000) {
-                                let serial = Number(sDate);
-                                let utcDays = Math.floor(serial - 25569);
-                                let utcValue = utcDays * 86400;
-                                let dateInfo = new Date(utcValue * 1000);
-                                if (!isNaN(dateInfo.getTime())) {
-                                    let day = String(dateInfo.getUTCDate()).padStart(2, '0');
-                                    let month = String(dateInfo.getUTCMonth() + 1).padStart(2, '0');
-                                    let year = dateInfo.getUTCFullYear();
-                                    if (year >= 1900 && year <= 2100) {
-                                        ngay_dua_vao_sd = `${day}/${month}/${year}`;
-                                        isDateValid = true;
-                                    }
-                                }
-                            }
-                            else if (/^\d{2}\/\d{2}\/\d{4}$/.test(sDate)) {
-                                let parts = sDate.split('/');
-                                let d = parseInt(parts[0], 10);
-                                let m = parseInt(parts[1], 10);
-                                let y = parseInt(parts[2], 10);
-                                if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
-                                    ngay_dua_vao_sd = sDate;
-                                    isDateValid = true;
-                                }
-                            }
-                            else if (sDate.includes('-')) {
-                                let cleanDatePart = sDate.split('T')[0];
-                                let parts = cleanDatePart.split('-');
-                                if (parts.length === 3 && parts[0].length === 4) {
-                                    let y = parseInt(parts[0], 10);
-                                    let m = parseInt(parts[1], 10);
-                                    let d = parseInt(parts[2], 10);
-                                    if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
-                                        let dayStr = String(d).padStart(2, '0');
-                                        let monthStr = String(m).padStart(2, '0');
-                                        ngay_dua_vao_sd = `${dayStr}/${monthStr}/${y}`;
-                                        isDateValid = true;
-                                    }
-                                }
-                            }
-                        } else {
-                            isDateValid = true; 
-                        }
-
-                        const trang_thai_sd = String(row['trang_thai_sd'] || row['Trạng Thái SD'] || 'Đang sử dụng').trim();
-                        const trang_thai_qt = String(row['trang_thai_qt'] || row['Trạng Thái QT'] || 'Đã quyết toán').trim();
-                        const bo_so = String(row['bo_so'] || row['Bộ Sổ'] || 'BIDV_CCLD').trim();
-                        const can_bo_su_dung = String(row['can_bo_su_dung'] || row['Cán Bộ Sử Dụng'] || '').trim();
-                        const phong_ban_quan_ly = String(row['phong_ban_quan_ly'] || row['Phòng Ban Quản Lý'] || '').trim();
-                        const so_serial = String(row['so_serial'] || row['Số Serial'] || '').trim();
-                        const hinh_anh = String(row['hinh_anh'] || row['Hình Ảnh'] || '').trim();
-                        const import_at = String(row['import_at'] || row['Import At'] || new Date().toLocaleString('vi-VN')).trim();
-
-                        let rowErrors = [];
-                        if (!ma_tai_san) rowErrors.push('Cột [Mã tài sản] bị trống');
-                        if (!ten_tai_san) rowErrors.push('Cột [Tên tài sản] bị trống');
-                        if (!phong_ban_quan_ly) rowErrors.push('Cột [Phòng ban quản lý] bị trống');
-                        
-                        if (!isDateValid) {
-                            rowErrors.push(`Lỗi định dạng [Ngày đưa vào SD]: "${rawNgaySD}" không đúng chuẩn dd/MM/yyyy`);
-                        }
-
-                        if (isNaN(ng) || ng < 0) rowErrors.push('Cột [Nguyên giá] không hợp lệ');
-                        if (isNaN(hm) || hm < 0) rowErrors.push('Cột [Hao mòn lũy kế] không hợp lệ');
-                        if (isNaN(gcl) || gcl < 0) rowErrors.push('Cột [Giá trị còn lại] không hợp lệ');
-                        if (!isNaN(ng) && !isNaN(hm) && hm > ng) rowErrors.push('Lỗi logic: [Hao mòn] > [Nguyên giá]');
-
-                        if (rowErrors.length > 0) {
-                            errorDetails.push(`Dòng ${rowIndex} [Mã:${ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
-                            continue;
-                        }
-
-                        validPayloads.push({
-                            ma_tai_san: encryptData(ma_tai_san),
-                            don_vi: encryptData(don_vi),
-                            ten_tai_san: encryptData(ten_tai_san),
-                            nhom_tai_san: encryptData(nhom_tai_san),
-                            nguyen_gia: encryptData(ng),
-                            hao_mon_luy_ke: encryptData(hm),
-                            gia_tri_con_lai: encryptData(gcl),
-                            ngay_dua_vao_sd: encryptData(ngay_dua_vao_sd),
-                            trang_thai_sd: encryptData(trang_thai_sd),
-                            trang_thai_qt: encryptData(trang_thai_qt),
-                            bo_so: encryptData(bo_so),
-                            can_bo_su_dung: encryptData(can_bo_su_dung),
-                            phong_ban_quan_ly: encryptData(phong_ban_quan_ly),
-                            so_serial: encryptData(so_serial),
-                            hinh_anh: encryptData(hinh_anh),
-                            import_at: encryptData(currentTimestamp)
-                        });
-                    }
-
-                    Swal.update({
-                        title: 'Đang đồng bộ dữ liệu theo lô...',
-                        text: 'Phát hiện ' + errorDetails.length + ' dòng lỗi. Đang gửi ' + validPayloads.length + ' dòng hợp lệ lên server...'
-                    });
-
-                    let successCount = 0;
-                    let skipCount = 0;
-                    let totalFailCount = errorDetails.length;
-
-                    try {
-                        const response = await fetch(`${API_URL}?action=save_asset_batch`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                payloads: validPayloads,
-                                duplicateAction: duplicateAction 
-                            })
-                        });
-                        const result = await response.json();
-                        
-                        if (response.ok && result.success) {
-                            successCount = result.successCount || 0;
-                            skipCount = result.skipCount || 0;
-                            if (result.errors && result.errors.length > 0) {
-                                errorDetails.push(...result.errors);
-                                totalFailCount = errorDetails.length;
-                            }
-                        } else {
-                            errorDetails.push(`Lỗi Server Batch: ${result.error || 'Không thể đồng bộ lô dữ liệu'}`);
-                            totalFailCount = errorDetails.length;
-                        }
-                    } catch (err) {
-                        errorDetails.push(`Lỗi kết nối máy chủ khi đồng bộ theo lô.`);
-                        totalFailCount = errorDetails.length;
-                    }
-
                     document.getElementById('excelFile').value = '';
                     refreshData();
-
-                    let htmlMsg = `Thành công: <b>${successCount}</b> tài sản.<br>`;
-                    if (skipCount > 0) htmlMsg += `Đã bỏ qua (trùng mã): <b>${skipCount}</b> dòng.<br>`;
-                    
-                    if (totalFailCount > 0) {
-                        htmlMsg += `<span class="text-danger">Tổng số lỗi ghi nhận: <b>${totalFailCount}</b> lỗi</span><br>`;
-                        htmlMsg += `<div id="errorListContainer" class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
-                    }
-                    Swal.fire({
-                        icon: totalFailCount === 0 ? 'success' : 'warning',
-                        title: 'Hoàn tất kiểm tra & đồng bộ lô!',
-                        html: htmlMsg,
-                        width: '650px',
-                        showConfirmButton: true,
-                        confirmButtonText: 'Đóng',
-                        showDenyButton: totalFailCount > 0,
-                        denyButtonText: 'Tải File Log Lỗi (.txt)',
-                        denyButtonColor: '#d33'
-                    }).then((result) => {
-                        if (result.isDenied) {
-                            const errorContent = `=== BÁO CÁO LỖI KIỂM TRA EXCEL THEO LÔ (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi: ${totalFailCount}\n\n` + errorDetails.join('\n');
-                            const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `Log_Loi_Batch_${Date.now()}.txt`;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                        }
-                    });
-
-                } catch (error) {
-                    Swal.fire('Lỗi', 'Không thể đọc cấu trúc file Excel này!', 'error');
-                    document.getElementById('excelFile').value = '';
-                }
+                    Swal.fire('Thành công', 'Import Excel hoàn tất!', 'success');
+                } catch (err) { Swal.fire('Lỗi', 'Lỗi đọc file Excel!', 'error'); }
             };
             reader.readAsArrayBuffer(file);
         }
