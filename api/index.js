@@ -398,23 +398,23 @@ if (action === 'delete_drive' && req.method === 'POST') {
     const result = await response.json();
     return res.json(result);
 }
-        // Thêm action này vào api/index.js
-// Action remove_asset_file chuẩn hóa trong Node.js Backend API
+       // Action remove_asset_file chuẩn hóa trong Node.js Backend API
 if (action === 'remove_asset_file' && req.method === 'POST') {
     const { ma_tai_san, removeUrl } = req.body;
     
     if (!ma_tai_san || !removeUrl) {
-        return res.status(400).json({ success: false, error: 'Thiếu mã tài sản hoặc URL cần xóa!' });
+        return res.status(400).json({ success: false, error: 'Thiếu mã tài sản hoặc URL tệp cần xóa!' });
     }
 
-    // Lấy toàn bộ mã tài sản để đối chiếu giải mã (tránh lỗi lệch chuỗi AES mã hóa)
+    // 1. Tìm tài sản trong CSDL bằng cách so sánh mã sau khi giải mã
     const [allAssets] = await connection.execute('SELECT ma_tai_san, hinh_anh FROM danh_sach_tai_san');
 
     let matchedDbKey = null;
     let currentHinhAnhEncrypted = '';
 
     for (let row of allAssets) {
-        if (decryptData(row.ma_tai_san) === ma_tai_san || row.ma_tai_san === ma_tai_san) {
+        let decMa = decryptData(row.ma_tai_san);
+        if (decMa === ma_tai_san || row.ma_tai_san === ma_tai_san) {
             matchedDbKey = row.ma_tai_san;
             currentHinhAnhEncrypted = row.hinh_anh;
             break;
@@ -425,21 +425,24 @@ if (action === 'remove_asset_file' && req.method === 'POST') {
         return res.status(404).json({ success: false, error: 'Không tìm thấy tài sản trong CSDL!' });
     }
 
-    // Giải mã chuỗi hình ảnh, loại bỏ URL tệp đã xóa
+    // 2. Bóc tách và loại bỏ URL tệp khỏi CSDL
     let decryptedHinhAnh = decryptData(currentHinhAnhEncrypted) || '';
     let urlList = decryptedHinhAnh.split(',').map(s => s.trim()).filter(Boolean);
-    let updatedList = urlList.filter(url => url !== removeUrl);
+    let updatedList = urlList.filter(url => url !== removeUrl.trim());
     
-    // Mã hóa lại chuỗi hình ảnh mới
     let newHinhAnhEncrypted = encryptData(updatedList.join(','));
 
-    // Cập nhật CSDL
+    // 3. Cập nhật lại CSDL
     await connection.execute(
         'UPDATE danh_sach_tai_san SET hinh_anh = ? WHERE ma_tai_san = ?', 
         [newHinhAnhEncrypted, matchedDbKey]
     );
 
-    return res.json({ success: true, message: 'Đã cập nhật CSDL thành công!' });
+    return res.json({ 
+        success: true, 
+        message: 'Đã cập nhật CSDL thành công!',
+        remainingUrls: updatedList.join(',')
+    });
 }
         return res.status(404).json({ success: false, error: 'Action không hợp lệ' });
 
