@@ -497,20 +497,28 @@
 
         // HÀM XÓA FILE TRỰC TIẾP TRÊN GOOGLE DRIVE
        // HÀM XÓA FILE DRIVE VÀ CẬP NHẬT ĐỒNG THỜI VÀO CSDL
+// HÀM XÓA FILE ĐỒNG THỜI (DB TRƯỚC -> DRIVE SAU)
 async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
     if (!fileUrl || typeof fileUrl !== 'string') {
         Swal.fire('Lỗi', 'Đường dẫn tệp không hợp lệ!', 'error');
         return;
     }
 
+    const currentMaTS = document.getElementById('ma_tai_san').value.trim();
+
+    if (context === 'asset' && !currentMaTS) {
+        Swal.fire('Lỗi', 'Chưa xác định được Mã Tài Sản! Vui lòng chọn nút Sửa tài sản trước khi xóa tệp.', 'warning');
+        return;
+    }
+
     const confirmRes = await Swal.fire({
-        title: 'Xóa tệp trên Google Drive & CSDL?',
-        text: 'Tệp sẽ bị xóa vĩnh viễn trên Google Drive và tự động loại bỏ khỏi CSDL!',
+        title: 'Xóa tệp trên CSDL & Google Drive?',
+        text: 'Hệ thống sẽ cập nhật CSDL và xóa tệp trên Google Drive!',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',
         cancelButtonColor: '#6c757d',
-        confirmButtonText: 'Xóa Drive & Cập nhật DB',
+        confirmButtonText: 'Xóa CSDL & Drive',
         cancelButtonText: 'Hủy'
     });
 
@@ -518,47 +526,42 @@ async function deleteDriveFileDirectly(fileUrl, index, context = 'asset') {
 
     Swal.fire({
         title: 'Đang xử lý đồng bộ...',
-        text: 'Đang xóa tệp trên Google Drive và cập nhật CSDL...',
+        text: 'Đang cập nhật CSDL và xóa tệp trên Google Drive...',
         allowOutsideClick: false,
         didOpen: () => { Swal.showLoading(); }
     });
 
     try {
-        // BƯỚC 1: Gọi API xóa file thực tế trên Google Drive
-        const driveRes = await fetch(`${API_URL}?action=delete_drive`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fileUrl: fileUrl })
-        });
-        const driveResult = await driveRes.json();
-
-        if (!driveResult.success) {
-            Swal.fire('Lỗi Drive', driveResult.error || 'Không thể xóa tệp trên Google Drive!', 'error');
-            return;
+        // BƯỚC 1: Cập nhật loại bỏ URL tệp khỏi CSDL trước
+        if (context === 'asset' && currentMaTS) {
+            const dbRes = await fetch(`${API_URL}?action=remove_asset_file`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    ma_tai_san: currentMaTS, 
+                    removeUrl: fileUrl 
+                })
+            });
+            
+            const dbResult = await dbRes.json();
+            if (!dbResult.success) {
+                Swal.fire('Lỗi CSDL', dbResult.error || 'Không thể cập nhật CSDL!', 'error');
+                return;
+            }
         }
 
-        // BƯỚC 2: Cập nhật loại bỏ URL tệp khỏi CSDL
-        // Gọi API cập nhật loại bỏ URL tệp khỏi CSDL
-const currentMaTS = document.getElementById('ma_tai_san').value.trim();
+        // BƯỚC 2: Gọi API xóa file thực tế trên Google Drive sau
+        try {
+            await fetch(`${API_URL}?action=delete_drive`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileUrl: fileUrl })
+            });
+        } catch (driveErr) {
+            console.warn("Lỗi gửi request xóa Drive:", driveErr);
+        }
 
-if (context === 'asset' && currentMaTS) {
-    const dbRes = await fetch(`${API_URL}?action=remove_asset_file`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            ma_tai_san: currentMaTS, // Truyền chuỗi mã tài sản thuần (không dùng encryptData)
-            removeUrl: fileUrl 
-        })
-    });
-    
-    const dbResult = await dbRes.json();
-    if (!dbResult.success) {
-        Swal.fire('Cảnh báo', dbResult.error || 'Đã xóa file Drive nhưng không thể cập nhật CSDL!', 'warning');
-        return;
-    }
-}
-
-        // BƯỚC 3: Cập nhật lại giao diện Form & Bảng dữ liệu
+        // BƯỚC 3: Cập nhật biến tạm và giao diện Form
         if (context === 'asset') {
             existingDriveUrls.splice(index, 1);
             document.getElementById('hinh_anh_url').value = existingDriveUrls.join(',');
@@ -568,17 +571,17 @@ if (context === 'asset' && currentMaTS) {
             renderEditHistoryFileList();
         }
 
-        refreshData(); // Tải lại DataTables
+        refreshData(); // Tải lại bảng DataTables
         Swal.fire({ 
             icon: 'success', 
             title: 'Thành công!', 
-            text: 'Đã xóa tệp trên Google Drive và cập nhật CSDL thành công.', 
+            text: 'Đã cập nhật CSDL và xóa tệp trên Google Drive!', 
             timer: 1500, 
             showConfirmButton: false 
         });
 
     } catch (err) {
-        Swal.fire('Lỗi', 'Không thể kết nối máy chủ để xử lý đồng bộ!', 'error');
+        Swal.fire('Lỗi', 'Không thể kết nối máy chủ để xử lý!', 'error');
     }
 }
 
