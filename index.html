@@ -508,76 +508,88 @@
             }
         }
 
-        function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType = 'pdf') {
-            const targetContainer = document.getElementById(`${elementPrefixId}_media`);
-            if (!targetContainer) return;
+function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType = 'pdf') {
+    const targetContainer = document.getElementById(elementPrefixId + '_media');
+    if (!targetContainer) return;
 
-            if (!targetContainer.classList.contains('d-none')) {
-                targetContainer.classList.add('d-none');
-                targetContainer.innerHTML = '';
-                return;
-            }
+    // 1. Thu gọn nếu đang hiển thị
+    if (!targetContainer.classList.contains('d-none')) {
+        targetContainer.classList.add('d-none');
+        targetContainer.innerHTML = '';
+        delete targetContainer.dataset.embedSrc;
+        return;
+    }
 
-            let embedSrc = urlOrBase64;
+    // 2. Xử lý nguồn dữ liệu Media
+    let embedSrc = urlOrBase64;
 
-            if (mediaType === 'pdf') {
-                if (urlOrBase64.startsWith('data:application/pdf;base64,')) {
-                    try {
-                        const base64Data = urlOrBase64.split(',')[1];
-                        const binaryStr = atob(base64Data);
-                        const len = binaryStr.length;
-                        const bytes = new Uint8Array(len);
-                        for (let i = 0; i < len; i++) {
-                            bytes[i] = binaryStr.charCodeAt(i);
-                        }
-                        const blob = new Blob([bytes], { type: 'application/pdf' });
-                        embedSrc = URL.createObjectURL(blob);
-                    } catch (e) {
-                        console.error('Lỗi tạo Blob URL cho PDF Inline:', e);
-                    }
-                } else if (urlOrBase64.includes('drive.google.com')) {
-                    let fileId = '';
-                    if (urlOrBase64.includes('/d/')) {
-                        fileId = urlOrBase64.split('/d/')[1].split('/')[0];
-                    } else if (urlOrBase64.includes('id=')) {
-                        fileId = urlOrBase64.split('id=')[1].split('&')[0];
-                    }
-                    if (fileId) {
-                        embedSrc = `https://drive.google.com/file/d/${fileId}/preview`;
-                    }
+    if (mediaType === 'pdf') {
+        if (urlOrBase64.indexOf('data:application/pdf;base64,') === 0) {
+            try {
+                const base64Data = urlOrBase64.split(',')[1];
+                const binaryStr = atob(base64Data);
+                const len = binaryStr.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryStr.charCodeAt(i);
                 }
-
-                targetContainer.innerHTML = `
-                    <div class="position-relative mt-2">
-                        <div class="position-absolute top-0 end-0 m-2" style="z-index: 10;">
-                            <a href="${embedSrc}" target="_blank" class="btn btn-primary btn-sm py-0 px-2 me-1 shadow" style="font-size: 0.75rem;">
-                                <i class="fa-solid fa-up-right-from-square me-1"></i>Mở Tab Mới
-                            </a>
-                            <button type="button" class="btn btn-dark btn-sm py-0 px-2 shadow" style="font-size: 0.75rem;" onclick="toggleInlineMedia('${elementPrefixId}', '', 'pdf')">
-                                <i class="fa-solid fa-xmark me-1"></i>Thu Gọn
-                            </button>
-                        </div>
-                        <iframe src="${embedSrc}" class="inline-pdf-container"></iframe>
-                    </div>
-                `;
-            } else if (mediaType === 'image') {
-                targetContainer.innerHTML = `
-                    <div class="position-relative text-center mt-2">
-                        <div class="position-absolute top-0 end-0 m-2" style="z-index: 10;">
-                            <a href="${embedSrc}" target="_blank" class="btn btn-primary btn-sm py-0 px-2 me-1 shadow" style="font-size: 0.75rem;">
-                                <i class="fa-solid fa-up-right-from-square me-1"></i>Mở Tab Mới
-                            </a>
-                            <button type="button" class="btn btn-dark btn-sm py-0 px-2 shadow" style="font-size: 0.75rem;" onclick="toggleInlineMedia('${elementPrefixId}', '', 'image')">
-                                <i class="fa-solid fa-xmark me-1"></i>Thu Gọn
-                            </button>
-                        </div>
-                        <img src="${embedSrc}" class="inline-img-container" alt="Inline Image Preview" />
-                    </div>
-                `;
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                embedSrc = URL.createObjectURL(blob);
+            } catch (e) {
+                console.error('Lỗi tạo Blob URL cho PDF Inline:', e);
             }
-
-            targetContainer.classList.remove('d-none');
+        } else if (urlOrBase64.indexOf('drive.google.com') !== -1) {
+            let fileId = '';
+            if (urlOrBase64.indexOf('/d/') !== -1) {
+                fileId = urlOrBase64.split('/d/')[1].split('/')[0];
+            } else if (urlOrBase64.indexOf('id=') !== -1) {
+                fileId = urlOrBase64.split('id=')[1].split('&')[0];
+            }
+            if (fileId) {
+                embedSrc = 'https://drive.google.com/file/d/' + fileId + '/preview';
+            }
         }
+    }
+
+    // 3. Lưu URL vào dataset để nút "Mở Tab Mới" đọc an toàn
+    targetContainer.dataset.embedSrc = embedSrc;
+
+    // 4. Render HTML tràn Full 100% Chiều Ngang
+    if (mediaType === 'pdf') {
+        targetContainer.innerHTML = 
+            '<div class="position-relative mt-2 w-100" style="width: 100% !important;">' +
+                '<div class="position-absolute top-0 end-0 m-2" style="z-index: 10;">' +
+                    '<button type="button" class="btn btn-primary btn-sm py-1 px-3 me-2 shadow" style="font-size: 0.8rem;" onclick="window.open(this.closest(\'[data-embed-src]\').dataset.embedSrc, \'_blank\')">' +
+                        '<i class="fa-solid fa-up-right-from-square me-1"></i>Mở Tab Mới' +
+                    '</button>' +
+                    '<button type="button" class="btn btn-dark btn-sm py-1 px-3 shadow" style="font-size: 0.8rem;" onclick="toggleInlineMedia(\'' + elementPrefixId + '\', \'\', \'pdf\')">' +
+                        '<i class="fa-solid fa-xmark me-1"></i>Thu Gọn' +
+                    '</button>' +
+                '</div>' +
+                '<iframe src="' + embedSrc + '" style="width: 100%; height: 85vh; border: 2px solid #0d6efd; border-radius: 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.2);"></iframe>' +
+            '</div>';
+    } else if (mediaType === 'image') {
+        targetContainer.innerHTML = 
+            '<div class="position-relative text-center mt-2 w-100" style="width: 100% !important;">' +
+                '<div class="position-absolute top-0 end-0 m-2" style="z-index: 10;">' +
+                    '<button type="button" class="btn btn-primary btn-sm py-1 px-3 me-2 shadow" style="font-size: 0.8rem;" onclick="window.open(this.closest(\'[data-embed-src]\').dataset.embedSrc, \'_blank\')">' +
+                        '<i class="fa-solid fa-up-right-from-square me-1"></i>Mở Tab Mới' +
+                    '</button>' +
+                    '<button type="button" class="btn btn-dark btn-sm py-1 px-3 shadow" style="font-size: 0.8rem;" onclick="toggleInlineMedia(\'' + elementPrefixId + '\', \'\', \'image\')">' +
+                        '<i class="fa-solid fa-xmark me-1"></i>Thu Gọn' +
+                    '</button>' +
+                '</div>' +
+                '<div class="w-100 d-flex justify-content-center align-items-center bg-dark rounded p-2" style="min-height: 400px; max-height: 85vh;">' +
+                    '<img src="' + embedSrc + '" style="width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 6px;" alt="Inline Image Preview" />' +
+                '</div>' +
+            '</div>';
+    }
+
+    targetContainer.classList.remove('d-none');
+
+    // 5. Cuộn mượt tới vị trí xem Inline
+    targetContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 
         async function deleteDriveFileDirectly(fileUrl, index, context = 'asset', historyId = null) {
             if (!fileUrl || typeof fileUrl !== 'string') {
