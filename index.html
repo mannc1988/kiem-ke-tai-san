@@ -529,12 +529,11 @@
             renderImageDetailList();
         }
 
-        // --- BỔ SUNG: HỆ THỐNG XEM TRỰC TIẾP ĐA ĐỊNH DẠNG (ẢNH, PDF, WORD, EXCEL) ---
+        // --- HỆ THỐNG XEM & TẢI VỀ ĐA ĐỊNH DẠNG ---
         function showViewer(urlsString) {
             let urls = urlsString.split(',').map(s => s.trim()).filter(Boolean);
             if (urls.length === 0) return;
             
-            // Nếu có nhiều URL, ưu tiên xem cái đầu tiên hoặc mở popup dạng list
             let url = urls[0];
             let fileName = url.split('/').pop().split('?')[0].toLowerCase();
             
@@ -549,67 +548,94 @@
 
         function openUniversalViewer(url, mimeType, title = 'Xem trước tệp') {
             mimeType = mimeType || '';
-            
+            let isLocalData = url.startsWith('data:') || url.startsWith('blob:');
+
+            let downloadBtnHtml = `<div class="mb-2 text-start"><a href="${url}" download="${title}" class="btn btn-primary btn-sm"><i class="fa-solid fa-download me-1"></i> Tải về máy</a></div>`;
+
             // 1. Nếu là Ảnh
             if (mimeType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(title)) {
-                const container = document.getElementById('viewerContainer');
-                container.innerHTML = '';
-                const img = document.createElement('img');
-                img.src = url;
-                container.appendChild(img);
-                const viewer = new Viewer(container, {
-                    inline: false,
-                    button: true,
-                    navbar: false,
-                    title: false,
-                    toolbar: true,
-                    hidden: function () { viewer.destroy(); }
+                Swal.fire({
+                    title: `<span class="text-primary">${title}</span>`,
+                    html: `
+                        ${downloadBtnHtml}
+                        <div style="max-height: 65vh; overflow: auto;"><img src="${url}" style="max-width: 100%; height: auto; border-radius: 6px;" /></div>
+                    `,
+                    width: '75vw',
+                    showCloseButton: true,
+                    showConfirmButton: false
                 });
-                viewer.show();
                 return;
             }
 
-            // 2. Nếu là PDF (Dùng Blob / Iframe)
+            // 2. Nếu là PDF
             if (mimeType.includes('pdf') || /\.pdf$/i.test(title)) {
-                Swal.fire({
-                    title: `<span class="text-primary">${title}</span>`,
-                    html: `<iframe src="${url}" style="width:100%; height:75vh; border:none;" allowfullscreen></iframe>`,
-                    width: '85vw',
-                    showCloseButton: true,
-                    showConfirmButton: false
-                });
-                return;
-            }
-
-            // 3. Nếu là Word / Excel (Dùng Google Docs Viewer nhúng)
-            if (mimeType.includes('word') || mimeType.includes('excel') || mimeType.includes('sheet') || /\.(doc|docx|xls|xlsx)$/i.test(title)) {
-                let encodedUrl = encodeURIComponent(url);
-                let googleViewerUrl = `https://docs.google.com/gview?url=${encodedUrl}&embedded=true`;
-                Swal.fire({
-                    title: `<span class="text-primary">${title}</span>`,
-                    html: `<iframe src="${googleViewerUrl}" style="width:100%; height:75vh; border:none;" allowfullscreen></iframe>`,
-                    width: '85vw',
-                    showCloseButton: true,
-                    showConfirmButton: false
-                });
-                return;
-            }
-
-            // 4. Các định dạng khác: Mở tab mới hoặc thông báo tải về
-            Swal.fire({
-                title: 'Không hỗ trợ xem trực tiếp',
-                text: `Định dạng tệp "${title}" không hỗ trợ hiển thị inline. Bạn có muốn mở/tải về không?`,
-                icon: 'info',
-                showCancelButton: true,
-                confirmButtonText: 'Tải về / Mở',
-                cancelButtonText: 'Đóng'
-            }).then((res) => {
-                if (res.isConfirmed) {
-                    window.open(url, '_blank');
+                let pdfSrc = url;
+                if (isLocalData) {
+                    try {
+                        let byteString = url.split(',')[0].indexOf('base64') >= 0 ? atob(url.split(',')[1]) : decodeURI(url.split(',')[1]);
+                        let mimeString = url.split(',')[0].split(':')[1].split(';')[0];
+                        let ab = new ArrayBuffer(byteString.length);
+                        let ia = new Uint8Array(ab);
+                        for (let i = 0; i < byteString.length; i++) { ia[i] = byteString.charCodeAt(i); }
+                        let blob = new Blob([ab], {type: mimeString});
+                        pdfSrc = URL.createObjectURL(blob);
+                    } catch(e) {}
                 }
+
+                Swal.fire({
+                    title: `<span class="text-primary">${title}</span>`,
+                    html: `
+                        ${downloadBtnHtml}
+                        <iframe src="${pdfSrc}" style="width:100%; height:70vh; border:none;" allowfullscreen></iframe>
+                    `,
+                    width: '85vw',
+                    showCloseButton: true,
+                    showConfirmButton: false
+                });
+                return;
+            }
+
+            // 3. Nếu là Word / Excel
+            if (mimeType.includes('word') || mimeType.includes('excel') || mimeType.includes('sheet') || /\.(doc|docx|xls|xlsx)$/i.test(title)) {
+                let viewerContent = '';
+                
+                if (isLocalData) {
+                    viewerContent = `
+                        ${downloadBtnHtml}
+                        <div class="alert alert-warning text-center mt-2">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i> Tệp này đang ở dạng chọn tạm trên máy (chưa đẩy lên Google Drive). Bạn có thể bấm nút <b>"Tải về máy"</b> ở trên để mở xem trực tiếp bằng phần mềm Office trên máy tính.
+                        </div>
+                    `;
+                } else {
+                    let googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+                    viewerContent = `
+                        ${downloadBtnHtml}
+                        <iframe src="${googleViewerUrl}" style="width:100%; height:70vh; border:none;" allowfullscreen></iframe>
+                    `;
+                }
+
+                Swal.fire({
+                    title: `<span class="text-primary">${title}</span>`,
+                    html: viewerContent,
+                    width: '85vw',
+                    showCloseButton: true,
+                    showConfirmButton: false
+                });
+                return;
+            }
+
+            // 4. Các định dạng khác
+            Swal.fire({
+                title: `<span class="text-primary">${title}</span>`,
+                html: `
+                    ${downloadBtnHtml}
+                    <p class="text-muted text-center mt-3">Định dạng tệp này không hỗ trợ hiển thị xem trước trực tuyến.</p>
+                `,
+                showCloseButton: true,
+                showConfirmButton: false
             });
         }
-        // --- KẾT THÚC BỔ SUNG XEM FILE ---
+        // --- KẾT THÚC HỆ THỐNG XEM & TẢI VỀ ---
 
         function playBeep() {
             try {
