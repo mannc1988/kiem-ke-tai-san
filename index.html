@@ -5,20 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ Thống Kiểm Kê Tài Sản QR Pro (Viewer.js & Google Drive)</title>
     
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.css">
+    <link href="[https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css](https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css)" rel="stylesheet">
+    <link href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css)" rel="stylesheet">
+    <link rel="stylesheet" href="[https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css](https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css)">
+    <link rel="stylesheet" href="[https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css](https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css)">
+    <link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.css](https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.css)">
     
-    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="[https://code.jquery.com/jquery-3.7.0.min.js](https://code.jquery.com/jquery-3.7.0.min.js)"></script>
+    <script src="[https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js](https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js)"></script>
+    <script src="[https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js](https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js)"></script>
+    <script src="[https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js](https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js)"></script>
+    <script src="[https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.js](https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.js)"></script>
+    <script src="[https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js](https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js)"></script>
+    <script src="[https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js](https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js)"></script>
+    <script src="[https://unpkg.com/html5-qrcode](https://unpkg.com/html5-qrcode)" type="text/javascript"></script>
     
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -292,12 +292,12 @@
 
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script src="[https://cdn.jsdelivr.net/npm/sweetalert2@11](https://cdn.jsdelivr.net/npm/sweetalert2@11)"></script>
+    <script src="[https://cdn.jsdelivr.net/npm/eruda](https://cdn.jsdelivr.net/npm/eruda)"></script>
     <script>eruda.init();</script>
 
     <script>
-        const API_URL = 'https://kiem-ke-tai-san-vercel.vercel.app/api';
+        const API_URL = '[https://kiem-ke-tai-san-vercel.vercel.app/api](https://kiem-ke-tai-san-vercel.vercel.app/api)';
         const SECRET_KEY = 'ManNC@2026_SecureKeyAivenMySQL!'; 
         
         let danhSachTS = [];
@@ -421,7 +421,6 @@
             document.getElementById('gia_tri_con_lai').value = (conLai >= 0 ? conLai : 0).toLocaleString('vi-VN');
         }
 
-        // HÀM KIỂM TRA CỜ data-active-src VÀ TỰ ĐỘNG ĐÓNG NẾU TRÙNG TỆP BỊ XÓA
         function closeInlineViewerIfMatches(containerId, targetSrc) {
             let targetContainer = document.getElementById(containerId);
             if (!targetContainer) return;
@@ -546,7 +545,6 @@
             }
         }
 
-        // HÀM TOGGLE CÓ THIẾT LẬP CỜ DỮ LIỆU data-active-src VÀ RENDER LẠI BUTTON HIGHLIGHT
         function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType = 'pdf') {
             let targetContainer = document.getElementById(elementPrefixId);
             if (!targetContainer) {
@@ -554,20 +552,17 @@
             }
             if (!targetContainer) return;
 
-            // 1. Nếu bấm vào chính file ĐANG XEM -> Thu gọn khung & Gỡ Cờ
             if (!targetContainer.classList.contains('d-none') && targetContainer.dataset.activeSrc === urlOrBase64) {
                 targetContainer.classList.add('d-none');
                 targetContainer.innerHTML = '';
                 delete targetContainer.dataset.embedSrc;
-                delete targetContainer.dataset.activeSrc; // Gỡ cờ nhận diện
+                delete targetContainer.dataset.activeSrc;
 
-                // Cập nhật lại UI danh sách file (nếu là Form chính)
                 if (elementPrefixId === 'asset_form_inline_viewer_container') renderImageDetailList();
                 return;
             }
 
-            // 2. Nếu chuyển sang file mới -> Thiết lập CỜ NHẬN DIỆN MỚI
-            targetContainer.dataset.activeSrc = urlOrBase64; // Gắn cờ file đang xem
+            targetContainer.dataset.activeSrc = urlOrBase64;
 
             let embedSrc = urlOrBase64;
 
@@ -594,14 +589,13 @@
                         fileId = urlOrBase64.split('id=')[1].split('&')[0];
                     }
                     if (fileId) {
-                        embedSrc = 'https://drive.google.com/file/d/' + fileId + '/preview';
+                        embedSrc = '[https://drive.google.com/file/d/](https://drive.google.com/file/d/)' + fileId + '/preview';
                     }
                 }
             }
 
             targetContainer.dataset.embedSrc = embedSrc;
 
-            // 3. Render HTML viewer tràn Full Width
             if (mediaType === 'pdf') {
                 targetContainer.innerHTML = 
                     '<div class="position-relative mt-2 w-100" style="width: 100% !important;">' +
@@ -635,7 +629,6 @@
             targetContainer.classList.remove('d-none');
             targetContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-            // Cập nhật lại giao diện danh sách file để đổi style nút đang mở
             if (elementPrefixId === 'asset_form_inline_viewer_container') {
                 renderImageDetailList();
             }
@@ -722,7 +715,6 @@
                     console.warn("Lỗi gửi request xóa Drive:", driveErr);
                 }
 
-                // KIỂM TRA CỜ ACTIVE TRƯỚC KHU XÓA FILE DRIVE
                 closeInlineViewerIfMatches('asset_form_inline_viewer_container', fileUrl);
                 closeInlineViewerIfMatches('swal_fileDetailList', fileUrl);
 
@@ -751,7 +743,6 @@
 
         function removeTempFile(index) {
             let b64Target = tempBase64List[index];
-            // SO SÁNH CỜ ACTIVE VỚI TỆP BỊ BỎ CHỌN
             closeInlineViewerIfMatches('asset_form_inline_viewer_container', b64Target);
 
             tempFilesList.splice(index, 1);
@@ -1844,221 +1835,231 @@
                 duplicateAction = 'skip';
             }
 
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const rows = XLSX.utils.sheet_to_json(worksheet);
+            const readExcelPromise = (fileObj) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (err) => reject(err);
+                    reader.readAsArrayBuffer(fileObj);
+                });
+            };
 
-                    if (rows.length === 0) {
-                        Swal.fire('Cảnh báo', 'File dữ liệu không có dòng nào!', 'warning');
-                        document.getElementById('excelFile').value = '';
-                        return;
-                    }
+            try {
+                const fileData = await readExcelPromise(file);
+                const data = new Uint8Array(fileData);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(worksheet);
 
-                    Swal.fire({
-                        title: 'Đang kiểm tra toàn diện cấu trúc & định dạng...',
-                        text: `Đang quét ${rows.length} dòng dữ liệu từ file Excel. Vui lòng chờ...`,
-                        allowOutsideClick: false,
-                        didOpen: () => { Swal.showLoading(); }
-                    });
+                if (rows.length === 0) {
+                    Swal.fire('Cảnh báo', 'File dữ liệu không có dòng nào!', 'warning');
+                    document.getElementById('excelFile').value = '';
+                    return;
+                }
 
-                    let validPayloads = [];
-                    let errorDetails = [];
+                Swal.fire({
+                    title: 'Đang kiểm tra toàn diện cấu trúc & định dạng...',
+                    text: `Đang quét ${rows.length} dòng dữ liệu từ file Excel. Vui lòng chờ...`,
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
 
-                    for (let i = 0; i < rows.length; i++) {
-                        let row = rows[i];
-                        let rowIndex = i + 2; 
+                let validPayloads = [];
+                let errorDetails = [];
+                const currentTimestamp = new Date().toLocaleString('vi-VN');
 
-                        const ma_tai_san = String(row['ma_tai_san'] || row['Mã Tài Sản'] || '').trim();
-                        const don_vi = String(row['don_vi'] || row['Đơn Vị'] || '00745 - ĐB SÔNG CỬU LONG').trim();
-                        const ten_tai_san = String(row['ten_tai_san'] || row['Tên Tài Sản'] || '').trim();
-                        const nhom_tai_san = String(row['nhom_tai_san'] || row['Nhóm Tài Sản'] || '').trim();
+                for (let i = 0; i < rows.length; i++) {
+                    let row = rows[i];
+                    let rowIndex = i + 2; 
+
+                    const ma_tai_san = String(row['ma_tai_san'] || row['Mã Tài Sản'] || '').trim();
+                    const don_vi = String(row['don_vi'] || row['Đơn Vị'] || '00745 - ĐB SÔNG CỬU LONG').trim();
+                    const ten_tai_san = String(row['ten_tai_san'] || row['Tên Tài Sản'] || '').trim();
+                    const nhom_tai_san = String(row['nhom_tai_san'] || row['Nhóm Tài Sản'] || '').trim();
+                    
+                    let ng = Number(row['nguyen_gia'] || row['Nguyên Giá'] || 0);
+                    let hm = Number(row['hao_mon_luy_ke'] || row['Hao Mòn Lũy Kế'] || 0);
+                    
+                    let rawGCL = row['gia_tri_con_lai'] !== undefined ? row['gia_tri_con_lai'] : (row['Giá Trị Còn Lại'] !== undefined ? row['Giá Trị Còn Lại'] : '');
+                    let gcl = rawGCL !== '' && rawGCL !== null ? Number(rawGCL) : (ng - hm);
+
+                    const rawNgaySD = row['ngay_dua_vao_sd'] !== undefined ? row['ngay_dua_vao_sd'] : (row['Ngày Đưa Vào SD'] !== undefined ? row['Ngày Đưa Vào SD'] : '');
+                    let ngay_dua_vao_sd = '';
+                    let isDateValid = false;
+
+                    if (rawNgaySD !== undefined && rawNgaySD !== null && String(rawNgaySD).trim() !== '') {
+                        let sDate = String(rawNgaySD).trim();
                         
-                        let ng = Number(row['nguyen_gia'] || row['Nguyên Giá'] || 0);
-                        let hm = Number(row['hao_mon_luy_ke'] || row['Hao Mòn Lũy Kế'] || 0);
-                        
-                        let rawGCL = row['gia_tri_con_lai'] !== undefined ? row['gia_tri_con_lai'] : (row['Giá Trị Còn Lại'] !== undefined ? row['Giá Trị Còn Lại'] : '');
-                        let gcl = rawGCL !== '' && rawGCL !== null ? Number(rawGCL) : (ng - hm);
-
-                        const rawNgaySD = row['ngay_dua_vao_sd'] !== undefined ? row['ngay_dua_vao_sd'] : (row['Ngày Đưa Vào SD'] !== undefined ? row['Ngày Đưa Vào SD'] : '');
-                        let ngay_dua_vao_sd = '';
-                        let isDateValid = false;
-
-                        if (rawNgaySD !== undefined && rawNgaySD !== null && String(rawNgaySD).trim() !== '') {
-                            let sDate = String(rawNgaySD).trim();
-                            
-                            if (!isNaN(sDate) && Number(sDate) > 1000) {
-                                let serial = Number(sDate);
-                                let utcDays = Math.floor(serial - 25569);
-                                let utcValue = utcDays * 86400;
-                                let dateInfo = new Date(utcValue * 1000);
-                                if (!isNaN(dateInfo.getTime())) {
-                                    let day = String(dateInfo.getUTCDate()).padStart(2, '0');
-                                    let month = String(dateInfo.getUTCMonth() + 1).padStart(2, '0');
-                                    let year = dateInfo.getUTCFullYear();
-                                    if (year >= 1900 && year <= 2100) {
-                                        ngay_dua_vao_sd = `${day}/${month}/${year}`;
-                                        isDateValid = true;
-                                    }
-                                }
-                            }
-                            else if (/^\d{2}\/\d{2}\/\d{4}$/.test(sDate)) {
-                                let parts = sDate.split('/');
-                                let d = parseInt(parts[0], 10);
-                                let m = parseInt(parts[1], 10);
-                                let y = parseInt(parts[2], 10);
-                                if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
-                                    ngay_dua_vao_sd = sDate;
+                        if (!isNaN(sDate) && Number(sDate) > 1000) {
+                            let serial = Number(sDate);
+                            let utcDays = Math.floor(serial - 25569);
+                            let utcValue = utcDays * 86400;
+                            let dateInfo = new Date(utcValue * 1000);
+                            if (!isNaN(dateInfo.getTime())) {
+                                let day = String(dateInfo.getUTCDate()).padStart(2, '0');
+                                let month = String(dateInfo.getUTCMonth() + 1).padStart(2, '0');
+                                let year = dateInfo.getUTCFullYear();
+                                if (year >= 1900 && year <= 2100) {
+                                    ngay_dua_vao_sd = `${day}/${month}/${year}`;
                                     isDateValid = true;
                                 }
                             }
-                            else if (sDate.includes('-')) {
-                                let cleanDatePart = sDate.split('T')[0];
-                                let parts = cleanDatePart.split('-');
-                                if (parts.length === 3 && parts[0].length === 4) {
-                                    let y = parseInt(parts[0], 10);
-                                    let m = parseInt(parts[1], 10);
-                                    let d = parseInt(parts[2], 10);
-                                    if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
-                                        let dayStr = String(d).padStart(2, '0');
-                                        let monthStr = String(m).padStart(2, '0');
-                                        ngay_dua_vao_sd = `${dayStr}/${monthStr}/${y}`;
-                                        isDateValid = true;
-                                    }
+                        }
+                        else if (/^\d{2}\/\d{2}\/\d{4}$/.test(sDate)) {
+                            let parts = sDate.split('/');
+                            let d = parseInt(parts[0], 10);
+                            let m = parseInt(parts[1], 10);
+                            let y = parseInt(parts[2], 10);
+                            if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
+                                ngay_dua_vao_sd = sDate;
+                                isDateValid = true;
+                            }
+                        }
+                        else if (sDate.includes('-')) {
+                            let cleanDatePart = sDate.split('T')[0];
+                            let parts = cleanDatePart.split('-');
+                            if (parts.length === 3 && parts[0].length === 4) {
+                                let y = parseInt(parts[0], 10);
+                                let m = parseInt(parts[1], 10);
+                                let d = parseInt(parts[2], 10);
+                                if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1900 && y <= 2100) {
+                                    let dayStr = String(d).padStart(2, '0');
+                                    let monthStr = String(m).padStart(2, '0');
+                                    ngay_dua_vao_sd = `${dayStr}/${monthStr}/${y}`;
+                                    isDateValid = true;
                                 }
                             }
-                        } else {
-                            isDateValid = true; 
                         }
-
-                        const trang_thai_sd = String(row['trang_thai_sd'] || row['Trạng Thái SD'] || 'Đang sử dụng').trim();
-                        const trang_thai_qt = String(row['trang_thai_qt'] || row['Trạng Thái QT'] || 'Đã quyết toán').trim();
-                        const bo_so = String(row['bo_so'] || row['Bộ Sổ'] || 'BIDV_CCLD').trim();
-                        const can_bo_su_dung = String(row['can_bo_su_dung'] || row['Cán Bộ Sử Dụng'] || '').trim();
-                        const phong_ban_quan_ly = String(row['phong_ban_quan_ly'] || row['Phòng Ban Quản Lý'] || '').trim();
-                        const so_serial = String(row['so_serial'] || row['Số Serial'] || '').trim();
-                        const hinh_anh = String(row['hinh_anh'] || row['Hình Ảnh'] || '').trim();
-                        const import_at = String(row['import_at'] || row['Import At'] || new Date().toLocaleString('vi-VN')).trim();
-
-                        let rowErrors = [];
-                        if (!ma_tai_san) rowErrors.push('Cột [Mã tài sản] bị trống');
-                        if (!ten_tai_san) rowErrors.push('Cột [Tên tài sản] bị trống');
-                        if (!phong_ban_quan_ly) rowErrors.push('Cột [Phòng ban quản lý] bị trống');
-                        
-                        if (!isDateValid) {
-                            rowErrors.push(`Lỗi định dạng [Ngày đưa vào SD]: "${rawNgaySD}" không đúng chuẩn dd/MM/yyyy`);
-                        }
-
-                        if (isNaN(ng) || ng < 0) rowErrors.push('Cột [Nguyên giá] không hợp lệ');
-                        if (isNaN(hm) || hm < 0) rowErrors.push('Cột [Hao mòn lũy kế] không hợp lệ');
-                        if (isNaN(gcl) || gcl < 0) rowErrors.push('Cột [Giá trị còn lại] không hợp lệ');
-                        if (!isNaN(ng) && !isNaN(hm) && hm > ng) rowErrors.push('Lỗi logic: [Hao mòn] > [Nguyên giá]');
-
-                        if (rowErrors.length > 0) {
-                            errorDetails.push(`Dòng ${rowIndex} [Mã:${ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
-                            continue;
-                        }
-
-                        validPayloads.push({
-                            ma_tai_san: encryptData(ma_tai_san),
-                            don_vi: encryptData(don_vi),
-                            ten_tai_san: encryptData(ten_tai_san),
-                            nhom_tai_san: encryptData(nhom_tai_san),
-                            nguyen_gia: encryptData(ng),
-                            hao_mon_luy_ke: encryptData(hm),
-                            gia_tri_con_lai: encryptData(gcl),
-                            ngay_dua_vao_sd: encryptData(ngay_dua_vao_sd),
-                            trang_thai_sd: encryptData(trang_thai_sd),
-                            trang_thai_qt: encryptData(trang_thai_qt),
-                            bo_so: encryptData(bo_so),
-                            can_bo_su_dung: encryptData(can_bo_su_dung),
-                            phong_ban_quan_ly: encryptData(phong_ban_quan_ly),
-                            so_serial: encryptData(so_serial),
-                            hinh_anh: encryptData(hinh_anh),
-                            import_at: encryptData(currentTimestamp)
-                        });
+                    } else {
+                        isDateValid = true; 
                     }
 
+                    const trang_thai_sd = String(row['trang_thai_sd'] || row['Trạng Thái SD'] || 'Đang sử dụng').trim();
+                    const trang_thai_qt = String(row['trang_thai_qt'] || row['Trạng Thái QT'] || 'Đã quyết toán').trim();
+                    const bo_so = String(row['bo_so'] || row['Bộ Sổ'] || 'BIDV_CCLD').trim();
+                    const can_bo_su_dung = String(row['can_bo_su_dung'] || row['Cán Bộ Sử Dụng'] || '').trim();
+                    const phong_ban_quan_ly = String(row['phong_ban_quan_ly'] || row['Phòng Ban Quản Lý'] || '').trim();
+                    const so_serial = String(row['so_serial'] || row['Số Serial'] || '').trim();
+                    const hinh_anh = String(row['hinh_anh'] || row['Hình Ảnh'] || '').trim();
+                    const import_at_row = String(row['import_at'] || row['Import At'] || currentTimestamp).trim();
+
+                    let rowErrors = [];
+                    if (!ma_tai_san) rowErrors.push('Cột [Mã tài sản] bị trống');
+                    if (!ten_tai_san) rowErrors.push('Cột [Tên tài sản] bị trống');
+                    if (!phong_ban_quan_ly) rowErrors.push('Cột [Phòng ban quản lý] bị trống');
+                    
+                    if (!isDateValid) {
+                        rowErrors.push(`Lỗi định dạng [Ngày đưa vào SD]: "${rawNgaySD}" không đúng chuẩn dd/MM/yyyy`);
+                    }
+
+                    if (isNaN(ng) || ng < 0) rowErrors.push('Cột [Nguyên giá] không hợp lệ');
+                    if (isNaN(hm) || hm < 0) rowErrors.push('Cột [Hao mòn lũy kế] không hợp lệ');
+                    if (isNaN(gcl) || gcl < 0) rowErrors.push('Cột [Giá trị còn lại] không hợp lệ');
+                    if (!isNaN(ng) && !isNaN(hm) && hm > ng) rowErrors.push('Lỗi logic: [Hao mòn] > [Nguyên giá]');
+
+                    if (rowErrors.length > 0) {
+                        errorDetails.push(`Dòng ${rowIndex} [Mã:${ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
+                        continue;
+                    }
+
+                    validPayloads.push({
+                        ma_tai_san: encryptData(ma_tai_san),
+                        don_vi: encryptData(don_vi),
+                        ten_tai_san: encryptData(ten_tai_san),
+                        nhom_tai_san: encryptData(nhom_tai_san),
+                        nguyen_gia: encryptData(ng),
+                        hao_mon_luy_ke: encryptData(hm),
+                        gia_tri_con_lai: encryptData(gcl),
+                        ngay_dua_vao_sd: encryptData(ngay_dua_vao_sd),
+                        trang_thai_sd: encryptData(trang_thai_sd),
+                        trang_thai_qt: encryptData(trang_thai_qt),
+                        bo_so: encryptData(bo_so),
+                        can_bo_su_dung: encryptData(can_bo_su_dung),
+                        phong_ban_quan_ly: encryptData(phong_ban_quan_ly),
+                        so_serial: encryptData(so_serial),
+                        hinh_anh: encryptData(hinh_anh),
+                        import_at: encryptData(import_at_row)
+                    });
+                }
+
+                if (Swal.isVisible()) {
                     Swal.update({
                         title: 'Đang đồng bộ dữ liệu theo lô...',
                         text: 'Phát hiện ' + errorDetails.length + ' dòng lỗi. Đang gửi ' + validPayloads.length + ' dòng hợp lệ lên server...'
                     });
+                }
 
-                    let successCount = 0;
-                    let skipCount = 0;
-                    let totalFailCount = errorDetails.length;
+                let successCount = 0;
+                let skipCount = 0;
+                let totalFailCount = errorDetails.length;
 
-                    try {
-                        const response = await fetch(`${API_URL}?action=save_asset_batch`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                payloads: validPayloads,
-                                duplicateAction: duplicateAction 
-                            })
-                        });
-                        const result = await response.json();
-                        
-                        if (response.ok && result.success) {
-                            successCount = result.successCount || 0;
-                            skipCount = result.skipCount || 0;
-                            if (result.errors && result.errors.length > 0) {
-                                errorDetails.push(...result.errors);
-                                totalFailCount = errorDetails.length;
-                            }
-                        } else {
-                            errorDetails.push(`Lỗi Server Batch: ${result.error || 'Không thể đồng bộ lô dữ liệu'}`);
+                try {
+                    const response = await fetch(`${API_URL}?action=save_asset_batch`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            payloads: validPayloads,
+                            duplicateAction: duplicateAction 
+                        })
+                    });
+                    const result = await response.json();
+                    
+                    if (response.ok && result.success) {
+                        successCount = result.successCount || 0;
+                        skipCount = result.skipCount || 0;
+                        if (result.errors && result.errors.length > 0) {
+                            errorDetails.push(...result.errors);
                             totalFailCount = errorDetails.length;
                         }
-                    } catch (err) {
-                        errorDetails.push(`Lỗi kết nối máy chủ khi đồng bộ theo lô.`);
+                    } else {
+                        errorDetails.push(`Lỗi Server Batch: ${result.error || 'Không thể đồng bộ lô dữ liệu'}`);
                         totalFailCount = errorDetails.length;
                     }
-
-                    document.getElementById('excelFile').value = '';
-                    refreshData();
-
-                    let htmlMsg = `Thành công: <b>${successCount}</b> tài sản.<br>`;
-                    if (skipCount > 0) htmlMsg += `Đã bỏ qua (trùng mã): <b>${skipCount}</b> dòng.<br>`;
-                    
-                    if (totalFailCount > 0) {
-                        htmlMsg += `<span class="text-danger">Tổng số lỗi ghi nhận: <b>${totalFailCount}</b> lỗi</span><br>`;
-                        htmlMsg += `<div id="errorListContainer" class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
-                    }
-                    Swal.fire({
-                        icon: totalFailCount === 0 ? 'success' : 'warning',
-                        title: 'Hoàn tất kiểm tra & đồng bộ lô!',
-                        html: htmlMsg,
-                        width: '650px',
-                        showConfirmButton: true,
-                        confirmButtonText: 'Đóng',
-                        showDenyButton: totalFailCount > 0,
-                        denyButtonText: 'Tải File Log Lỗi (.txt)',
-                        denyButtonColor: '#d33'
-                    }).then((result) => {
-                        if (result.isDenied) {
-                            const errorContent = `=== BÁO CÁO LỖI KIỂM TRA EXCEL THEO LÔ (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi: ${totalFailCount}\n\n` + errorDetails.join('\n');
-                            const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `Log_Loi_Batch_${Date.now()}.txt`;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                        }
-                    });
-
-                } catch (error) {
-                    Swal.fire('Lỗi', 'Không thể đọc cấu trúc file Excel này!', 'error');
-                    document.getElementById('excelFile').value = '';
+                } catch (err) {
+                    errorDetails.push(`Lỗi kết nối máy chủ khi đồng bộ theo lô.`);
+                    totalFailCount = errorDetails.length;
                 }
-            };
-            reader.readAsArrayBuffer(file);
+
+                document.getElementById('excelFile').value = '';
+                refreshData();
+
+                let htmlMsg = `Thành công: <b>${successCount}</b> tài sản.<br>`;
+                if (skipCount > 0) htmlMsg += `Đã bỏ qua (trùng mã): <b>${skipCount}</b> dòng.<br>`;
+                
+                if (totalFailCount > 0) {
+                    htmlMsg += `<span class="text-danger">Tổng số lỗi ghi nhận: <b>${totalFailCount}</b> lỗi</span><br>`;
+                    htmlMsg += `<div id="errorListContainer" class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
+                }
+                Swal.fire({
+                    icon: totalFailCount === 0 ? 'success' : 'warning',
+                    title: 'Hoàn tất kiểm tra & đồng bộ lô!',
+                    html: htmlMsg,
+                    width: '650px',
+                    showConfirmButton: true,
+                    confirmButtonText: 'Đóng',
+                    showDenyButton: totalFailCount > 0,
+                    denyButtonText: 'Tải File Log Lỗi (.txt)',
+                    denyButtonColor: '#d33'
+                }).then((result) => {
+                    if (result.isDenied) {
+                        const errorContent = `=== BÁO CÁO LỖI KIỂM TRA EXCEL THEO LÔ (${new Date().toLocaleString('vi-VN')}) ===\nTổng số lỗi: ${totalFailCount}\n\n` + errorDetails.join('\n');
+                        const blob = new Blob([errorContent], { type: 'text/plain;charset=utf-8' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `Log_Loi_Batch_${Date.now()}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }
+                });
+
+            } catch (error) {
+                console.error("Lỗi Import Excel:", error);
+                Swal.fire('Lỗi', 'Không thể đọc cấu trúc file Excel này! Chi tiết: ' + (error.message || error), 'error');
+                document.getElementById('excelFile').value = '';
+            }
         }
     </script>
 </body>
