@@ -521,8 +521,6 @@
             renderImageDetailList();
         }
 
-        // --- QUẢN LÝ XEM TỆP ---
-        // 1. Tệp tạm (chỉ cho xem Ảnh và PDF, còn lại yêu cầu tải về)
         function showViewer(urlsString) {
             let urls = urlsString.split(',').map(s => s.trim()).filter(Boolean);
             if (urls.length === 0) return;
@@ -576,7 +574,6 @@
             });
         }
 
-        // 2. Tệp trên Google Drive (Xem online tất cả định dạng thông qua link preview trực tiếp của Google Drive)
         function showDriveViewer(url, title = 'Xem tệp Drive') {
             let embedUrl = url;
             
@@ -613,7 +610,6 @@
                 width: '85vw', showCloseButton: true, showConfirmButton: false
             });
         }
-        // --- KẾT THÚC QUẢN LÝ XEM TỆP ---
 
         function playBeep() {
             try {
@@ -1220,6 +1216,20 @@
                     allowOutsideClick: false,
                     didOpen: () => { Swal.showLoading(); }
                 });
+
+                // Xử lý CRUD xóa file cũ trên Google Drive nếu bị gỡ bỏ
+                let originalHistoryUrls = item.tep_dinh_kem ? item.tep_dinh_kem.split(',').map(s => s.trim()).filter(Boolean) : [];
+                let deletedHistoryUrls = originalHistoryUrls.filter(url => !editHistoryExistingDriveUrls.includes(url));
+
+                for (let deleteUrl of deletedHistoryUrls) {
+                    try {
+                        await fetch(`${API_URL}?action=delete_drive`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ fileUrl: deleteUrl })
+                        });
+                    } catch (err) {}
+                }
 
                 let finalDriveUrls = [...editHistoryExistingDriveUrls];
                 for (let file of editHistoryFilesList) {
