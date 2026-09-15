@@ -451,37 +451,49 @@ module.exports = async (req, res) => {
         }
 
         // 11. LOẠI BỎ TỆP LỊCH SỬ KIỂM KÊ KHỎI CSDL
-        if (action === 'remove_history_file' && req.method === 'POST') {
-            const { historyId, removeUrl } = req.body;
-            
-            if (!historyId || !removeUrl) {
-                return res.status(400).json({ success: false, error: 'Thiếu ID lịch sử hoặc URL tệp cần xóa!' });
-            }
+if (action === 'remove_history_file' && req.method === 'POST') {
+    // Chấp nhận cả "id" (từ fetch Client) hoặc "historyId" để tránh lệch tên biến
+    const id = req.body.id || req.body.historyId;
+    const removeUrl = req.body.removeUrl;
+    
+    // Kiểm tra tính hợp lệ của tham số
+    if (!id || id === 'null' || !removeUrl) {
+        return res.status(400).json({ 
+            success: false, 
+            error: 'Thiếu ID lịch sử hoặc URL tệp cần xóa!' 
+        });
+    }
 
-            const [rows] = await connection.execute('SELECT tep_dinh_kem FROM lich_su_kk WHERE id = ?', [historyId]);
+    const cleanId = Number(id);
+    const cleanRemoveUrl = removeUrl.toString().trim();
 
-            if (rows.length === 0) {
-                return res.status(404).json({ success: false, error: 'Không tìm thấy dòng lịch sử trong CSDL!' });
-            }
+    // Truy vấn dữ liệu lịch sử kiểm kê
+    const [rows] = await connection.execute('SELECT tep_dinh_kem FROM lich_su_kk WHERE id = ?', [cleanId]);
 
-            let decryptedTep = decryptData(rows[0].tep_dinh_kem) || '';
-            let urlList = decryptedTep.split(',').map(s => s.trim()).filter(Boolean);
-            let updatedList = urlList.filter(url => url !== removeUrl.trim());
-            
-            let newTepEncrypted = encryptData(updatedList.join(','));
+    if (rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Không tìm thấy dòng lịch sử trong CSDL!' });
+    }
 
-            await connection.execute(
-                'UPDATE lich_su_kk SET tep_dinh_kem = ? WHERE id = ?', 
-                [newTepEncrypted, historyId]
-            );
+    // Giải mã danh sách URL và loại bỏ URL cần xóa
+    let decryptedTep = decryptData(rows[0].tep_dinh_kem) || '';
+    let urlList = decryptedTep.split(',').map(s => s.trim()).filter(Boolean);
+    let updatedList = urlList.filter(url => url !== cleanRemoveUrl);
+    
+    // Mã hóa lại chuỗi danh sách URL mới
+    let newTepEncrypted = encryptData(updatedList.join(','));
 
-            return res.json({ 
-                success: true, 
-                message: 'Đã cập nhật tệp đính kèm lịch sử trong CSDL thành công!',
-                remainingUrls: updatedList.join(',')
-            });
-        }
+    // Cập nhật CSDL MySQL
+    await connection.execute(
+        'UPDATE lich_su_kk SET tep_dinh_kem = ? WHERE id = ?', 
+        [newTepEncrypted, cleanId]
+    );
 
+    return res.json({ 
+        success: true, 
+        message: 'Đã cập nhật tệp đính kèm lịch sử trong CSDL thành công!',
+        remainingUrls: updatedList.join(',')
+    });
+}
         return res.status(404).json({ success: false, error: 'Action không hợp lệ' });
 
     } catch (error) {
