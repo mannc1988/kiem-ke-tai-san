@@ -467,7 +467,10 @@
         container.appendChild(headerDrive);
 
         existingDriveUrls.forEach(function(url, index) {
-            var fName = url.split('/').pop().split('?')[0] || ('Drive_File_' + (index + 1));
+            var rawName = url.split('/').pop().split('?')[0] || ('Drive_File_' + (index + 1));
+            var fName = rawName;
+            try { fName = decodeURIComponent(rawName); } catch(e) {}
+
             var isPdf = fName.toLowerCase().indexOf('.pdf') !== -1 || url.indexOf('.pdf') !== -1;
             var isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.indexOf('image/') !== -1;
             var isCurrentlyViewing = (currentActiveSrc === url);
@@ -569,12 +572,18 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
 
     targetContainer.dataset.activeSrc = urlOrBase64;
 
+    // Tự động lấy tên tệp chính xác từ URL/Base64 nếu không có fileName truyền vào
     var displayFileName = fileName;
-    if (!displayFileName) {
+    if (!displayFileName || displayFileName.trim() === '') {
         if (urlOrBase64.indexOf('data:') === 0) {
-            displayFileName = mediaType === 'pdf' ? 'Tài liệu PDF đang xem.pdf' : 'Hình ảnh đang xem.png';
+            displayFileName = mediaType === 'pdf' ? 'Tài liệu inline.pdf' : 'Hình ảnh inline.png';
         } else {
-            displayFileName = urlOrBase64.split('/').pop().split('?')[0] || 'Tệp đang xem';
+            var rawName = urlOrBase64.split('/').pop().split('?')[0];
+            try {
+                displayFileName = decodeURIComponent(rawName);
+            } catch (e) {
+                displayFileName = rawName;
+            }
         }
     }
 
@@ -1528,7 +1537,10 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     }
 
     editHistoryExistingDriveUrls.forEach(function(url, idx) {
-        var fName = url.split('/').pop().split('?')[0] || ('Drive_File_' + (idx + 1));
+        var rawName = url.split('/').pop().split('?')[0] || ('Drive_File_' + (idx + 1));
+        var fName = rawName;
+        try { fName = decodeURIComponent(rawName); } catch(e) {}
+
         var isPdf = fName.toLowerCase().indexOf('.pdf') !== -1 || url.indexOf('.pdf') !== -1;
         var isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.indexOf('image/') !== -1;
         var isCurrentlyViewing = (currentActiveSrc === url);
