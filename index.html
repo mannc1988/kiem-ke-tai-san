@@ -547,99 +547,122 @@
         }
 
         // HÀM TOGGLE CÓ THIẾT LẬP CỜ DỮ LIỆU data-active-src VÀ RENDER LẠI BUTTON HIGHLIGHT
-        function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType = 'pdf') {
-            let targetContainer = document.getElementById(elementPrefixId);
-            if (!targetContainer) {
-                targetContainer = document.getElementById(elementPrefixId + '_media');
-            }
-            if (!targetContainer) return;
+        <textarea style="width: 100%; height: 600px; font-family: monospace; box-sizing: border-box;" readonly>
+function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType = 'pdf', fileName = '') {
+    let targetContainer = document.getElementById(elementPrefixId);
+    if (!targetContainer) {
+        targetContainer = document.getElementById(elementPrefixId + '_media');
+    }
+    if (!targetContainer) return;
 
-            // 1. Nếu bấm vào chính file ĐANG XEM -> Thu gọn khung & Gỡ Cờ
-            if (!targetContainer.classList.contains('d-none') && targetContainer.dataset.activeSrc === urlOrBase64) {
-                targetContainer.classList.add('d-none');
-                targetContainer.innerHTML = '';
-                delete targetContainer.dataset.embedSrc;
-                delete targetContainer.dataset.activeSrc; // Gỡ cờ nhận diện
+    // 1. Nếu bấm vào chính file ĐANG XEM -> Thu gọn khung & Gỡ Cờ
+    if (!targetContainer.classList.contains('d-none') && targetContainer.dataset.activeSrc === urlOrBase64) {
+        targetContainer.classList.add('d-none');
+        targetContainer.innerHTML = '';
+        delete targetContainer.dataset.embedSrc;
+        delete targetContainer.dataset.activeSrc;
 
-                // Cập nhật lại UI danh sách file (nếu là Form chính)
-                if (elementPrefixId === 'asset_form_inline_viewer_container') renderImageDetailList();
-                return;
-            }
+        if (elementPrefixId === 'asset_form_inline_viewer_container') renderImageDetailList();
+        return;
+    }
 
-            // 2. Nếu chuyển sang file mới -> Thiết lập CỜ NHẬN DIỆN MỚI
-            targetContainer.dataset.activeSrc = urlOrBase64; // Gắn cờ file đang xem
+    // 2. Thiết lập cờ nhận diện
+    targetContainer.dataset.activeSrc = urlOrBase64;
 
-            let embedSrc = urlOrBase64;
+    // Tự động trích xuất tên file nếu không truyền vào
+    let displayFileName = fileName;
+    if (!displayFileName) {
+        if (urlOrBase64.startsWith('data:')) {
+            displayFileName = mediaType === 'pdf' ? 'Tài liệu PDF đang xem.pdf' : 'Hình ảnh đang xem.png';
+        } else {
+            displayFileName = urlOrBase64.split('/').pop().split('?')[0] || 'Tệp đang xem';
+        }
+    }
 
-            if (mediaType === 'pdf') {
-                if (urlOrBase64.indexOf('data:application/pdf;base64,') === 0) {
-                    try {
-                        const base64Data = urlOrBase64.split(',')[1];
-                        const binaryStr = atob(base64Data);
-                        const len = binaryStr.length;
-                        const bytes = new Uint8Array(len);
-                        for (let i = 0; i < len; i++) {
-                            bytes[i] = binaryStr.charCodeAt(i);
-                        }
-                        const blob = new Blob([bytes], { type: 'application/pdf' });
-                        embedSrc = URL.createObjectURL(blob);
-                    } catch (e) {
-                        console.error('Lỗi tạo Blob URL cho PDF Inline:', e);
-                    }
-                } else if (urlOrBase64.indexOf('drive.google.com') !== -1) {
-                    let fileId = '';
-                    if (urlOrBase64.indexOf('/d/') !== -1) {
-                        fileId = urlOrBase64.split('/d/')[1].split('/')[0];
-                    } else if (urlOrBase64.indexOf('id=') !== -1) {
-                        fileId = urlOrBase64.split('id=')[1].split('&')[0];
-                    }
-                    if (fileId) {
-                        embedSrc = 'https://drive.google.com/file/d/' + fileId + '/preview';
-                    }
+    // Xác định Icon đại diện dựa theo đuôi file
+    let fileIconClass = 'fa-file-pdf text-danger';
+    let ext = displayFileName.toLowerCase();
+    if (ext.endsWith('.doc') || ext.endsWith('.docx')) {
+        fileIconClass = 'fa-file-word text-primary';
+    } else if (mediaType === 'image' || /\.(png|jpg|jpeg|gif|webp)$/i.test(ext)) {
+        fileIconClass = 'fa-file-image text-success';
+    }
+
+    let embedSrc = urlOrBase64;
+
+    if (mediaType === 'pdf') {
+        if (urlOrBase64.indexOf('data:application/pdf;base64,') === 0) {
+            try {
+                const base64Data = urlOrBase64.split(',')[1];
+                const binaryStr = atob(base64Data);
+                const len = binaryStr.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryStr.charCodeAt(i);
                 }
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                embedSrc = URL.createObjectURL(blob);
+            } catch (e) {
+                console.error('Lỗi tạo Blob URL cho PDF Inline:', e);
             }
-
-            targetContainer.dataset.embedSrc = embedSrc;
-
-            // 3. Render HTML viewer tràn Full Width
-            if (mediaType === 'pdf') {
-                targetContainer.innerHTML = 
-                    '<div class="position-relative mt-2 w-100" style="width: 100% !important;">' +
-                        '<div class="position-absolute top-0 end-0 m-2" style="z-index: 10;">' +
-                            '<button type="button" class="btn btn-primary btn-sm py-1 px-3 me-2 shadow" style="font-size: 0.8rem;" onclick="window.open(this.closest(\'[data-embed-src]\').dataset.embedSrc, \'_blank\')">' +
-                                '<i class="fa-solid fa-up-right-from-square me-1"></i>Mở Tab Mới' +
-                            '</button>' +
-                            '<button type="button" class="btn btn-dark btn-sm py-1 px-3 shadow" style="font-size: 0.8rem;" onclick="toggleInlineMedia(\'' + elementPrefixId + '\', \'' + urlOrBase64.replace(/'/g, "\\'") + '\', \'pdf\')">' +
-                                '<i class="fa-solid fa-xmark me-1"></i>Thu Gọn' +
-                            '</button>' +
-                        '</div>' +
-                        '<iframe src="' + embedSrc + '" style="width: 100%; height: 85vh; border: 2px solid #0d6efd; border-radius: 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.2);"></iframe>' +
-                    '</div>';
-            } else if (mediaType === 'image') {
-                targetContainer.innerHTML = 
-                    '<div class="position-relative text-center mt-2 w-100" style="width: 100% !important;">' +
-                        '<div class="position-absolute top-0 end-0 m-2" style="z-index: 10;">' +
-                            '<button type="button" class="btn btn-primary btn-sm py-1 px-3 me-2 shadow" style="font-size: 0.8rem;" onclick="window.open(this.closest(\'[data-embed-src]\').dataset.embedSrc, \'_blank\')">' +
-                                '<i class="fa-solid fa-up-right-from-square me-1"></i>Mở Tab Mới' +
-                            '</button>' +
-                            '<button type="button" class="btn btn-dark btn-sm py-1 px-3 shadow" style="font-size: 0.8rem;" onclick="toggleInlineMedia(\'' + elementPrefixId + '\', \'' + urlOrBase64.replace(/'/g, "\\'") + '\', \'image\')">' +
-                                '<i class="fa-solid fa-xmark me-1"></i>Thu Gọn' +
-                            '</button>' +
-                        '</div>' +
-                        '<div class="w-100 d-flex justify-content-center align-items-center bg-dark rounded p-2" style="min-height: 400px; max-height: 85vh;">' +
-                            '<img src="' + embedSrc + '" style="max-width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 6px;" alt="Inline Image Preview" />' +
-                        '</div>' +
-                    '</div>';
+        } else if (urlOrBase64.indexOf('drive.google.com') !== -1) {
+            let fileId = '';
+            if (urlOrBase64.indexOf('/d/') !== -1) {
+                fileId = urlOrBase64.split('/d/')[1].split('/')[0];
+            } else if (urlOrBase64.indexOf('id=') !== -1) {
+                fileId = urlOrBase64.split('id=')[1].split('&')[0];
             }
-
-            targetContainer.classList.remove('d-none');
-            targetContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-            // Cập nhật lại giao diện danh sách file để đổi style nút đang mở
-            if (elementPrefixId === 'asset_form_inline_viewer_container') {
-                renderImageDetailList();
+            if (fileId) {
+                embedSrc = 'https://drive.google.com/file/d/' + fileId + '/preview';
             }
         }
+    }
+
+    targetContainer.dataset.embedSrc = embedSrc;
+
+    // 3. Render Thanh Tiêu Đề (Header Bar) + Khung Trình Chiếu
+    let headerHtml = `
+        <div class="d-flex align-items-center justify-content-between bg-white px-3 py-2 border border-bottom-0 rounded-top shadow-sm">
+            <div class="d-flex align-items-center text-truncate me-2">
+                <i class="fa-solid ${fileIconClass} fs-5 me-2"></i>
+                <span class="fw-semibold text-dark text-truncate" style="font-size: 0.9rem;" title="${displayFileName}">
+                    Xem trực tiếp: ${displayFileName}
+                </span>
+            </div>
+            <div class="d-flex align-items-center">
+                <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2 me-2 shadow-sm" style="font-size: 0.78rem;" onclick="window.open(this.closest('[data-embed-src]').dataset.embedSrc, '_blank')">
+                    <i class="fa-solid fa-up-right-from-square me-1"></i> Mở Tab Mới
+                </button>
+                <button type="button" class="btn-close ms-1" aria-label="Close" onclick="toggleInlineMedia('${elementPrefixId}', '${urlOrBase64.replace(/'/g, "\\'")}', '${mediaType}')" title="Đóng"></button>
+            </div>
+        </div>
+    `;
+
+    if (mediaType === 'pdf') {
+        targetContainer.innerHTML = `
+            <div class="position-relative mt-2 w-100" style="width: 100% !important;">
+                ${headerHtml}
+                <iframe src="${embedSrc}" style="width: 100%; height: 85vh; border: 1px solid #dee2e6; border-radius: 0 0 8px 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.15);"></iframe>
+            </div>
+        `;
+    } else if (mediaType === 'image') {
+        targetContainer.innerHTML = `
+            <div class="position-relative mt-2 w-100" style="width: 100% !important;">
+                ${headerHtml}
+                <div class="w-100 d-flex justify-content-center align-items-center bg-dark rounded-bottom p-2" style="min-height: 400px; max-height: 85vh; border: 1px solid #dee2e6; box-shadow: 0 6px 20px rgba(0,0,0,0.15);">
+                    <img src="${embedSrc}" style="max-width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 4px;" alt="Inline Image Preview" />
+                </div>
+            </div>
+        `;
+    }
+
+    targetContainer.classList.remove('d-none');
+    targetContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    if (elementPrefixId === 'asset_form_inline_viewer_container') {
+        renderImageDetailList();
+    }
+}
 
         async function deleteDriveFileDirectly(fileUrl, index, context = 'asset', historyId = null) {
             if (!fileUrl || typeof fileUrl !== 'string') {
