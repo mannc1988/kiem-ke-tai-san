@@ -1612,7 +1612,7 @@ function clearAllEditHistoryTempFiles(historyId) {
         });
     }
 
-    // 2. TỆP MỚI CHỌN (BỔ SUNG NÚT XÓA HẾT TẠI HEADER TỆP MỚI)
+    // 2. TỆP MỚI CHỌN (BỔ SUNG BỘ LỌC ICON THEO ĐỊNH DẠNG TỆP)
     if (editHistoryFilesList.length > 0) {
         var headerTemp = document.createElement('div');
         headerTemp.className = 'd-flex justify-content-between align-items-center mt-2 mb-1';
@@ -1624,8 +1624,19 @@ function clearAllEditHistoryTempFiles(historyId) {
         container.appendChild(headerTemp);
 
         editHistoryFilesList.forEach(function(file, idx) {
-            var isPdf = file.type === 'application/pdf' || file.name.toLowerCase().indexOf('.pdf') !== -1;
+            var fileNameLower = file.name.toLowerCase();
+            var isPdf = file.type === 'application/pdf' || fileNameLower.indexOf('.pdf') !== -1;
             var isImage = file.type.indexOf('image/') === 0 || /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name);
+            var isWord = fileNameLower.indexOf('.doc') !== -1 || fileNameLower.indexOf('.docx') !== -1;
+            var isExcel = fileNameLower.indexOf('.xls') !== -1 || fileNameLower.indexOf('.xlsx') !== -1 || fileNameLower.indexOf('.csv') !== -1;
+
+            // Xử lý icon phù hợp với định dạng tệp
+            var fileIconClass = 'fa-file text-secondary';
+            if (isPdf) fileIconClass = 'fa-file-pdf text-danger';
+            else if (isImage) fileIconClass = 'fa-file-image text-success';
+            else if (isWord) fileIconClass = 'fa-file-word text-primary';
+            else if (isExcel) fileIconClass = 'fa-file-excel text-success';
+
             var b64 = editHistoryBase64List[idx];
             var isCurrentlyViewing = (currentActiveSrc === b64);
             var safeName = file.name.replace(/'/g, "\\'");
@@ -1645,7 +1656,7 @@ function clearAllEditHistoryTempFiles(historyId) {
 
             div.innerHTML = 
                 '<div class="d-flex align-items-center justify-content-between">' +
-                    '<span class="text-truncate me-2 text-success" style="max-width: 60%;" title="' + file.name + '"><i class="fa-solid fa-circle-plus me-1"></i> ' + file.name + '</span>' +
+                    '<span class="text-truncate me-2 text-success" style="max-width: 60%;" title="' + file.name + '"><i class="fa-solid ' + fileIconClass + ' me-1"></i> ' + file.name + '</span>' +
                     '<div>' +
                         inlineBtnHtml +
                         '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="removeEditTempFile(' + idx + ', ' + historyId + ')" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark me-1"></i> Bỏ chọn</button>' +
@@ -1655,7 +1666,6 @@ function clearAllEditHistoryTempFiles(historyId) {
         });
     }
 }
-
         function removeEditTempFile(idx, historyId) {
             let b64Target = editHistoryBase64List[idx];
             closeInlineViewerIfMatches('swal_fileDetailList', b64Target);
