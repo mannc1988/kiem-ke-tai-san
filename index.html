@@ -816,30 +816,6 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
         }
 
         $(document).ready(function() {
-            // ĐĂNG KÝ SỰ KIỆN CHỌN FILE TRONG MODAL SỬA LỊCH SỬ
-            document.addEventListener('change', function(e) {
-    if (e.target && e.target.id === 'swal_fileInput') {
-        var files = e.target.files;
-        if (!files || files.length === 0) return;
-
-        var historyId = document.getElementById('swal_file_inline_viewer_container') 
-            ? document.getElementById('swal_file_inline_viewer_container').dataset.historyId 
-            : null;
-
-        Array.from(files).forEach(function(file) {
-            editHistoryFilesList.push(file);
-            var reader = new FileReader();
-            reader.onload = function(evt) {
-                editHistoryBase64List.push(evt.target.result);
-                renderEditHistoryFileList(historyId);
-            };
-            reader.readAsDataURL(file);
-        });
-
-        // Reset value để lần sau chọn lại cùng tệp vẫn ăn event change
-        e.target.value = '';
-    }
-});
             assetsTable = $('#assetsTable').DataTable({
                 serverSide: true,
                 processing: true,
