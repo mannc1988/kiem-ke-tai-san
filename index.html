@@ -567,23 +567,22 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
         delete targetContainer.dataset.activeSrc;
 
         if (elementPrefixId === 'asset_form_inline_viewer_container') renderImageDetailList();
+        if (elementPrefixId === 'swal_file_inline_viewer_container') {
+            var hId = targetContainer.dataset.historyId || null;
+            renderEditHistoryFileList(hId);
+        }
         return;
     }
 
     targetContainer.dataset.activeSrc = urlOrBase64;
 
-    // Tự động lấy tên tệp chính xác từ URL/Base64 nếu không có fileName truyền vào
     var displayFileName = fileName;
     if (!displayFileName || displayFileName.trim() === '') {
         if (urlOrBase64.indexOf('data:') === 0) {
             displayFileName = mediaType === 'pdf' ? 'Tài liệu inline.pdf' : 'Hình ảnh inline.png';
         } else {
             var rawName = urlOrBase64.split('/').pop().split('?')[0];
-            try {
-                displayFileName = decodeURIComponent(rawName);
-            } catch (e) {
-                displayFileName = rawName;
-            }
+            try { displayFileName = decodeURIComponent(rawName); } catch (e) { displayFileName = rawName; }
         }
     }
 
@@ -665,8 +664,10 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     targetContainer.classList.remove('d-none');
     targetContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    if (elementPrefixId === 'asset_form_inline_viewer_container') {
-        renderImageDetailList();
+    if (elementPrefixId === 'asset_form_inline_viewer_container') renderImageDetailList();
+    if (elementPrefixId === 'swal_file_inline_viewer_container') {
+        var hId = targetContainer.dataset.historyId || null;
+        renderEditHistoryFileList(hId);
     }
 }
 
@@ -815,6 +816,30 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
         }
 
         $(document).ready(function() {
+            // ĐĂNG KÝ SỰ KIỆN CHỌN FILE TRONG MODAL SỬA LỊCH SỬ
+            document.addEventListener('change', function(e) {
+    if (e.target && e.target.id === 'swal_fileInput') {
+        var files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        var historyId = document.getElementById('swal_file_inline_viewer_container') 
+            ? document.getElementById('swal_file_inline_viewer_container').dataset.historyId 
+            : null;
+
+        Array.from(files).forEach(function(file) {
+            editHistoryFilesList.push(file);
+            var reader = new FileReader();
+            reader.onload = function(evt) {
+                editHistoryBase64List.push(evt.target.result);
+                renderEditHistoryFileList(historyId);
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Reset value để lần sau chọn lại cùng tệp vẫn ăn event change
+        e.target.value = '';
+    }
+});
             assetsTable = $('#assetsTable').DataTable({
                 serverSide: true,
                 processing: true,
@@ -1528,7 +1553,17 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
         function renderEditHistoryFileList(historyId) {
     var container = document.getElementById('swal_fileDetailList');
     if (!container) return;
-    var currentActiveSrc = container.dataset.activeSrc || '';
+
+    var viewerContainer = document.getElementById('swal_file_inline_viewer_container');
+    if (!viewerContainer) {
+        viewerContainer = document.createElement('div');
+        viewerContainer.id = 'swal_file_inline_viewer_container';
+        viewerContainer.className = 'd-none mt-2 w-100';
+        container.parentNode.insertBefore(viewerContainer, container.nextSibling);
+    }
+    viewerContainer.dataset.historyId = historyId || '';
+
+    var currentActiveSrc = viewerContainer.dataset.activeSrc || '';
     container.innerHTML = '';
 
     if (editHistoryFilesList.length === 0 && editHistoryExistingDriveUrls.length === 0) {
@@ -1556,7 +1591,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
             var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
             var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
 
-            inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'swal_fileDetailList\', \'' + safeUrl + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
+            inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'swal_file_inline_viewer_container\', \'' + safeUrl + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
         } else {
             inlineBtnHtml = '<a href="' + url + '" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>';
         }
@@ -1589,7 +1624,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
             var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
             var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
 
-            inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'swal_fileDetailList\', \'' + safeB64 + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
+            inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'swal_file_inline_viewer_container\', \'' + safeB64 + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
         }
 
         div.innerHTML = 
