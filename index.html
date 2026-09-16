@@ -449,112 +449,114 @@
         }
 
         function renderImageDetailList() {
-            const container = document.getElementById('imageDetailList');
-            const inlineContainer = document.getElementById('asset_form_inline_viewer_container');
-            const currentActiveSrc = inlineContainer ? (inlineContainer.dataset.activeSrc || '') : '';
+    var container = document.getElementById('imageDetailList');
+    var inlineContainer = document.getElementById('asset_form_inline_viewer_container');
+    var currentActiveSrc = inlineContainer ? (inlineContainer.dataset.activeSrc || '') : '';
 
-            container.innerHTML = '';
+    container.innerHTML = '';
 
-            if (tempFilesList.length === 0 && existingDriveUrls.length === 0) {
-                container.innerHTML = `<span class="text-muted small fst-italic">Chưa có tệp đính kèm nào.</span>`;
-                return;
+    if (tempFilesList.length === 0 && existingDriveUrls.length === 0) {
+        container.innerHTML = '<span class="text-muted small fst-italic">Chưa có tệp đính kèm nào.</span>';
+        return;
+    }
+
+    if (existingDriveUrls.length > 0) {
+        var headerDrive = document.createElement('div');
+        headerDrive.className = 'text-primary fw-semibold small mb-1';
+        headerDrive.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i> Tệp trên Drive (' + existingDriveUrls.length + '):';
+        container.appendChild(headerDrive);
+
+        existingDriveUrls.forEach(function(url, index) {
+            var fName = url.split('/').pop().split('?')[0] || ('Drive_File_' + (index + 1));
+            var isPdf = fName.toLowerCase().indexOf('.pdf') !== -1 || url.indexOf('.pdf') !== -1;
+            var isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.indexOf('image/') !== -1;
+            var isCurrentlyViewing = (currentActiveSrc === url);
+            var safeName = fName.replace(/'/g, "\\'");
+            var safeUrl = url.replace(/'/g, "\\'");
+            
+            var div = document.createElement('div');
+            div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
+            
+            var inlineBtnHtml = '';
+            if (isPdf || isImage) {
+                var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
+                var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
+                var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
+
+                inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'asset_form_inline_viewer_container\', \'' + safeUrl + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
+            } else {
+                inlineBtnHtml = '<a href="' + url + '" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>';
             }
 
-            if (existingDriveUrls.length > 0) {
-                const headerDrive = document.createElement('div');
-                headerDrive.className = 'text-primary fw-semibold small mb-1';
-                headerDrive.innerHTML = `<i class="fa-solid fa-cloud-arrow-up me-1"></i> Tệp trên Drive (${existingDriveUrls.length}):`;
-                container.appendChild(headerDrive);
+            div.innerHTML = 
+                '<div class="d-flex align-items-center justify-content-between">' +
+                    '<span class="text-truncate me-2 ' + (isCurrentlyViewing ? 'fw-bold text-primary' : 'text-primary') + '" style="max-width: 220px;" title="' + fName + '">' +
+                        '<i class="fa-solid fa-file me-1"></i> ' + fName +
+                    '</span>' +
+                    '<div>' +
+                        inlineBtnHtml +
+                        '<button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="deleteDriveFileDirectly(\'' + safeUrl + '\', ' + index + ', \'asset\', null)" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>' +
+                    '</div>' +
+                '</div>';
+            container.appendChild(div);
+        });
+    }
 
-                existingDriveUrls.forEach((url, index) => {
-                    let fName = url.split('/').pop().split('?')[0] || `Drive_File_${index + 1}`;
-                    let isPdf = fName.toLowerCase().endsWith('.pdf') || url.includes('.pdf');
-                    let isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.includes('image/');
-                    let isCurrentlyViewing = (currentActiveSrc === url);
-                    
-                    const div = document.createElement('div');
-                    div.className = `file-detail-item ${isCurrentlyViewing ? 'active-viewing' : ''}`;
-                    
-                    let inlineBtnHtml = '';
-                    if (isPdf || isImage) {
-                        let btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
-                        let btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
-                        let btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
+    if (tempFilesList.length > 0) {
+        var headerTemp = document.createElement('div');
+        headerTemp.className = 'd-flex justify-content-between align-items-center mt-2 mb-1';
+        headerTemp.innerHTML = 
+            '<span class="text-success fw-semibold small"><i class="fa-solid fa-circle-plus me-1"></i> Tệp mới chọn (' + tempFilesList.length + '):</span>' +
+            '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllTempImages()" title="Xóa hết tệp mới">' +
+                '<i class="fa-solid fa-trash-can me-1"></i> Xóa hết' +
+            '</button>';
+        container.appendChild(headerTemp);
 
-                        inlineBtnHtml = `<button type="button" class="btn ${btnClass} btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia('asset_form_inline_viewer_container', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline Full Width"><i class="fa-solid ${btnIcon} me-1"></i> ${btnText}</button>`;
-                    } else {
-                        inlineBtnHtml = `<a href="${url}" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>`;
-                    }
+        tempFilesList.forEach(function(file, index) {
+            var isPdf = file.type === 'application/pdf' || file.name.toLowerCase().indexOf('.pdf') !== -1;
+            var isImage = file.type.indexOf('image/') === 0 || /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name);
+            var b64 = tempBase64List[index];
+            var isCurrentlyViewing = (currentActiveSrc === b64);
+            var safeName = file.name.replace(/'/g, "\\'");
+            var safeB64 = b64.replace(/'/g, "\\'");
 
-                    div.innerHTML = `
-                        <div class="d-flex align-items-center justify-content-between">
-                            <span class="text-truncate me-2 ${isCurrentlyViewing ? 'fw-bold text-primary' : 'text-primary'}" style="max-width: 220px;" title="${fName}">
-                                <i class="fa-solid fa-file me-1"></i> ${fName}
-                            </span>
-                            <div>
-                                ${inlineBtnHtml}
-                                <button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="deleteDriveFileDirectly('${url}', ${index}, 'asset', null)" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>
-                            </div>
-                        </div>
-                    `;
-                    container.appendChild(div);
-                });
+            var div = document.createElement('div');
+            div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
+
+            var inlineBtnHtml = '';
+            if (isPdf || isImage) {
+                var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
+                var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
+                var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
+
+                inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'asset_form_inline_viewer_container\', \'' + safeB64 + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
             }
 
-            if (tempFilesList.length > 0) {
-                const headerTemp = document.createElement('div');
-                headerTemp.className = 'd-flex justify-content-between align-items-center mt-2 mb-1';
-                headerTemp.innerHTML = `
-                    <span class="text-success fw-semibold small"><i class="fa-solid fa-circle-plus me-1"></i> Tệp mới chọn (${tempFilesList.length}):</span>
-                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllTempImages()" title="Xóa hết tệp mới">
-                        <i class="fa-solid fa-trash-can me-1"></i> Xóa hết
-                    </button>
-                `;
-                container.appendChild(headerTemp);
-
-                tempFilesList.forEach((file, index) => {
-                    let isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-                    let isImage = file.type.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name);
-                    let b64 = tempBase64List[index];
-                    let isCurrentlyViewing = (currentActiveSrc === b64);
-
-                    const div = document.createElement('div');
-                    div.className = `file-detail-item ${isCurrentlyViewing ? 'active-viewing' : ''}`;
-
-                    let inlineBtnHtml = '';
-                    if (isPdf || isImage) {
-                        let btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
-                        let btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
-                        let btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
-
-                        inlineBtnHtml = `<button type="button" class="btn ${btnClass} btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia('asset_form_inline_viewer_container', '${b64}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline Full Width"><i class="fa-solid ${btnIcon} me-1"></i> ${btnText}</button>`;
-                    }
-
-                    div.innerHTML = `
-                        <div class="d-flex align-items-center justify-content-between">
-                            <span class="text-truncate me-2 ${isCurrentlyViewing ? 'fw-bold text-success' : ''}" style="max-width: 220px;" title="${file.name}">
-                                <i class="fa-solid fa-file text-success me-1"></i> ${file.name}
-                            </span>
-                            <div>
-                                ${inlineBtnHtml}
-                                <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeTempFile(${index})" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark"></i></button>
-                            </div>
-                        </div>
-                    `;
-                    container.appendChild(div);
-                });
-            }
-        }
-
+            div.innerHTML = 
+                '<div class="d-flex align-items-center justify-content-between">' +
+                    '<span class="text-truncate me-2 ' + (isCurrentlyViewing ? 'fw-bold text-success' : '') + '" style="max-width: 220px;" title="' + file.name + '">' +
+                        '<i class="fa-solid fa-file text-success me-1"></i> ' + file.name +
+                    '</span>' +
+                    '<div>' +
+                        inlineBtnHtml +
+                        '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeTempFile(' + index + ')" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark"></i></button>' +
+                    '</div>' +
+                '</div>';
+            container.appendChild(div);
+        });
+    }
+}
         // HÀM TOGGLE CÓ THIẾT LẬP CỜ DỮ LIỆU data-active-src VÀ RENDER LẠI BUTTON HIGHLIGHT
-function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType = 'pdf', fileName = '') {
-    let targetContainer = document.getElementById(elementPrefixId);
+function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
+    if (mediaType === undefined) mediaType = 'pdf';
+    if (fileName === undefined) fileName = '';
+
+    var targetContainer = document.getElementById(elementPrefixId);
     if (!targetContainer) {
         targetContainer = document.getElementById(elementPrefixId + '_media');
     }
     if (!targetContainer) return;
 
-    // 1. Nếu bấm vào chính file ĐANG XEM -> Thu gọn khung & Gỡ Cờ
     if (!targetContainer.classList.contains('d-none') && targetContainer.dataset.activeSrc === urlOrBase64) {
         targetContainer.classList.add('d-none');
         targetContainer.innerHTML = '';
@@ -565,47 +567,44 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType = 'pdf', file
         return;
     }
 
-    // 2. Thiết lập cờ nhận diện
     targetContainer.dataset.activeSrc = urlOrBase64;
 
-    // Tự động trích xuất tên file nếu không truyền vào
-    let displayFileName = fileName;
+    var displayFileName = fileName;
     if (!displayFileName) {
-        if (urlOrBase64.startsWith('data:')) {
+        if (urlOrBase64.indexOf('data:') === 0) {
             displayFileName = mediaType === 'pdf' ? 'Tài liệu PDF đang xem.pdf' : 'Hình ảnh đang xem.png';
         } else {
             displayFileName = urlOrBase64.split('/').pop().split('?')[0] || 'Tệp đang xem';
         }
     }
 
-    // Xác định Icon đại diện dựa theo đuôi file
-    let fileIconClass = 'fa-file-pdf text-danger';
-    let ext = displayFileName.toLowerCase();
-    if (ext.endsWith('.doc') || ext.endsWith('.docx')) {
+    var fileIconClass = 'fa-file-pdf text-danger';
+    var ext = displayFileName.toLowerCase();
+    if (ext.indexOf('.doc') !== -1 || ext.indexOf('.docx') !== -1) {
         fileIconClass = 'fa-file-word text-primary';
     } else if (mediaType === 'image' || /\.(png|jpg|jpeg|gif|webp)$/i.test(ext)) {
         fileIconClass = 'fa-file-image text-success';
     }
 
-    let embedSrc = urlOrBase64;
+    var embedSrc = urlOrBase64;
 
     if (mediaType === 'pdf') {
         if (urlOrBase64.indexOf('data:application/pdf;base64,') === 0) {
             try {
-                const base64Data = urlOrBase64.split(',')[1];
-                const binaryStr = atob(base64Data);
-                const len = binaryStr.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) {
+                var base64Data = urlOrBase64.split(',')[1];
+                var binaryStr = atob(base64Data);
+                var len = binaryStr.length;
+                var bytes = new Uint8Array(len);
+                for (var i = 0; i < len; i++) {
                     bytes[i] = binaryStr.charCodeAt(i);
                 }
-                const blob = new Blob([bytes], { type: 'application/pdf' });
+                var blob = new Blob([bytes], { type: 'application/pdf' });
                 embedSrc = URL.createObjectURL(blob);
             } catch (e) {
                 console.error('Lỗi tạo Blob URL cho PDF Inline:', e);
             }
         } else if (urlOrBase64.indexOf('drive.google.com') !== -1) {
-            let fileId = '';
+            var fileId = '';
             if (urlOrBase64.indexOf('/d/') !== -1) {
                 fileId = urlOrBase64.split('/d/')[1].split('/')[0];
             } else if (urlOrBase64.indexOf('id=') !== -1) {
@@ -619,40 +618,39 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType = 'pdf', file
 
     targetContainer.dataset.embedSrc = embedSrc;
 
-    // 3. Render Thanh Tiêu Đề (Header Bar) + Khung Trình Chiếu
-    let headerHtml = `
-        <div class="d-flex align-items-center justify-content-between bg-white px-3 py-2 border border-bottom-0 rounded-top shadow-sm">
-            <div class="d-flex align-items-center text-truncate me-2">
-                <i class="fa-solid ${fileIconClass} fs-5 me-2"></i>
-                <span class="fw-semibold text-dark text-truncate" style="font-size: 0.9rem;" title="${displayFileName}">
-                    Xem trực tiếp: ${displayFileName}
-                </span>
-            </div>
-            <div class="d-flex align-items-center">
-                <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2 me-2 shadow-sm" style="font-size: 0.78rem;" onclick="window.open(this.closest('[data-embed-src]').dataset.embedSrc, '_blank')">
-                    <i class="fa-solid fa-up-right-from-square me-1"></i> Mở Tab Mới
-                </button>
-                <button type="button" class="btn-close ms-1" aria-label="Close" onclick="toggleInlineMedia('${elementPrefixId}', '${urlOrBase64.replace(/'/g, "\\'")}', '${mediaType}')" title="Đóng"></button>
-            </div>
-        </div>
-    `;
+    var safeFileName = displayFileName.replace(/'/g, "\\'");
+    var safeUrl = urlOrBase64.replace(/'/g, "\\'");
+
+    var headerHtml = 
+        '<div class="d-flex align-items-center justify-content-between bg-white px-3 py-2 border border-bottom-0 rounded-top shadow-sm">' +
+            '<div class="d-flex align-items-center text-truncate me-2">' +
+                '<i class="fa-solid ' + fileIconClass + ' fs-5 me-2"></i>' +
+                '<span class="fw-semibold text-dark text-truncate" style="font-size: 0.9rem;" title="' + displayFileName + '">' +
+                    'Xem trực tiếp: ' + displayFileName +
+                '</span>' +
+            '</div>' +
+            '<div class="d-flex align-items-center">' +
+                '<button type="button" class="btn btn-outline-primary btn-sm py-1 px-2 me-2 shadow-sm" style="font-size: 0.78rem;" onclick="window.open(this.closest(\'[data-embed-src]\').dataset.embedSrc, \'_blank\')">' +
+                    '<i class="fa-solid fa-up-right-from-square me-1"></i> Mở Tab Mới' +
+                '</button>' +
+                '<button type="button" class="btn-close ms-1" aria-label="Close" onclick="toggleInlineMedia(\'' + elementPrefixId + '\', \'' + safeUrl + '\', \'' + mediaType + '\', \'' + safeFileName + '\')" title="Đóng"></button>' +
+            '</div>' +
+        '</div>';
 
     if (mediaType === 'pdf') {
-        targetContainer.innerHTML = `
-            <div class="position-relative mt-2 w-100" style="width: 100% !important;">
-                ${headerHtml}
-                <iframe src="${embedSrc}" style="width: 100%; height: 85vh; border: 1px solid #dee2e6; border-radius: 0 0 8px 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.15);"></iframe>
-            </div>
-        `;
+        targetContainer.innerHTML = 
+            '<div class="position-relative mt-2 w-100" style="width: 100% !important;">' +
+                headerHtml +
+                '<iframe src="' + embedSrc + '" style="width: 100%; height: 85vh; border: 1px solid #dee2e6; border-radius: 0 0 8px 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.15);"></iframe>' +
+            '</div>';
     } else if (mediaType === 'image') {
-        targetContainer.innerHTML = `
-            <div class="position-relative mt-2 w-100" style="width: 100% !important;">
-                ${headerHtml}
-                <div class="w-100 d-flex justify-content-center align-items-center bg-dark rounded-bottom p-2" style="min-height: 400px; max-height: 85vh; border: 1px solid #dee2e6; box-shadow: 0 6px 20px rgba(0,0,0,0.15);">
-                    <img src="${embedSrc}" style="max-width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 4px;" alt="Inline Image Preview" />
-                </div>
-            </div>
-        `;
+        targetContainer.innerHTML = 
+            '<div class="position-relative mt-2 w-100" style="width: 100% !important;">' +
+                headerHtml +
+                '<div class="w-100 d-flex justify-content-center align-items-center bg-dark rounded-bottom p-2" style="min-height: 400px; max-height: 85vh; border: 1px solid #dee2e6; box-shadow: 0 6px 20px rgba(0,0,0,0.15);">' +
+                    '<img src="' + embedSrc + '" style="max-width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 4px;" alt="Inline Image Preview" />' +
+                '</div>' +
+            '</div>';
     }
 
     targetContainer.classList.remove('d-none');
@@ -1519,78 +1517,80 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType = 'pdf', file
         }
 
         function renderEditHistoryFileList(historyId) {
-            const container = document.getElementById('swal_fileDetailList');
-            if (!container) return;
-            const currentActiveSrc = container.dataset.activeSrc || '';
-            container.innerHTML = '';
+    var container = document.getElementById('swal_fileDetailList');
+    if (!container) return;
+    var currentActiveSrc = container.dataset.activeSrc || '';
+    container.innerHTML = '';
 
-            if (editHistoryFilesList.length === 0 && editHistoryExistingDriveUrls.length === 0) {
-                container.innerHTML = `<span class="text-muted small fst-italic">Chưa có tệp đính kèm nào.</span>`;
-                return;
-            }
+    if (editHistoryFilesList.length === 0 && editHistoryExistingDriveUrls.length === 0) {
+        container.innerHTML = '<span class="text-muted small fst-italic">Chưa có tệp đính kèm nào.</span>';
+        return;
+    }
 
-            editHistoryExistingDriveUrls.forEach((url, idx) => {
-                let fName = url.split('/').pop().split('?')[0] || `Drive_File_${idx + 1}`;
-                let isPdf = fName.toLowerCase().endsWith('.pdf') || url.includes('.pdf');
-                let isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.includes('image/');
-                let isCurrentlyViewing = (currentActiveSrc === url);
+    editHistoryExistingDriveUrls.forEach(function(url, idx) {
+        var fName = url.split('/').pop().split('?')[0] || ('Drive_File_' + (idx + 1));
+        var isPdf = fName.toLowerCase().indexOf('.pdf') !== -1 || url.indexOf('.pdf') !== -1;
+        var isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.indexOf('image/') !== -1;
+        var isCurrentlyViewing = (currentActiveSrc === url);
+        var safeName = fName.replace(/'/g, "\\'");
+        var safeUrl = url.replace(/'/g, "\\'");
 
-                const div = document.createElement('div');
-                div.className = `file-detail-item ${isCurrentlyViewing ? 'active-viewing' : ''}`;
+        var div = document.createElement('div');
+        div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
 
-                let inlineBtnHtml = '';
-                if (isPdf || isImage) {
-                    let btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
-                    let btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
-                    let btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
+        var inlineBtnHtml = '';
+        if (isPdf || isImage) {
+            var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
+            var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
+            var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
 
-                    inlineBtnHtml = `<button type="button" class="btn ${btnClass} btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia('swal_fileDetailList', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline Full Width"><i class="fa-solid ${btnIcon} me-1"></i> ${btnText}</button>`;
-                } else {
-                    inlineBtnHtml = `<a href="${url}" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>`;
-                }
-
-                div.innerHTML = `
-                    <div class="d-flex align-items-center justify-content-between">
-                        <span class="text-truncate me-2 text-primary" style="max-width: 60%;" title="${fName}"><i class="fa-solid fa-cloud-arrow-up me-1"></i> ${fName}</span>
-                        <div>
-                            ${inlineBtnHtml}
-                            <button type="button" class="btn btn-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="deleteDriveFileDirectly('${url}', ${idx}, 'history', ${historyId})" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-
-            editHistoryFilesList.forEach((file, idx) => {
-                let isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-                let isImage = file.type.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name);
-                let b64 = editHistoryBase64List[idx];
-                let isCurrentlyViewing = (currentActiveSrc === b64);
-
-                const div = document.createElement('div');
-                div.className = `file-detail-item ${isCurrentlyViewing ? 'active-viewing' : ''}`;
-
-                let inlineBtnHtml = '';
-                if (isPdf || isImage) {
-                    let btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
-                    let btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
-                    let btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
-
-                    inlineBtnHtml = `<button type="button" class="btn ${btnClass} btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia('swal_fileDetailList', '${b64}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline Full Width"><i class="fa-solid ${btnIcon} me-1"></i> ${btnText}</button>`;
-                }
-
-                div.innerHTML = `
-                    <div class="d-flex align-items-center justify-content-between">
-                        <span class="text-truncate me-2 text-success" style="max-width: 60%;" title="${file.name}"><i class="fa-solid fa-circle-plus me-1"></i> ${file.name}</span>
-                        <div>
-                            ${inlineBtnHtml}
-                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="removeEditTempFile(${idx}, ${historyId})" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark me-1"></i> Bỏ chọn</button>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
+            inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'swal_fileDetailList\', \'' + safeUrl + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
+        } else {
+            inlineBtnHtml = '<a href="' + url + '" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>';
         }
+
+        div.innerHTML = 
+            '<div class="d-flex align-items-center justify-content-between">' +
+                '<span class="text-truncate me-2 text-primary" style="max-width: 60%;" title="' + fName + '"><i class="fa-solid fa-cloud-arrow-up me-1"></i> ' + fName + '</span>' +
+                '<div>' +
+                    inlineBtnHtml +
+                    '<button type="button" class="btn btn-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="deleteDriveFileDirectly(\'' + safeUrl + '\', ' + idx + ', \'history\', ' + historyId + ')" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>' +
+                '</div>' +
+            '</div>';
+        container.appendChild(div);
+    });
+
+    editHistoryFilesList.forEach(function(file, idx) {
+        var isPdf = file.type === 'application/pdf' || file.name.toLowerCase().indexOf('.pdf') !== -1;
+        var isImage = file.type.indexOf('image/') === 0 || /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name);
+        var b64 = editHistoryBase64List[idx];
+        var isCurrentlyViewing = (currentActiveSrc === b64);
+        var safeName = file.name.replace(/'/g, "\\'");
+        var safeB64 = b64.replace(/'/g, "\\'");
+
+        var div = document.createElement('div');
+        div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
+
+        var inlineBtnHtml = '';
+        if (isPdf || isImage) {
+            var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
+            var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
+            var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
+
+            inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'swal_fileDetailList\', \'' + safeB64 + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
+        }
+
+        div.innerHTML = 
+            '<div class="d-flex align-items-center justify-content-between">' +
+                '<span class="text-truncate me-2 text-success" style="max-width: 60%;" title="' + file.name + '"><i class="fa-solid fa-circle-plus me-1"></i> ' + file.name + '</span>' +
+                '<div>' +
+                    inlineBtnHtml +
+                    '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="removeEditTempFile(' + idx + ', ' + historyId + ')" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark me-1"></i> Bỏ chọn</button>' +
+                '</div>' +
+            '</div>';
+        container.appendChild(div);
+    });
+}
 
         function removeEditTempFile(idx, historyId) {
             let b64Target = editHistoryBase64List[idx];
