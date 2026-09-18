@@ -456,15 +456,15 @@
     container.innerHTML = '';
 
     if (tempFilesList.length === 0 && existingDriveUrls.length === 0) {
-        container.innerHTML = '&lt;span class="text-muted small fst-italic"&gt;Chưa có tệp đính kèm nào.&lt;/span&gt;';
+        container.innerHTML = '<span class="text-muted small fst-italic">Chưa có tệp đính kèm nào.</span>';
         return;
     }
 
     // 1. TỆP ĐÃ CÓ TRÊN GOOGLE DRIVE
-    if (existingDriveUrls.length &gt; 0) {
+    if (existingDriveUrls.length > 0) {
         var headerDrive = document.createElement('div');
         headerDrive.className = 'text-primary fw-semibold small mb-1';
-        headerDrive.innerHTML = '&lt;i class="fa-solid fa-cloud-arrow-up me-1"&gt;&lt;/i&gt; Tệp trên Drive (' + existingDriveUrls.length + '):';
+        headerDrive.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i> Tệp trên Drive (' + existingDriveUrls.length + '):';
         container.appendChild(headerDrive);
 
         existingDriveUrls.forEach(function(url, index) {
@@ -497,34 +497,34 @@
                 var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
                 var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
 
-                inlineBtnHtml = '&lt;button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'asset_form_inline_viewer_container\', \'' + safeUrl + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"&gt;&lt;i class="fa-solid ' + btnIcon + ' me-1"&gt;&lt;/i&gt; ' + btnText + '&lt;/button&gt;';
+                inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'asset_form_inline_viewer_container\', \'' + safeUrl + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
             } else {
-                inlineBtnHtml = '&lt;a href="' + url + '" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"&gt;&lt;i class="fa-solid fa-download me-1"&gt;&lt;/i&gt; Tải về&lt;/a&gt;';
+                inlineBtnHtml = '<a href="' + url + '" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>';
             }
 
             div.innerHTML = 
-                '&lt;div class="d-flex align-items-center justify-content-between"&gt;' +
-                    '&lt;span class="text-truncate me-2 ' + (isCurrentlyViewing ? 'fw-bold text-primary' : 'text-primary') + '" style="max-width: 220px;" title="' + fName + '"&gt;' +
-                        '&lt;i class="fa-solid ' + fileIconClass + ' me-1"&gt;&lt;/i&gt; ' + fName +
-                    '&lt;/span&gt;' +
-                    '&lt;div&gt;' +
+                '<div class="d-flex align-items-center justify-content-between">' +
+                    '<span class="text-truncate me-2 ' + (isCurrentlyViewing ? 'fw-bold text-primary' : 'text-primary') + '" style="max-width: 220px;" title="' + fName + '">' +
+                        '<i class="fa-solid ' + fileIconClass + ' me-1"></i> ' + fName +
+                    '</span>' +
+                    '<div>' +
                         inlineBtnHtml +
-                        '&lt;button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="deleteDriveFileDirectly(\'' + safeUrl + '\', ' + index + ', \'asset\', null)" title="Xóa trực tiếp trên Drive"&gt;&lt;i class="fa-solid fa-trash-can me-1"&gt;&lt;/i&gt; Xóa Drive&lt;/button&gt;' +
-                    '&lt;/div&gt;' +
-                '&lt;/div&gt;';
+                        '<button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="deleteDriveFileDirectly(\'' + safeUrl + '\', ' + index + ', \'asset\', null)" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>' +
+                    '</div>' +
+                '</div>';
             container.appendChild(div);
         });
     }
 
     // 2. TỆP MỚI CHỌN TẠM THỜI
-    if (tempFilesList.length &gt; 0) {
+    if (tempFilesList.length > 0) {
         var headerTemp = document.createElement('div');
         headerTemp.className = 'd-flex justify-content-between align-items-center mt-2 mb-1';
         headerTemp.innerHTML = 
-            '&lt;span class="text-success fw-semibold small"&gt;&lt;i class="fa-solid fa-circle-plus me-1"&gt;&lt;/i&gt; Tệp mới chọn (' + tempFilesList.length + '):&lt;/span&gt;' +
-            '&lt;button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllTempImages()" title="Xóa hết tệp mới"&gt;' +
-                '&lt;i class="fa-solid fa-trash-can me-1"&gt;&lt;/i&gt; Xóa hết' +
-            '&lt;/button&gt;';
+            '<span class="text-success fw-semibold small"><i class="fa-solid fa-circle-plus me-1"></i> Tệp mới chọn (' + tempFilesList.length + '):</span>' +
+            '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllTempImages()" title="Xóa hết tệp mới">' +
+                '<i class="fa-solid fa-trash-can me-1"></i> Xóa hết' +
+            '</button>';
         container.appendChild(headerTemp);
 
         tempFilesList.forEach(function(file, index) {
@@ -554,19 +554,19 @@
                 var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
                 var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
 
-                inlineBtnHtml = '&lt;button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'asset_form_inline_viewer_container\', \'' + safeB64 + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"&gt;&lt;i class="fa-solid ' + btnIcon + ' me-1"&gt;&lt;/i&gt; ' + btnText + '&lt;/button&gt;';
+                inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'asset_form_inline_viewer_container\', \'' + safeB64 + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
             }
 
             div.innerHTML = 
-                '&lt;div class="d-flex align-items-center justify-content-between"&gt;' +
-                    '&lt;span class="text-truncate me-2 ' + (isCurrentlyViewing ? 'fw-bold text-success' : '') + '" style="max-width: 220px;" title="' + file.name + '"&gt;' +
-                        '&lt;i class="fa-solid ' + fileIconClass + ' me-1"&gt;&lt;/i&gt; ' + file.name +
-                    '&lt;/span&gt;' +
-                    '&lt;div&gt;' +
+                '<div class="d-flex align-items-center justify-content-between">' +
+                    '<span class="text-truncate me-2 ' + (isCurrentlyViewing ? 'fw-bold text-success' : '') + '" style="max-width: 220px;" title="' + file.name + '">' +
+                        '<i class="fa-solid ' + fileIconClass + ' me-1"></i> ' + file.name +
+                    '</span>' +
+                    '<div>' +
                         inlineBtnHtml +
-                        '&lt;button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeTempFile(' + index + ')" title="Bỏ chọn tệp"&gt;&lt;i class="fa-solid fa-xmark"&gt;&lt;/i&gt;&lt;/button&gt;' +
-                    '&lt;/div&gt;' +
-                '&lt;/div&gt;';
+                        '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeTempFile(' + index + ')" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark"></i></button>' +
+                    '</div>' +
+                '</div>';
             container.appendChild(div);
         });
     }
