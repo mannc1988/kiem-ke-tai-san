@@ -257,11 +257,41 @@ module.exports = async (req, res) => {
         }
 
         // 5. XÓA TÀI SẢN
-        if (action === 'delete_asset' && req.method === 'POST') {
-            const { ma_tai_san } = req.body;
-            await connection.execute('DELETE FROM danh_sach_tai_san WHERE ma_tai_san = ?', [ma_tai_san]);
-            return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
+if (action === 'delete_asset' && req.method === 'POST') {
+    const { ma_tai_san } = req.body;
+    
+    if (!ma_tai_san) {
+        return res.status(400).json({ success: false, error: 'Thiếu mã tài sản cần xóa!' });
+    }
+
+    const targetMaTS = ma_tai_san.toString().trim();
+
+    // Lấy toàn bộ mã tài sản trong DB để so sánh sau khi giải mã
+    const [allAssets] = await connection.execute('SELECT ma_tai_san FROM danh_sach_tai_san');
+
+    let matchedDbKey = null;
+    for (let row of allAssets) {
+        let decMa = decryptData(row.ma_tai_san).trim();
+        // So sánh mã đã giải mã hoặc mã nguyên bản trong DB
+        if (decMa === targetMaTS || row.ma_tai_san === targetMaTS) {
+            matchedDbKey = row.ma_tai_san;
+            break;
         }
+    }
+
+    if (!matchedDbKey) {
+        return res.status(404).json({ success: false, error: 'Không tìm thấy mã tài sản cần xóa trong CSDL!' });
+    }
+
+    // Thực hiện xóa đúng khóa mã hóa khớp trong DB
+    const [result] = await connection.execute('DELETE FROM danh_sach_tai_san WHERE ma_tai_san = ?', [matchedDbKey]);
+
+    if (result.affectedRows > 0) {
+        return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
+    } else {
+        return res.status(500).json({ success: false, error: 'Xóa thất bại, không có dòng nào bị ảnh hưởng!' });
+    }
+}
 
         // 6. GHI NHẬN LỊCH SỬ QR
         if (action === 'history' && req.method === 'POST') {
