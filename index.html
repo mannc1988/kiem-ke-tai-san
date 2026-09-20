@@ -2023,17 +2023,27 @@
         }
         function getEmbedDriveUrl(url) {
     if (!url) return url;
-    if (url.indexOf('drive.google.com') !== -1) {
-        let fileId = '';
-        if (url.indexOf('/d/') !== -1) {
-            fileId = url.split('/d/')[1].split('/')[0];
-        } else if (url.indexOf('id=') !== -1) {
-            fileId = url.split('id=')[1].split('&')[0];
-        }
-        if (fileId) {
-            return 'https://drive.google.com/file/d/' + fileId + '/preview';
-        }
+    
+    let fileId = '';
+    
+    // Trường hợp 1: Link dạng https://lh3.googleusercontent.com/d/FILE_ID
+    if (url.includes('googleusercontent.com/d/')) {
+        fileId = url.split('googleusercontent.com/d/')[1].split('?')[0].split('/')[0];
     }
+    // Trường hợp 2: Link dạng drive.google.com/file/d/FILE_ID/view
+    else if (url.includes('/d/')) {
+        fileId = url.split('/d/')[1].split('/')[0];
+    }
+    // Trường hợp 3: Link dạng drive.google.com/uc?id=FILE_ID
+    else if (url.includes('id=')) {
+        fileId = url.split('id=')[1].split('&')[0];
+    }
+
+    // Nếu tìm thấy File ID, trả về link Embed Preview full trang
+    if (fileId) {
+        return `https://drive.google.com/file/d/${fileId}/preview`;
+    }
+    
     return url;
 }
         function removeEditTempFile(idx, historyId) {
