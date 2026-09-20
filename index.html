@@ -866,9 +866,6 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
 
         $(document).ready(function() {
             assetsTable = $('#assetsTable').DataTable({
-                dom: "<'row mb-3'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6 d-flex justify-content-end'f>>" +
-         "<'row'<'col-sm-12'tr>>" +
-         "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7 d-flex justify-content-end'p>>",
                 serverSide: true,
                 processing: true,
                 ajax: {
