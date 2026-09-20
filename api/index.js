@@ -69,7 +69,7 @@ module.exports = async (req, res) => {
             return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
         }
 
-        // 1.1 TẠO MỚI ĐỢT KIỂM KÊ (MÃ HÓA TÊN ĐỢT)
+        // 1.1 TẠO MỚI ĐỢT KIỂM KÊ (DÙNG ID TỰ TĂNG AUTO_INCREMENT)
         if (action === 'add_dot' && req.method === 'POST') {
             const { name } = req.body;
             if (!name || !name.trim()) {
@@ -79,6 +79,7 @@ module.exports = async (req, res) => {
             const rawName = decryptData(name).trim();
             const encName = encryptData(rawName);
 
+            // Bảng dot_kiem_ke có id là AUTO_INCREMENT nên chỉ cần INSERT cột name
             const [result] = await connection.execute(
                 'INSERT INTO dot_kiem_ke (name) VALUES (?)',
                 [encName]
@@ -86,25 +87,26 @@ module.exports = async (req, res) => {
 
             return res.json({ 
                 success: true, 
-                id: result.insertId, 
+                id: result.insertId, // Lấy ID tự tăng vừa tạo từ MySQL
                 name: rawName,
                 message: 'Đã tạo đợt kiểm kê mới thành công!' 
             });
         }
 
-        // 1.2 CẬP NHẬT ĐỢT KIỂM KÊ (MÃ HÓA TÊN ĐỢT MỚI)
+        // 1.2 CẬP NHẬT ĐỢT KIỂM KÊ (THEO ID TỰ TĂNG)
         if (action === 'update_dot' && req.method === 'POST') {
             const { id, name } = req.body;
             if (!id || !name || !name.trim()) {
                 return res.status(400).json({ success: false, error: 'Thiếu ID hoặc tên đợt kiểm kê cần cập nhật!' });
             }
 
+            const cleanId = parseInt(id, 10);
             const rawName = decryptData(name).trim();
             const encName = encryptData(rawName);
 
             const [result] = await connection.execute(
                 'UPDATE dot_kiem_ke SET name = ? WHERE id = ?',
-                [encName, id]
+                [encName, cleanId]
             );
 
             if (result.affectedRows > 0) {
@@ -114,16 +116,18 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 1.3 XÓA ĐỢT KIỂM KÊ
+        // 1.3 XÓA ĐỢT KIỂM KÊ (THEO ID TỰ TĂNG)
         if (action === 'delete_dot' && req.method === 'POST') {
             const { id } = req.body;
             if (!id) {
                 return res.status(400).json({ success: false, error: 'Thiếu ID đợt kiểm kê cần xóa!' });
             }
 
+            const cleanId = parseInt(id, 10);
+
             const [result] = await connection.execute(
                 'DELETE FROM dot_kiem_ke WHERE id = ?',
-                [id]
+                [cleanId]
             );
 
             if (result.affectedRows > 0) {
