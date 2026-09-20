@@ -250,7 +250,14 @@
                         <div class="p-3 border rounded bg-light h-100">
                             <h5 class="card-title fw-bold text-dark mb-3"><i class="fa-solid fa-sliders me-1 text-primary"></i> Thiết Lập Đợt Kiểm Kê</h5>
                             <div class="mb-3">
-                                <label class="form-label fw-semibold text-secondary">Đợt Kiểm Kê <span class="text-danger">*</span>:</label>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label fw-semibold text-secondary mb-0">Đợt Kiểm Kê <span class="text-danger">*</span>:</label>
+                                    <div>
+                                        <button type="button" class="btn btn-outline-success btn-sm py-0 px-2" onclick="addDotKiemKe()" title="Tạo đợt kiểm kê mới"><i class="fa-solid fa-plus me-1"></i> Mới</button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm py-0 px-2" onclick="editDotKiemKe()" title="Sửa tên đợt đang chọn"><i class="fa-solid fa-pen"></i></button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" onclick="deleteDotKiemKe()" title="Xóa đợt đang chọn"><i class="fa-solid fa-trash"></i></button>
+                                    </div>
+                                </div>
                                 <select id="selectDot" class="form-select border-primary-subtle" onchange="filterHistoryByDot()"></select>
                             </div>
                             <div class="mb-3">
@@ -942,7 +949,7 @@
 
                             return `
                                 <button class="btn btn-warning btn-sm text-white me-1" onclick="editAsset('${mAs}', '${dV}', '${tTs}', '${nTs}', '${nG}', '${hM}', '${gCL}', '${nSD}', '${tT}', '${tQt}', '${bS}', '${cB}', '${pB}', '${sS}', '${hA}', '${iAt}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteAsset('${mAs}')" title="Xóa"><i class="fa-solid fa-trash"></i></button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteAsset('${mAs}')" title="Xóa CSDL & Drive"><i class="fa-solid fa-trash"></i></button>
                             `;
                         }
                     }
@@ -1123,10 +1130,14 @@
                     listDotKiemKe = result.dot_kiem_ke || [];
                     const selectDot = document.getElementById('selectDot');
                     if (selectDot) {
+                        const currentVal = selectDot.value;
                         selectDot.innerHTML = '';
                         listDotKiemKe.forEach(d => {
                             selectDot.innerHTML += `<option value="${d.id}">${d.name}</option>`;
                         });
+                        if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) {
+                            selectDot.value = currentVal;
+                        }
                     }
                 }
             } catch (e) {
@@ -1161,6 +1172,157 @@
         function refreshData() {
             refreshAssetsData();
             refreshHistoryData();
+        }
+
+        // ==========================================
+        // CÁC HÀM CRUD ĐỢT KIỂM KÊ
+        // ==========================================
+        async function addDotKiemKe() {
+            const { value: name } = await Swal.fire({
+                title: 'Tạo Đợt Kiểm Kê Mới',
+                input: 'text',
+                inputLabel: 'Tên đợt kiểm kê',
+                inputPlaceholder: 'VD: Kiểm kê Q3/2026',
+                showCancelButton: true,
+                confirmButtonText: 'Tạo Mới',
+                cancelButtonText: 'Hủy',
+                inputValidator: (value) => {
+                    if (!value || !value.trim()) {
+                        return 'Tên đợt kiểm kê không được để trống!';
+                    }
+                }
+            });
+
+            if (name) {
+                Swal.fire({
+                    title: 'Đang tạo đợt kiểm kê...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    const response = await fetch(`${API_URL}?action=add_dot`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: name.trim() })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        Swal.fire({ icon: 'success', title: 'Tạo đợt kiểm kê thành công!', timer: 1500, showConfirmButton: false });
+                        await loadHistoryCache();
+                        if (result.id) {
+                            document.getElementById('selectDot').value = result.id;
+                            filterHistoryByDot();
+                        }
+                    } else {
+                        Swal.fire('Lỗi', result.error || 'Không thể tạo đợt kiểm kê!', 'error');
+                    }
+                } catch (err) {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
+                }
+            }
+        }
+
+        async function editDotKiemKe() {
+            const selectDot = document.getElementById('selectDot');
+            const currentDotId = selectDot.value;
+            if (!currentDotId) {
+                Swal.fire('Cảnh báo', 'Vui lòng chọn đợt kiểm kê cần sửa!', 'warning');
+                return;
+            }
+
+            const currentDotObj = listDotKiemKe.find(d => String(d.id) === String(currentDotId));
+            const currentDotName = currentDotObj ? currentDotObj.name : selectDot.options[selectDot.selectedIndex].text;
+
+            const { value: newName } = await Swal.fire({
+                title: 'Sửa Tên Đợt Kiểm Kê',
+                input: 'text',
+                inputLabel: 'Tên đợt kiểm kê mới',
+                inputValue: currentDotName,
+                showCancelButton: true,
+                confirmButtonText: 'Cập Nhật',
+                cancelButtonText: 'Hủy',
+                inputValidator: (value) => {
+                    if (!value || !value.trim()) {
+                        return 'Tên đợt kiểm kê không được để trống!';
+                    }
+                }
+            });
+
+            if (newName && newName.trim() !== currentDotName) {
+                Swal.fire({
+                    title: 'Đang cập nhật đợt kiểm kê...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    const response = await fetch(`${API_URL}?action=update_dot`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: currentDotId, name: newName.trim() })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        Swal.fire({ icon: 'success', title: 'Đã cập nhật đợt kiểm kê!', timer: 1500, showConfirmButton: false });
+                        await loadHistoryCache();
+                        refreshHistoryData();
+                    } else {
+                        Swal.fire('Lỗi', result.error || 'Không thể cập nhật đợt kiểm kê!', 'error');
+                    }
+                } catch (err) {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
+                }
+            }
+        }
+
+        async function deleteDotKiemKe() {
+            const selectDot = document.getElementById('selectDot');
+            const currentDotId = selectDot.value;
+            if (!currentDotId) {
+                Swal.fire('Cảnh báo', 'Vui lòng chọn đợt kiểm kê cần xóa!', 'warning');
+                return;
+            }
+
+            const currentDotObj = listDotKiemKe.find(d => String(d.id) === String(currentDotId));
+            const currentDotName = currentDotObj ? currentDotObj.name : selectDot.options[selectDot.selectedIndex].text;
+
+            const confirmRes = await Swal.fire({
+                title: 'Xóa Đợt Kiểm Kê?',
+                text: `Bạn có chắc muốn xóa đợt kiểm kê "${currentDotName}"? Toàn bộ lịch sử thuộc đợt này có thể bị ảnh hưởng!`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Đồng ý xóa',
+                cancelButtonText: 'Hủy'
+            });
+
+            if (confirmRes.isConfirmed) {
+                Swal.fire({
+                    title: 'Đang xóa đợt kiểm kê...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    const response = await fetch(`${API_URL}?action=delete_dot`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: currentDotId })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        Swal.fire({ icon: 'success', title: 'Đã xóa đợt kiểm kê thành công!', timer: 1500, showConfirmButton: false });
+                        await loadHistoryCache();
+                        refreshHistoryData();
+                    } else {
+                        Swal.fire('Lỗi', result.error || 'Không thể xóa đợt kiểm kê!', 'error');
+                    }
+                } catch (err) {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
+                }
+            }
         }
 
         function validateAssetData(maTS, tenTS, phongBan) {
@@ -1368,14 +1530,12 @@
                 });
 
                 try {
-                    // 1. Tìm tài sản trong Cache để lấy danh sách URL tệp trên Google Drive
                     const targetAsset = danhSachTS.find(t => String(t.ma_tai_san) === String(ma_tai_san));
                     let fileUrls = [];
                     if (targetAsset && targetAsset.hinh_anh) {
                         fileUrls = targetAsset.hinh_anh.split(',').map(s => s.trim()).filter(Boolean);
                     }
 
-                    // 2. Xóa tài sản trong CSDL
                     const response = await fetch(`${API_URL}?action=delete_asset`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1384,7 +1544,6 @@
                     const result = await response.json();
 
                     if (result.success) {
-                        // 3. Xóa tất cả các tệp tương ứng trên Google Drive
                         if (fileUrls.length > 0) {
                             for (let fileUrl of fileUrls) {
                                 try {
@@ -1399,13 +1558,11 @@
                             }
                         }
 
-                        // Đóng Viewer nếu đang mở tệp bị xóa
                         fileUrls.forEach(url => {
                             closeInlineViewerIfMatches('asset_form_inline_viewer_container', url);
                             closeInlineViewerIfMatches('table_assets_inline_viewer', url);
                         });
 
-                        // Xóa form nếu đang sửa chính tài sản này
                         if (document.getElementById('ma_tai_san').value.trim() === ma_tai_san) {
                             resetForm();
                         }
@@ -1743,7 +1900,7 @@
                     var b64 = editHistoryBase64List[idx];
                     var isCurrentlyViewing = (currentActiveSrc === b64);
                     var safeName = file.name.replace(/'/g, "\\'");
-                    var safeB64 = b64.replace(/'/g, "\\ me-1");
+                    var safeB64 = b64 ? b64.replace(/'/g, "\\'") : '';
 
                     var div = document.createElement('div');
                     div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
@@ -2158,7 +2315,7 @@
                         if (!isNaN(ng) && !isNaN(hm) && hm > ng) rowErrors.push('Lỗi logic: [Hao mòn] > [Nguyên giá]');
 
                         if (rowErrors.length > 0) {
-                            errorDetails.push(`Dòng \({rowIndex} [Mã:\){ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
+                            errorDetails.push(`Dòng ${rowIndex} [Mã: ${ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
                             continue;
                         }
 
