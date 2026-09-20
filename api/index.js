@@ -34,6 +34,14 @@ function decryptData(cipherText) {
     }
 }
 
+// Hàm bổ trợ trích xuất số active (1 hoặc 0) từ dữ liệu nhận vào (mã hóa AES hoặc số thuần)
+function parseActiveValue(activeInput) {
+    if (activeInput === undefined || activeInput === null || activeInput === '') return 1;
+    const decrypted = decryptData(activeInput).toString().trim();
+    const val = Number(decrypted);
+    return isNaN(val) ? 1 : (val !== 0 ? 1 : 0);
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -54,23 +62,23 @@ module.exports = async (req, res) => {
 
         connection = await mysql.createConnection(dbConfig);
 
-        // 1. LẤY DỮ LIỆU BAN ĐẦU (TỰ ĐỘNG GIẢI MÃ TÊN ĐỢT KIỂM KÊ VỀ CLIENT)
+        // 1. LẤY DỮ LIỆU BAN ĐẦU (MÃ HÓA ACTIVE & GIẢI MÃ TÊN ĐỢT KIỂM KÊ VỀ CLIENT)
         if (action === 'data') {
             const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
             const [dotRows] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
             const [lich_su] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
             
-            // Giải mã tên đợt kiểm kê & trả về trạng thái active
+            // Giải mã tên đợt kiểm kê & trả về trạng thái active đã được mã hóa AES
             const dot_kiem_ke = dotRows.map(d => ({
                 ...d,
                 name: decryptData(d.name),
-                active: Number(d.active)
+                active: encryptData(Number(d.active).toString())
             }));
 
             return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
         }
 
-        // 1.1 TẠO MỚI ĐỢT KIỂM KÊ (BỔ SUNG CỘT ACTIVE)
+        // 1.1 TẠO MỚI ĐỢT KIỂM KÊ (XỬ LÝ ACTIVE MÃ HÓA/THUẦN)
         if (action === 'add_dot' && req.method === 'POST') {
             const { name, active } = req.body;
             if (!name || !name.trim()) {
@@ -79,7 +87,7 @@ module.exports = async (req, res) => {
 
             const rawName = decryptData(name).trim();
             const encName = encryptData(rawName);
-            const statusActive = active !== undefined ? (active ? 1 : 0) : 1;
+            const statusActive = parseActiveValue(active);
 
             const [result] = await connection.execute(
                 'INSERT INTO dot_kiem_ke (name, active) VALUES (?, ?)',
@@ -90,12 +98,12 @@ module.exports = async (req, res) => {
                 success: true, 
                 id: result.insertId, 
                 name: rawName,
-                active: statusActive,
+                active: encryptData(statusActive.toString()),
                 message: 'Đã tạo đợt kiểm kê mới thành công!' 
             });
         }
 
-        // 1.2 CẬP NHẬT ĐỢT KIỂM KÊ (CẬP NHẬT TÊN VÀ ACTIVE)
+        // 1.2 CẬP NHẬT ĐỢT KIỂM KÊ (CẬP NHẬT TÊN VÀ ACTIVE MÃ HÓA/THUẦN)
         if (action === 'update_dot' && req.method === 'POST') {
             const { id, name, active } = req.body;
             if (!id || !name || !name.trim()) {
@@ -105,7 +113,7 @@ module.exports = async (req, res) => {
             const cleanId = parseInt(id, 10);
             const rawName = decryptData(name).trim();
             const encName = encryptData(rawName);
-            const statusActive = active !== undefined ? (active ? 1 : 0) : 1;
+            const statusActive = parseActiveValue(active);
 
             const [result] = await connection.execute(
                 'UPDATE dot_kiem_ke SET name = ?, active = ? WHERE id = ?',
@@ -119,7 +127,7 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 1.3 CẬP NHẬT TRẠNG THÁI ACTIVE NHANH (TOGGLE ACTIVE)
+        // 1.3 CẬP NHẬT TRẠNG THÁI ACTIVE NHANH (TOGGLE ACTIVE BẢO MẬT)
         if (action === 'toggle_dot_active' && req.method === 'POST') {
             const { id, active } = req.body;
             if (!id || active === undefined) {
@@ -127,7 +135,7 @@ module.exports = async (req, res) => {
             }
 
             const cleanId = parseInt(id, 10);
-            const statusActive = active ? 1 : 0;
+            const statusActive = parseActiveValue(active);
 
             const [result] = await connection.execute(
                 'UPDATE dot_kiem_ke SET active = ? WHERE id = ?',
