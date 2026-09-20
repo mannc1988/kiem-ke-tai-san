@@ -254,8 +254,9 @@
                                     <label class="form-label fw-semibold text-secondary mb-0">Đợt Kiểm Kê <span class="text-danger">*</span>:</label>
                                     <div>
                                         <button type="button" class="btn btn-outline-success btn-sm py-0 px-2" onclick="addDotKiemKe()" title="Tạo đợt kiểm kê mới"><i class="fa-solid fa-plus me-1"></i> Mới</button>
-                                        <button type="button" class="btn btn-outline-warning btn-sm py-0 px-2" onclick="editDotKiemKe()" title="Sửa tên đợt đang chọn"><i class="fa-solid fa-pen"></i></button>
-                                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" onclick="deleteDotKiemKe()" title="Xóa đợt đang chọn"><i class="fa-solid fa-trash"></i></button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm py-0 px-2" onclick="editDotKiemKe()" title="Sửa đợt đang chọn"><i class="fa-solid fa-pen"></i> Sửa</button>
+                                        <button type="button" id="btnToggleActiveDot" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="toggleActiveDotKiemKe()" title="Bật/Tắt trạng thái kích hoạt"><i class="fa-solid fa-power-off"></i> Khóa/Mở</button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" onclick="deleteDotKiemKe()" title="Xóa đợt đang chọn"><i class="fa-solid fa-trash"></i> Xóa</button>
                                     </div>
                                 </div>
                                 <select id="selectDot" class="form-select border-primary-subtle" onchange="filterHistoryByDot()"></select>
@@ -983,7 +984,8 @@
                             let decryptedDotId = decryptData(data);
                             let dotObj = listDotKiemKe.find(d => String(d.id) === String(decryptedDotId) || String(d.id) === String(data));
                             let name = dotObj ? dotObj.name : `Đợt ID: ${decryptedDotId}`;
-                            return `<span class="badge bg-info text-dark">${name}</span>`;
+                            let activeBadge = (dotObj && Number(dotObj.active) === 0) ? ' <span class="badge bg-danger ms-1">Đã khóa</span>' : '';
+                            return `<span class="badge bg-info text-dark">${name}</span>${activeBadge}`;
                         }
                     },
                     { data: 'tsId', render: data => `<span class="badge bg-secondary">${decryptData(data)}</span>` },
@@ -1133,7 +1135,8 @@
                         const currentVal = selectDot.value;
                         selectDot.innerHTML = '';
                         listDotKiemKe.forEach(d => {
-                            selectDot.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+                            const activeText = Number(d.active) === 0 ? ' [ĐÃ KHÓA]' : '';
+                            selectDot.innerHTML += `<option value="${d.id}">${d.name}${activeText}</option>`;
                         });
                         if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) {
                             selectDot.value = currentVal;
@@ -1175,25 +1178,39 @@
         }
 
         // ==========================================
-        // CÁC HÀM CRUD ĐỢT KIỂM KÊ
+        // CÁC HÀM CRUD ĐỢT KIỂM KÊ (CẬP NHẬT TRẠNG THÁI ACTIVE)
         // ==========================================
         async function addDotKiemKe() {
-            const { value: name } = await Swal.fire({
+            const { value: formValues } = await Swal.fire({
                 title: 'Tạo Đợt Kiểm Kê Mới',
-                input: 'text',
-                inputLabel: 'Tên đợt kiểm kê',
-                inputPlaceholder: 'VD: Kiểm kê Q3/2026',
+                html: `
+                    <div class="text-start">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Tên Đợt Kiểm Kê <span class="text-danger">*</span>:</label>
+                            <input type="text" id="swal_dot_name" class="form-control" placeholder="VD: Kiểm kê Q3/2026">
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="swal_dot_active" checked>
+                            <label class="form-check-label fw-semibold" for="swal_dot_active">Kích hoạt đợt kiểm kê ngay</label>
+                        </div>
+                    </div>
+                `,
                 showCancelButton: true,
-                confirmButtonText: 'Tạo Mới',
+                confirmButtonText: '<i class="fa-solid fa-plus me-1"></i> Tạo Mới',
                 cancelButtonText: 'Hủy',
-                inputValidator: (value) => {
-                    if (!value || !value.trim()) {
-                        return 'Tên đợt kiểm kê không được để trống!';
+                confirmButtonColor: '#198754',
+                preConfirm: () => {
+                    const name = document.getElementById('swal_dot_name').value.trim();
+                    const active = document.getElementById('swal_dot_active').checked ? 1 : 0;
+                    if (!name) {
+                        Swal.showValidationMessage('Tên đợt kiểm kê không được để trống!');
+                        return false;
                     }
+                    return { name, active };
                 }
             });
 
-            if (name) {
+            if (formValues) {
                 Swal.fire({
                     title: 'Đang tạo đợt kiểm kê...',
                     allowOutsideClick: false,
@@ -1204,7 +1221,10 @@
                     const response = await fetch(`${API_URL}?action=add_dot`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: name.trim() })
+                        body: JSON.stringify({ 
+                            name: formValues.name, 
+                            active: formValues.active 
+                        })
                     });
                     const result = await response.json();
                     if (result.success) {
@@ -1233,23 +1253,38 @@
 
             const currentDotObj = listDotKiemKe.find(d => String(d.id) === String(currentDotId));
             const currentDotName = currentDotObj ? currentDotObj.name : selectDot.options[selectDot.selectedIndex].text;
+            const currentActive = currentDotObj ? (Number(currentDotObj.active) !== 0) : true;
 
-            const { value: newName } = await Swal.fire({
-                title: 'Sửa Tên Đợt Kiểm Kê',
-                input: 'text',
-                inputLabel: 'Tên đợt kiểm kê mới',
-                inputValue: currentDotName,
+            const { value: formValues } = await Swal.fire({
+                title: 'Sửa Đợt Kiểm Kê',
+                html: `
+                    <div class="text-start">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Tên Đợt Kiểm Kê <span class="text-danger">*</span>:</label>
+                            <input type="text" id="swal_edit_dot_name" class="form-control" value="${currentDotName}">
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="swal_edit_dot_active" ${currentActive ? 'checked' : ''}>
+                            <label class="form-check-label fw-semibold" for="swal_edit_dot_active">Trạng thái kích hoạt (Active)</label>
+                        </div>
+                    </div>
+                `,
                 showCancelButton: true,
-                confirmButtonText: 'Cập Nhật',
+                confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> Cập Nhật',
                 cancelButtonText: 'Hủy',
-                inputValidator: (value) => {
-                    if (!value || !value.trim()) {
-                        return 'Tên đợt kiểm kê không được để trống!';
+                confirmButtonColor: '#ffc107',
+                preConfirm: () => {
+                    const name = document.getElementById('swal_edit_dot_name').value.trim();
+                    const active = document.getElementById('swal_edit_dot_active').checked ? 1 : 0;
+                    if (!name) {
+                        Swal.showValidationMessage('Tên đợt kiểm kê không được để trống!');
+                        return false;
                     }
+                    return { name, active };
                 }
             });
 
-            if (newName && newName.trim() !== currentDotName) {
+            if (formValues) {
                 Swal.fire({
                     title: 'Đang cập nhật đợt kiểm kê...',
                     allowOutsideClick: false,
@@ -1260,7 +1295,11 @@
                     const response = await fetch(`${API_URL}?action=update_dot`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: currentDotId, name: newName.trim() })
+                        body: JSON.stringify({ 
+                            id: currentDotId, 
+                            name: formValues.name,
+                            active: formValues.active
+                        })
                     });
                     const result = await response.json();
                     if (result.success) {
@@ -1269,6 +1308,55 @@
                         refreshHistoryData();
                     } else {
                         Swal.fire('Lỗi', result.error || 'Không thể cập nhật đợt kiểm kê!', 'error');
+                    }
+                } catch (err) {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
+                }
+            }
+        }
+
+        async function toggleActiveDotKiemKe() {
+            const selectDot = document.getElementById('selectDot');
+            const currentDotId = selectDot.value;
+            if (!currentDotId) {
+                Swal.fire('Cảnh báo', 'Vui lòng chọn đợt kiểm kê cần bật/tắt!', 'warning');
+                return;
+            }
+
+            const currentDotObj = listDotKiemKe.find(d => String(d.id) === String(currentDotId));
+            const currentActive = currentDotObj ? Number(currentDotObj.active) : 1;
+            const newActiveStatus = currentActive === 1 ? 0 : 1;
+            const actionLabel = newActiveStatus === 1 ? 'Kích hoạt' : 'Khóa/Tắt';
+
+            const confirmRes = await Swal.fire({
+                title: `${actionLabel} Đợt Kiểm Kê?`,
+                text: `Bạn có chắc muốn ${actionLabel.toLowerCase()} đợt kiểm kê [${currentDotObj ? currentDotObj.name : currentDotId}]?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: `Đồng ý ${actionLabel}`,
+                cancelButtonText: 'Hủy'
+            });
+
+            if (confirmRes.isConfirmed) {
+                Swal.fire({
+                    title: 'Đang thay đổi trạng thái...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    const response = await fetch(`${API_URL}?action=toggle_dot_active`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: currentDotId, active: newActiveStatus })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        Swal.fire({ icon: 'success', title: `Đã ${actionLabel.toLowerCase()} đợt thành công!`, timer: 1500, showConfirmButton: false });
+                        await loadHistoryCache();
+                        refreshHistoryData();
+                    } else {
+                        Swal.fire('Lỗi', result.error || 'Không thể cập nhật trạng thái!', 'error');
                     }
                 } catch (err) {
                     Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
@@ -2031,6 +2119,13 @@
 
             if (!dotId) {
                 Swal.fire('Chưa chọn đợt', 'Vui lòng chọn Đợt Kiểm Kê trước khi quét!', 'warning');
+                isScanning = true;
+                return;
+            }
+
+            const currentDotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
+            if (currentDotObj && Number(currentDotObj.active) === 0) {
+                Swal.fire('Đợt đã khóa', `Đợt kiểm kê [${currentDotObj.name}] đã bị khóa/tắt kích hoạt. Không thể thực hiện quét mới!`, 'error');
                 isScanning = true;
                 return;
             }
