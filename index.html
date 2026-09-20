@@ -1350,32 +1350,73 @@
         async function deleteAsset(ma_tai_san) {
             const confirmRes = await Swal.fire({
                 title: 'Xác nhận xóa tài sản?',
-                text: `Bạn có chắc muốn xóa tài sản mã ${ma_tai_san}?`,
+                text: `Bạn có chắc muốn xóa tài sản mã ${ma_tai_san}? Tất cả tệp đính kèm trên Google Drive cũng sẽ bị xóa vĩnh viễn!`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
                 cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Xóa trong DB',
+                confirmButtonText: 'Đồng ý xóa CSDL & Drive',
                 cancelButtonText: 'Hủy'
             });
 
             if (confirmRes.isConfirmed) {
                 Swal.fire({
-                    title: 'Đang xóa tài sản...',
-                    text: 'Đang xóa dữ liệu trong DB...',
+                    title: 'Đang xử lý xóa đồng bộ...',
+                    text: 'Đang kiểm tra tệp đính kèm, xóa dữ liệu CSDL và dọn dẹp Google Drive...',
                     allowOutsideClick: false,
                     didOpen: () => { Swal.showLoading(); }
                 });
 
                 try {
+                    // 1. Tìm tài sản trong Cache để lấy danh sách URL tệp trên Google Drive
+                    const targetAsset = danhSachTS.find(t => String(t.ma_tai_san) === String(ma_tai_san));
+                    let fileUrls = [];
+                    if (targetAsset && targetAsset.hinh_anh) {
+                        fileUrls = targetAsset.hinh_anh.split(',').map(s => s.trim()).filter(Boolean);
+                    }
+
+                    // 2. Xóa tài sản trong CSDL
                     const response = await fetch(`${API_URL}?action=delete_asset`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ ma_tai_san })
                     });
                     const result = await response.json();
+
                     if (result.success) {
-                        Swal.fire({ icon: 'success', title: 'Đã xóa tài sản khỏi CSDL!', timer: 1500, showConfirmButton: false });
+                        // 3. Xóa tất cả các tệp tương ứng trên Google Drive
+                        if (fileUrls.length > 0) {
+                            for (let fileUrl of fileUrls) {
+                                try {
+                                    await fetch(`${API_URL}?action=delete_drive`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ fileUrl: fileUrl })
+                                    });
+                                } catch (driveErr) {
+                                    console.warn("Lỗi khi xóa tệp Drive:", fileUrl, driveErr);
+                                }
+                            }
+                        }
+
+                        // Đóng Viewer nếu đang mở tệp bị xóa
+                        fileUrls.forEach(url => {
+                            closeInlineViewerIfMatches('asset_form_inline_viewer_container', url);
+                            closeInlineViewerIfMatches('table_assets_inline_viewer', url);
+                        });
+
+                        // Xóa form nếu đang sửa chính tài sản này
+                        if (document.getElementById('ma_tai_san').value.trim() === ma_tai_san) {
+                            resetForm();
+                        }
+
+                        Swal.fire({ 
+                            icon: 'success', 
+                            title: 'Thành công!', 
+                            text: `Đã xóa tài sản ${ma_tai_san} và toàn bộ tệp liên quan trên Google Drive!`, 
+                            timer: 2000, 
+                            showConfirmButton: false 
+                        });
                         refreshAssetsData();
                     } else {
                         Swal.fire('Lỗi', result.error || 'Không thể xóa dữ liệu trên máy chủ!', 'error');
