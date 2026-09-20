@@ -981,6 +981,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
             historyTable = $('#historyTable').DataTable({
                 serverSide: true,
                 processing: true,
+                scrollX: true,
                 ajax: {
                     url: `${API_URL}?action=server_history`,
                     type: 'GET',
