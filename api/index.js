@@ -34,8 +34,8 @@ function decryptData(cipherText) {
     }
 }
 
-// Hàm bổ trợ trích xuất số active (1 hoặc 0) từ dữ liệu nhận vào (mã hóa AES hoặc số thuần)
-function parseActiveValue(activeInput) {
+// Hàm chuẩn hóa giá trị active về dạng số thuần (1 hoặc 0) trước khi mã hóa lại
+function getRawActiveNumber(activeInput) {
     if (activeInput === undefined || activeInput === null || activeInput === '') return 1;
     const decrypted = decryptData(activeInput).toString().trim();
     const val = Number(decrypted);
@@ -62,23 +62,27 @@ module.exports = async (req, res) => {
 
         connection = await mysql.createConnection(dbConfig);
 
-        // 1. LẤY DỮ LIỆU BAN ĐẦU (MÃ HÓA ACTIVE & GIẢI MÃ TÊN ĐỢT KIỂM KÊ VỀ CLIENT)
+        // 1. LẤY DỮ LIỆU BAN ĐẦU (GIẢI MÃ ACTIVE VÀ TÊN ĐỢT TRẢ VỀ CLIENT XEM)
         if (action === 'data') {
             const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
             const [dotRows] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
             const [lich_su] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
             
-            // Giải mã tên đợt kiểm kê & trả về trạng thái active đã được mã hóa AES
-            const dot_kiem_ke = dotRows.map(d => ({
-                ...d,
-                name: decryptData(d.name),
-                active: encryptData(Number(d.active).toString())
-            }));
+            // Giải mã name và active từ DB để trả về dạng thuần (1/0) cho client hiển thị
+            const dot_kiem_ke = dotRows.map(d => {
+                const decActive = decryptData(d.active);
+                const rawActiveNum = !isNaN(decActive) && decActive !== '' ? Number(decActive) : Number(d.active);
+                return {
+                    ...d,
+                    name: decryptData(d.name),
+                    active: isNaN(rawActiveNum) ? 1 : rawActiveNum
+                };
+            });
 
             return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
         }
 
-        // 1.1 TẠO MỚI ĐỢT KIỂM KÊ (XỬ LÝ ACTIVE MÃ HÓA/THUẦN)
+        // 1.1 TẠO MỚI ĐỢT KIỂM KÊ (MÃ HÓA ACTIVE KHI LƯU VÀO DB)
         if (action === 'add_dot' && req.method === 'POST') {
             const { name, active } = req.body;
             if (!name || !name.trim()) {
@@ -87,23 +91,26 @@ module.exports = async (req, res) => {
 
             const rawName = decryptData(name).trim();
             const encName = encryptData(rawName);
-            const statusActive = parseActiveValue(active);
+            
+            // Ép về số 1/0 rồi mã hóa AES để lưu vào DB
+            const rawActiveNum = getRawActiveNumber(active);
+            const encActive = encryptData(rawActiveNum.toString());
 
             const [result] = await connection.execute(
                 'INSERT INTO dot_kiem_ke (name, active) VALUES (?, ?)',
-                [encName, statusActive]
+                [encName, encActive]
             );
 
             return res.json({ 
                 success: true, 
                 id: result.insertId, 
                 name: rawName,
-                active: encryptData(statusActive.toString()),
+                active: rawActiveNum,
                 message: 'Đã tạo đợt kiểm kê mới thành công!' 
             });
         }
 
-        // 1.2 CẬP NHẬT ĐỢT KIỂM KÊ (CẬP NHẬT TÊN VÀ ACTIVE MÃ HÓA/THUẦN)
+        // 1.2 CẬP NHẬT ĐỢT KIỂM KÊ (MÃ HÓA ACTIVE KHI CẬP NHẬT VÀO DB)
         if (action === 'update_dot' && req.method === 'POST') {
             const { id, name, active } = req.body;
             if (!id || !name || !name.trim()) {
@@ -113,11 +120,14 @@ module.exports = async (req, res) => {
             const cleanId = parseInt(id, 10);
             const rawName = decryptData(name).trim();
             const encName = encryptData(rawName);
-            const statusActive = parseActiveValue(active);
+            
+            // Ép về số 1/0 rồi mã hóa AES để cập nhật vào DB
+            const rawActiveNum = getRawActiveNumber(active);
+            const encActive = encryptData(rawActiveNum.toString());
 
             const [result] = await connection.execute(
                 'UPDATE dot_kiem_ke SET name = ?, active = ? WHERE id = ?',
-                [encName, statusActive, cleanId]
+                [encName, encActive, cleanId]
             );
 
             if (result.affectedRows > 0) {
@@ -127,7 +137,7 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 1.3 CẬP NHẬT TRẠNG THÁI ACTIVE NHANH (TOGGLE ACTIVE BẢO MẬT)
+        // 1.3 BẬT/TẮT ACTIVE NHANH (MÃ HÓA ACTIVE KHI LƯU VÀO DB)
         if (action === 'toggle_dot_active' && req.method === 'POST') {
             const { id, active } = req.body;
             if (!id || active === undefined) {
@@ -135,11 +145,14 @@ module.exports = async (req, res) => {
             }
 
             const cleanId = parseInt(id, 10);
-            const statusActive = parseActiveValue(active);
+            
+            // Ép về số 1/0 rồi mã hóa AES để cập nhật vào DB
+            const rawActiveNum = getRawActiveNumber(active);
+            const encActive = encryptData(rawActiveNum.toString());
 
             const [result] = await connection.execute(
                 'UPDATE dot_kiem_ke SET active = ? WHERE id = ?',
-                [statusActive, cleanId]
+                [encActive, cleanId]
             );
 
             if (result.affectedRows > 0) {
