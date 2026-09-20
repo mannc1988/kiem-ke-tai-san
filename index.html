@@ -600,7 +600,7 @@
     }
     if (!targetContainer) return;
 
-    // Nếu đang bật đúng tệp này thì đóng (toggle)
+    // Nếu đang bật đúng tệp này thì đóng lại (Toggle)
     if (!targetContainer.classList.contains('d-none') && targetContainer.dataset.activeSrc === urlOrBase64) {
         targetContainer.classList.add('d-none');
         targetContainer.innerHTML = '';
@@ -637,7 +637,7 @@
 
     var embedSrc = urlOrBase64;
 
-    // TỐI ƯU TRÍCH XUẤT FILE ID VÀ CHUYỂN DẠNG GOOGLE DRIVE PREVIEW
+    // TỐI ƯU TRÍCH XUẤT FILE ID VÀ CHUYỂN DẠNG GOOGLE DRIVE PREVIEW FULL TRANG
     if (urlOrBase64.indexOf('drive.google.com') !== -1 || urlOrBase64.indexOf('googleusercontent.com') !== -1) {
         var fileId = '';
         if (urlOrBase64.indexOf('googleusercontent.com/d/') !== -1) {
@@ -698,7 +698,21 @@
         targetContainer.innerHTML = 
             '<div class="position-relative mt-2 w-100" style="width: 100% !important;">' +
                 headerHtml +
-                '<div class="w-100 d-flex justify-content-center align-items-center bg-dark rounded-bottom p-2" style="min-height: 400px; max-height: 85vh; border: 1px solid #dee2e6; box-shadow: 0 6px 20px rgba(0,0,0,0.15);">'
+                '<div class="w-100 d-flex justify-content-center align-items-center bg-dark rounded-bottom p-2" style="min-height: 400px; max-height: 85vh; border: 1px solid #dee2e6; box-shadow: 0 6px 20px rgba(0,0,0,0.15);">' +
+                    '<img src="' + embedSrc + '" style="max-width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 4px;" alt="Inline Image Preview" />' +
+                '</div>' +
+            '</div>';
+    }
+
+    targetContainer.classList.remove('d-none');
+    targetContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    if (elementPrefixId === 'asset_form_inline_viewer_container') renderImageDetailList();
+    if (elementPrefixId === 'swal_file_inline_viewer_container') {
+        var hId = targetContainer.dataset.historyId || null;
+        renderEditHistoryFileList(hId);
+    }
+}
 
         async function deleteDriveFileDirectly(fileUrl, index, context = 'asset', historyId = null) {
             if (!fileUrl || typeof fileUrl !== 'string') {
