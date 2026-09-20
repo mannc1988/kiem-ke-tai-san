@@ -2117,7 +2117,7 @@
                         if (!isNaN(ng) && !isNaN(hm) && hm > ng) rowErrors.push('Lỗi logic: [Hao mòn] > [Nguyên giá]');
 
                         if (rowErrors.length > 0) {
-                            errorDetails.push('Dòng ${rowIndex} [Mã: ${ma_tai_san \vert{}\vert{} 'Trống'}]: ${rowErrors.join(' | ')}');
+                            errorDetails.push(`Dòng \({rowIndex} [Mã:\){ma_tai_san || 'Trống'}]: ${rowErrors.join(' | ')}`);
                             continue;
                         }
 
