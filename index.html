@@ -96,26 +96,29 @@
     clear: both;
 }
 
-/* 2. Ép dòng chứa ô Tìm kiếm và dòng chứa Phân trang dạt hết sang bên phải */
+/* Ép khung ngoài DataTables luôn vừa khít 100% card, không bị phình rộng hơn màn hình */
+.dataTables_wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important; /* Khóa cuộn ngang ở khung ngoài */
+}
+
+/* Căn ô Tìm kiếm và Nút phân trang sát lề phải hiển thị */
 .dataTables_wrapper .dataTables_filter,
 .dataTables_wrapper .dataTables_paginate {
     float: right !important;
     text-align: right !important;
-    margin-left: auto !important;
 }
 
-/* 3. Đảm bảo input tìm kiếm không bị méo */
-.dataTables_wrapper .dataTables_filter input {
-    margin-left: 0.5em !important;
-    display: inline-block !important;
-    width: auto !important;
-}
-
-/* 4. Tự động xóa float để không bị vỡ khung sau bảng */
-.dataTables_wrapper::after {
-    content: "";
-    display: table;
+/* Đảm bảo khung cuộn chỉ áp dụng cho nội dung bảng bên trong */
+.dataTables_scroll {
+    width: 100% !important;
     clear: both;
+}
+
+.dataTables_scrollBody {
+    width: 100% !important;
+    overflow-x: auto !important; /* Chỉ cuộn ngang nội dung hàng/cột của bảng */
 }
     </style>
 </head>
@@ -217,7 +220,7 @@
                     </div>
                 </form>
 
-                <div class="table-responsive">
+                
                     <table id="assetsTable" class="table table-striped table-hover align-middle w-100">
                         <thead class="table-light">
                             <tr>
@@ -243,7 +246,7 @@
                         </thead>
                         <tbody></tbody>
                     </table>
-                </div>
+                    
 
                 <!-- CONTAINER XEM INLINE DƯỚI BẢNG TÀI SẢN -->
                 <div id="table_assets_inline_viewer" class="mt-3 d-none"></div>
@@ -868,6 +871,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
             assetsTable = $('#assetsTable').DataTable({
                 serverSide: true,
                 processing: true,
+                scrollX: true,
                 ajax: {
                     url: `${API_URL}?action=server_assets`,
                     type: 'GET'
