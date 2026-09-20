@@ -1129,7 +1129,16 @@
                         ghiChu: decryptData(h.ghiChu)
                     }));
 
-                    listDotKiemKe = result.dot_kiem_ke || [];
+                    // Giải mã active của Đợt kiểm kê
+                    listDotKiemKe = (result.dot_kiem_ke || []).map(d => {
+                        let decryptedActive = decryptData(d.active);
+                        let finalActiveVal = (decryptedActive !== '' && !isNaN(decryptedActive)) ? Number(decryptedActive) : Number(d.active);
+                        return {
+                            ...d,
+                            active: isNaN(finalActiveVal) ? 1 : finalActiveVal
+                        };
+                    });
+
                     const selectDot = document.getElementById('selectDot');
                     if (selectDot) {
                         const currentVal = selectDot.value;
@@ -1178,7 +1187,7 @@
         }
 
         // ==========================================
-        // CÁC HÀM CRUD ĐỢT KIỂM KÊ (CẬP NHẬT TRẠNG THÁI ACTIVE)
+        // CÁC HÀM CRUD ĐỢT KIỂM KÊ (MÃ HÓA & GIẢI MÃ ACTIVE)
         // ==========================================
         async function addDotKiemKe() {
             const { value: formValues } = await Swal.fire({
@@ -1223,7 +1232,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                             name: formValues.name, 
-                            active: formValues.active 
+                            active: encryptData(formValues.active.toString()) 
                         })
                     });
                     const result = await response.json();
@@ -1298,7 +1307,7 @@
                         body: JSON.stringify({ 
                             id: currentDotId, 
                             name: formValues.name,
-                            active: formValues.active
+                            active: encryptData(formValues.active.toString())
                         })
                     });
                     const result = await response.json();
@@ -1348,7 +1357,10 @@
                     const response = await fetch(`${API_URL}?action=toggle_dot_active`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: currentDotId, active: newActiveStatus })
+                        body: JSON.stringify({ 
+                            id: currentDotId, 
+                            active: encryptData(newActiveStatus.toString()) 
+                        })
                     });
                     const result = await response.json();
                     if (result.success) {
