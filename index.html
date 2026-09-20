@@ -866,49 +866,47 @@
                 columns: [
                     { data: null, render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 },
                     { 
-                        data: 'hinh_anh', 
-                        className: 'align-middle',
-                        render: (data, type, row, meta) => {
-                            let decrypted = decryptData(data);
-                            if (!decrypted) return '<span class="text-muted small fst-italic">Không có tệp</span>';
-                            let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
-                            if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có tệp</span>';
+    data: 'hinh_anh', 
+    className: 'align-middle',
+    render: (data, type, row, meta) => {
+        let decrypted = decryptData(data);
+        if (!decrypted) return '<span class="text-muted small fst-italic">Không có tệp</span>';
+        let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
+        if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có tệp</span>';
 
-                            let htmlList = '<div style="min-width: 170px;">';
-                            urls.forEach((url, idx) => {
-                                let fName = url.split('/').pop().split('?')[0] || `Asset_File_${idx + 1}`;
-                                let isPdf = fName.toLowerCase().endsWith('.pdf') || url.includes('.pdf');
-                                let isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.includes('image/');
+        let htmlList = '<div style="min-width: 180px;">';
+        urls.forEach((url, idx) => {
+            let fName = url.split('/').pop().split('?')[0] || `Asset_File_${idx + 1}`;
+            
+            // Chuyển URL Google Drive sang dạng Preview full trang
+            let embedUrl = getEmbedDriveUrl(url);
+            let safeUrl = url.replace(/'/g, "\\'");
+            let safeEmbedUrl = embedUrl.replace(/'/g, "\\'");
 
-                                let inlineBtnHtml = '';
-                                if (isPdf || isImage) {
-                                    let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
-                                    inlineBtnHtml = `
-                                        <button class="btn btn-info btn-sm text-white py-0 px-2" style="font-size: 0.7rem;" onclick="toggleInlineMedia('table_assets_inline_viewer', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline Full Width">
-                                            <i class="fa-solid ${iconClass} me-1"></i> Xem Inline
-                                        </button>
-                                    `;
-                                } else {
-                                    inlineBtnHtml = `<a href="${url}" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.7rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>`;
-                                }
-
-                                htmlList += `
-                                    <div class="mb-1">
-                                        <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 shadow-sm">
-                                            <span class="text-truncate me-2 small text-secondary" style="max-width: 110px;" title="${fName}">
-                                                <i class="fa-solid fa-file text-primary me-1"></i> ${fName}
-                                            </span>
-                                            <div>
-                                                ${inlineBtnHtml}
-                                            </div>
-                                        </div>
-                                    </div>
-                                `;
-                            });
-                            htmlList += '</div>';
-                            return htmlList;
-                        }
-                    },
+            htmlList += `
+                <div class="mb-1">
+                    <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 shadow-sm">
+                        <span class="text-truncate me-2 small text-secondary" style="max-width: 90px;" title="${fName}">
+                            <i class="fa-solid fa-file-pdf text-danger me-1"></i> ${fName}
+                        </span>
+                        <div class="d-flex align-items-center">
+                            <button type="button" class="btn btn-info btn-sm text-white py-0 px-2 me-1" style="font-size: 0.7rem;" 
+                                    onclick="toggleInlineMedia('table_assets_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
+                                    title="Xem Inline Full các trang">
+                                <i class="fa-solid fa-file-pdf me-1"></i> Xem Inline
+                            </button>
+                            <a href="${url}" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.7rem;" title="Tải về">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        htmlList += '</div>';
+        return htmlList;
+    }
+},
                     { data: 'ma_tai_san', render: data => `<span class="badge bg-secondary">${decryptData(data)}</span>` },
                     { data: 'don_vi', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
                     { data: 'ten_tai_san', render: data => `<span class="fw-semibold text-dark">${decryptData(data)}</span>` },
@@ -996,47 +994,44 @@
                     { data: 'ket_qua_kk', render: data => `<span class="badge bg-success-subtle text-success border">${decryptData(data)}</span>` },
                     { data: 'phuong_an_xl', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
                     { 
-                        data: 'tep_dinh_kem', 
-                        className: 'align-middle',
-                        render: (data, type, row, meta) => {
-                            let decrypted = decryptData(data);
-                            if (!decrypted) return '<span class="text-muted small fst-italic">Không có file</span>';
-                            let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
-                            if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có file</span>';
+    data: 'tep_dinh_kem', 
+    className: 'align-middle',
+    render: (data, type, row, meta) => {
+        let decrypted = decryptData(data);
+        if (!decrypted) return '<span class="text-muted small fst-italic">Không có file</span>';
+        let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
+        if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có file</span>';
 
-                            let htmlList = '<div style="min-width: 170px;">';
-                            urls.forEach((url, idx) => {
-                                let fName = url.split('/').pop().split('?')[0] || `File_${idx + 1}`;
-                                let isPdf = fName.toLowerCase().endsWith('.pdf') || url.includes('.pdf');
-                                let isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.includes('image/');
+        let htmlList = '<div style="min-width: 180px;">';
+        urls.forEach((url, idx) => {
+            let fName = url.split('/').pop().split('?')[0] || `File_${idx + 1}`;
+            
+            let embedUrl = getEmbedDriveUrl(url);
+            let safeUrl = url.replace(/'/g, "\\'");
+            let safeEmbedUrl = embedUrl.replace(/'/g, "\\'");
 
-                                let inlineBtnHtml = '';
-                                if (isPdf || isImage) {
-                                    let iconClass = isPdf ? 'fa-file-pdf' : 'fa-file-image';
-                                    inlineBtnHtml = `
-                                        <button class="btn btn-info btn-sm text-white py-0 px-2" style="font-size: 0.65rem;" onclick="toggleInlineMedia('table_history_inline_viewer', '${url}', '${isPdf ? 'pdf' : 'image'}')" title="Xem Inline Full Width">
-                                            <i class="fa-solid ${iconClass} me-1"></i> Xem Inline
-                                        </button>
-                                    `;
-                                } else {
-                                    inlineBtnHtml = `<a href="${url}" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.65rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>`;
-                                }
-
-                                htmlList += `
-                                    <div class="mb-1">
-                                        <div class="d-flex align-items-center justify-content-between bg-white border rounded px-1 py-1 shadow-sm" style="font-size: 0.75rem;">
-                                            <span class="text-truncate me-1 text-secondary" style="max-width: 90px;" title="${fName}">${fName}</span>
-                                            <div>
-                                                ${inlineBtnHtml}
-                                            </div>
-                                        </div>
-                                    </div>
-                                `;
-                            });
-                            htmlList += '</div>';
-                            return htmlList;
-                        }
-                    },
+            htmlList += `
+                <div class="mb-1">
+                    <div class="d-flex align-items-center justify-content-between bg-white border rounded px-1 py-1 shadow-sm" style="font-size: 0.75rem;">
+                        <span class="text-truncate me-1 text-secondary" style="max-width: 80px;" title="${fName}">${fName}</span>
+                        <div class="d-flex align-items-center">
+                            <button type="button" class="btn btn-info btn-sm text-white py-0 px-1 me-1" style="font-size: 0.65rem;" 
+                                    onclick="toggleInlineMedia('table_history_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
+                                    title="Xem Inline Full các trang">
+                                <i class="fa-solid fa-file-pdf me-1"></i> Xem Inline
+                            </button>
+                            <a href="${url}" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.65rem;" title="Tải về">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        htmlList += '</div>';
+        return htmlList;
+    }
+},
                     { data: 'thoiGian', render: data => `<span class="text-muted small">${decryptData(data)}</span>` },
                     { data: 'ghiChu', render: data => `<span class="badge bg-light text-secondary border">${decryptData(data)}</span>` },
                     { 
@@ -2026,7 +2021,21 @@
                 });
             }
         }
-
+        function getEmbedDriveUrl(url) {
+    if (!url) return url;
+    if (url.indexOf('drive.google.com') !== -1) {
+        let fileId = '';
+        if (url.indexOf('/d/') !== -1) {
+            fileId = url.split('/d/')[1].split('/')[0];
+        } else if (url.indexOf('id=') !== -1) {
+            fileId = url.split('id=')[1].split('&')[0];
+        }
+        if (fileId) {
+            return 'https://drive.google.com/file/d/' + fileId + '/preview';
+        }
+    }
+    return url;
+}
         function removeEditTempFile(idx, historyId) {
             let b64Target = editHistoryBase64List[idx];
             closeInlineViewerIfMatches('swal_fileDetailList', b64Target);
