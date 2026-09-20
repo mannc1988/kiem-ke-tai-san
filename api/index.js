@@ -54,12 +54,83 @@ module.exports = async (req, res) => {
 
         connection = await mysql.createConnection(dbConfig);
 
-        // 1. LẤY DỮ LIỆU BAN ĐẦU
+        // 1. LẤY DỮ LIỆU BAN ĐẦU (TỰ ĐỘNG GIẢI MÃ TÊN ĐỢT KIỂM KÊ VỀ CLIENT)
         if (action === 'data') {
             const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
-            const [dot_kiem_ke] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
+            const [dotRows] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
             const [lich_su] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
+            
+            // Giải mã tên đợt kiểm kê nếu đã lưu mã hóa trong CSDL
+            const dot_kiem_ke = dotRows.map(d => ({
+                ...d,
+                name: decryptData(d.name)
+            }));
+
             return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
+        }
+
+        // 1.1 TẠO MỚI ĐỢT KIỂM KÊ (MÃ HÓA TÊN ĐỢT)
+        if (action === 'add_dot' && req.method === 'POST') {
+            const { name } = req.body;
+            if (!name || !name.trim()) {
+                return res.status(400).json({ success: false, error: 'Tên đợt kiểm kê không được để trống!' });
+            }
+
+            const rawName = decryptData(name).trim();
+            const encName = encryptData(rawName);
+
+            const [result] = await connection.execute(
+                'INSERT INTO dot_kiem_ke (name) VALUES (?)',
+                [encName]
+            );
+
+            return res.json({ 
+                success: true, 
+                id: result.insertId, 
+                name: rawName,
+                message: 'Đã tạo đợt kiểm kê mới thành công!' 
+            });
+        }
+
+        // 1.2 CẬP NHẬT ĐỢT KIỂM KÊ (MÃ HÓA TÊN ĐỢT MỚI)
+        if (action === 'update_dot' && req.method === 'POST') {
+            const { id, name } = req.body;
+            if (!id || !name || !name.trim()) {
+                return res.status(400).json({ success: false, error: 'Thiếu ID hoặc tên đợt kiểm kê cần cập nhật!' });
+            }
+
+            const rawName = decryptData(name).trim();
+            const encName = encryptData(rawName);
+
+            const [result] = await connection.execute(
+                'UPDATE dot_kiem_ke SET name = ? WHERE id = ?',
+                [encName, id]
+            );
+
+            if (result.affectedRows > 0) {
+                return res.json({ success: true, message: 'Đã cập nhật đợt kiểm kê thành công!' });
+            } else {
+                return res.status(404).json({ success: false, error: 'Không tìm thấy đợt kiểm kê cần cập nhật!' });
+            }
+        }
+
+        // 1.3 XÓA ĐỢT KIỂM KÊ
+        if (action === 'delete_dot' && req.method === 'POST') {
+            const { id } = req.body;
+            if (!id) {
+                return res.status(400).json({ success: false, error: 'Thiếu ID đợt kiểm kê cần xóa!' });
+            }
+
+            const [result] = await connection.execute(
+                'DELETE FROM dot_kiem_ke WHERE id = ?',
+                [id]
+            );
+
+            if (result.affectedRows > 0) {
+                return res.json({ success: true, message: 'Đã xóa đợt kiểm kê thành công!' });
+            } else {
+                return res.status(404).json({ success: false, error: 'Không tìm thấy đợt kiểm kê cần xóa!' });
+            }
         }
 
         // 2. PHÂN TRANG DATATABLE DANH MỤC TÀI SẢN
@@ -234,7 +305,7 @@ module.exports = async (req, res) => {
                             );
                             successCount++;
                         } catch (updateErr) {
-                            batchErrors.push(`Lỗi cập nhật mã \({decryptedNewMaTS}:\){updateErr.message}`);
+                            batchErrors.push(`Lỗi cập nhật mã ${decryptedNewMaTS}: ${updateErr.message}`);
                         }
                     }
                 } else {
@@ -248,7 +319,7 @@ module.exports = async (req, res) => {
                         successCount++;
                         allAssets.push({ ma_tai_san });
                     } catch (insertErr) {
-                        batchErrors.push(`Lỗi thêm mới mã \({decryptedNewMaTS}:\){insertErr.message}`);
+                        batchErrors.push(`Lỗi thêm mới mã ${decryptedNewMaTS}: ${insertErr.message}`);
                     }
                 }
             }
@@ -257,41 +328,37 @@ module.exports = async (req, res) => {
         }
 
         // 5. XÓA TÀI SẢN
-if (action === 'delete_asset' && req.method === 'POST') {
-    const { ma_tai_san } = req.body;
-    
-    if (!ma_tai_san) {
-        return res.status(400).json({ success: false, error: 'Thiếu mã tài sản cần xóa!' });
-    }
+        if (action === 'delete_asset' && req.method === 'POST') {
+            const { ma_tai_san } = req.body;
+            
+            if (!ma_tai_san) {
+                return res.status(400).json({ success: false, error: 'Thiếu mã tài sản cần xóa!' });
+            }
 
-    const targetMaTS = ma_tai_san.toString().trim();
+            const targetMaTS = ma_tai_san.toString().trim();
+            const [allAssets] = await connection.execute('SELECT ma_tai_san FROM danh_sach_tai_san');
 
-    // Lấy toàn bộ mã tài sản trong DB để so sánh sau khi giải mã
-    const [allAssets] = await connection.execute('SELECT ma_tai_san FROM danh_sach_tai_san');
+            let matchedDbKey = null;
+            for (let row of allAssets) {
+                let decMa = decryptData(row.ma_tai_san).trim();
+                if (decMa === targetMaTS || row.ma_tai_san === targetMaTS) {
+                    matchedDbKey = row.ma_tai_san;
+                    break;
+                }
+            }
 
-    let matchedDbKey = null;
-    for (let row of allAssets) {
-        let decMa = decryptData(row.ma_tai_san).trim();
-        // So sánh mã đã giải mã hoặc mã nguyên bản trong DB
-        if (decMa === targetMaTS || row.ma_tai_san === targetMaTS) {
-            matchedDbKey = row.ma_tai_san;
-            break;
+            if (!matchedDbKey) {
+                return res.status(404).json({ success: false, error: 'Không tìm thấy mã tài sản cần xóa trong CSDL!' });
+            }
+
+            const [result] = await connection.execute('DELETE FROM danh_sach_tai_san WHERE ma_tai_san = ?', [matchedDbKey]);
+
+            if (result.affectedRows > 0) {
+                return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
+            } else {
+                return res.status(500).json({ success: false, error: 'Xóa thất bại, không có dòng nào bị ảnh hưởng!' });
+            }
         }
-    }
-
-    if (!matchedDbKey) {
-        return res.status(404).json({ success: false, error: 'Không tìm thấy mã tài sản cần xóa trong CSDL!' });
-    }
-
-    // Thực hiện xóa đúng khóa mã hóa khớp trong DB
-    const [result] = await connection.execute('DELETE FROM danh_sach_tai_san WHERE ma_tai_san = ?', [matchedDbKey]);
-
-    if (result.affectedRows > 0) {
-        return res.json({ success: true, message: 'Đã xóa tài sản thành công!' });
-    } else {
-        return res.status(500).json({ success: false, error: 'Xóa thất bại, không có dòng nào bị ảnh hưởng!' });
-    }
-}
 
         // 6. GHI NHẬN LỊCH SỬ QR
         if (action === 'history' && req.method === 'POST') {
@@ -481,49 +548,44 @@ if (action === 'delete_asset' && req.method === 'POST') {
         }
 
         // 11. LOẠI BỎ TỆP LỊCH SỬ KIỂM KÊ KHỎI CSDL
-if (action === 'remove_history_file' && req.method === 'POST') {
-    // Chấp nhận cả "id" (từ fetch Client) hoặc "historyId" để tránh lệch tên biến
-    const id = req.body.id || req.body.historyId;
-    const removeUrl = req.body.removeUrl;
-    
-    // Kiểm tra tính hợp lệ của tham số
-    if (!id || id === 'null' || !removeUrl) {
-        return res.status(400).json({ 
-            success: false, 
-            error: 'Thiếu ID lịch sử hoặc URL tệp cần xóa!' 
-        });
-    }
+        if (action === 'remove_history_file' && req.method === 'POST') {
+            const id = req.body.id || req.body.historyId;
+            const removeUrl = req.body.removeUrl;
+            
+            if (!id || id === 'null' || !removeUrl) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Thiếu ID lịch sử hoặc URL tệp cần xóa!' 
+                });
+            }
 
-    const cleanId = Number(id);
-    const cleanRemoveUrl = removeUrl.toString().trim();
+            const cleanId = Number(id);
+            const cleanRemoveUrl = removeUrl.toString().trim();
 
-    // Truy vấn dữ liệu lịch sử kiểm kê
-    const [rows] = await connection.execute('SELECT tep_dinh_kem FROM lich_su_kk WHERE id = ?', [cleanId]);
+            const [rows] = await connection.execute('SELECT tep_dinh_kem FROM lich_su_kk WHERE id = ?', [cleanId]);
 
-    if (rows.length === 0) {
-        return res.status(404).json({ success: false, error: 'Không tìm thấy dòng lịch sử trong CSDL!' });
-    }
+            if (rows.length === 0) {
+                return res.status(404).json({ success: false, error: 'Không tìm thấy dòng lịch sử trong CSDL!' });
+            }
 
-    // Giải mã danh sách URL và loại bỏ URL cần xóa
-    let decryptedTep = decryptData(rows[0].tep_dinh_kem) || '';
-    let urlList = decryptedTep.split(',').map(s => s.trim()).filter(Boolean);
-    let updatedList = urlList.filter(url => url !== cleanRemoveUrl);
-    
-    // Mã hóa lại chuỗi danh sách URL mới
-    let newTepEncrypted = encryptData(updatedList.join(','));
+            let decryptedTep = decryptData(rows[0].tep_dinh_kem) || '';
+            let urlList = decryptedTep.split(',').map(s => s.trim()).filter(Boolean);
+            let updatedList = urlList.filter(url => url !== cleanRemoveUrl);
+            
+            let newTepEncrypted = encryptData(updatedList.join(','));
 
-    // Cập nhật CSDL MySQL
-    await connection.execute(
-        'UPDATE lich_su_kk SET tep_dinh_kem = ? WHERE id = ?', 
-        [newTepEncrypted, cleanId]
-    );
+            await connection.execute(
+                'UPDATE lich_su_kk SET tep_dinh_kem = ? WHERE id = ?', 
+                [newTepEncrypted, cleanId]
+            );
 
-    return res.json({ 
-        success: true, 
-        message: 'Đã cập nhật tệp đính kèm lịch sử trong CSDL thành công!',
-        remainingUrls: updatedList.join(',')
-    });
-}
+            return res.json({ 
+                success: true, 
+                message: 'Đã cập nhật tệp đính kèm lịch sử trong CSDL thành công!',
+                remainingUrls: updatedList.join(',')
+            });
+        }
+
         return res.status(404).json({ success: false, error: 'Action không hợp lệ' });
 
     } catch (error) {
