@@ -60,42 +60,44 @@ module.exports = async (req, res) => {
             const [dotRows] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
             const [lich_su] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
             
-            // Giải mã tên đợt kiểm kê nếu đã lưu mã hóa trong CSDL
+            // Giải mã tên đợt kiểm kê & trả về trạng thái active
             const dot_kiem_ke = dotRows.map(d => ({
                 ...d,
-                name: decryptData(d.name)
+                name: decryptData(d.name),
+                active: Number(d.active)
             }));
 
             return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
         }
 
-        // 1.1 TẠO MỚI ĐỢT KIỂM KÊ (DÙNG ID TỰ TĂNG AUTO_INCREMENT)
+        // 1.1 TẠO MỚI ĐỢT KIỂM KÊ (BỔ SUNG CỘT ACTIVE)
         if (action === 'add_dot' && req.method === 'POST') {
-            const { name } = req.body;
+            const { name, active } = req.body;
             if (!name || !name.trim()) {
                 return res.status(400).json({ success: false, error: 'Tên đợt kiểm kê không được để trống!' });
             }
 
             const rawName = decryptData(name).trim();
             const encName = encryptData(rawName);
+            const statusActive = active !== undefined ? (active ? 1 : 0) : 1;
 
-            // Bảng dot_kiem_ke có id là AUTO_INCREMENT nên chỉ cần INSERT cột name
             const [result] = await connection.execute(
-                'INSERT INTO dot_kiem_ke (name) VALUES (?)',
-                [encName]
+                'INSERT INTO dot_kiem_ke (name, active) VALUES (?, ?)',
+                [encName, statusActive]
             );
 
             return res.json({ 
                 success: true, 
-                id: result.insertId, // Lấy ID tự tăng vừa tạo từ MySQL
+                id: result.insertId, 
                 name: rawName,
+                active: statusActive,
                 message: 'Đã tạo đợt kiểm kê mới thành công!' 
             });
         }
 
-        // 1.2 CẬP NHẬT ĐỢT KIỂM KÊ (THEO ID TỰ TĂNG)
+        // 1.2 CẬP NHẬT ĐỢT KIỂM KÊ (CẬP NHẬT TÊN VÀ ACTIVE)
         if (action === 'update_dot' && req.method === 'POST') {
-            const { id, name } = req.body;
+            const { id, name, active } = req.body;
             if (!id || !name || !name.trim()) {
                 return res.status(400).json({ success: false, error: 'Thiếu ID hoặc tên đợt kiểm kê cần cập nhật!' });
             }
@@ -103,10 +105,11 @@ module.exports = async (req, res) => {
             const cleanId = parseInt(id, 10);
             const rawName = decryptData(name).trim();
             const encName = encryptData(rawName);
+            const statusActive = active !== undefined ? (active ? 1 : 0) : 1;
 
             const [result] = await connection.execute(
-                'UPDATE dot_kiem_ke SET name = ? WHERE id = ?',
-                [encName, cleanId]
+                'UPDATE dot_kiem_ke SET name = ?, active = ? WHERE id = ?',
+                [encName, statusActive, cleanId]
             );
 
             if (result.affectedRows > 0) {
@@ -116,7 +119,29 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 1.3 XÓA ĐỢT KIỂM KÊ (THEO ID TỰ TĂNG)
+        // 1.3 CẬP NHẬT TRẠNG THÁI ACTIVE NHANH (TOGGLE ACTIVE)
+        if (action === 'toggle_dot_active' && req.method === 'POST') {
+            const { id, active } = req.body;
+            if (!id || active === undefined) {
+                return res.status(400).json({ success: false, error: 'Thiếu ID hoặc trạng thái active!' });
+            }
+
+            const cleanId = parseInt(id, 10);
+            const statusActive = active ? 1 : 0;
+
+            const [result] = await connection.execute(
+                'UPDATE dot_kiem_ke SET active = ? WHERE id = ?',
+                [statusActive, cleanId]
+            );
+
+            if (result.affectedRows > 0) {
+                return res.json({ success: true, message: 'Đã thay đổi trạng thái kích hoạt!' });
+            } else {
+                return res.status(404).json({ success: false, error: 'Không tìm thấy đợt kiểm kê!' });
+            }
+        }
+
+        // 1.4 XÓA ĐỢT KIỂM KÊ
         if (action === 'delete_dot' && req.method === 'POST') {
             const { id } = req.body;
             if (!id) {
