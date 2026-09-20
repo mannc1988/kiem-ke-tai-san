@@ -600,7 +600,7 @@
     }
     if (!targetContainer) return;
 
-    // Nếu đang bật đúng tệp này thì đóng lại (Toggle)
+    // Toggle đóng/mở nếu bấm lại đúng file đang xem
     if (!targetContainer.classList.contains('d-none') && targetContainer.dataset.activeSrc === urlOrBase64) {
         targetContainer.classList.add('d-none');
         targetContainer.innerHTML = '';
@@ -637,33 +637,37 @@
 
     var embedSrc = urlOrBase64;
 
-    // TỐI ƯU TRÍCH XUẤT FILE ID VÀ CHUYỂN DẠNG GOOGLE DRIVE PREVIEW FULL TRANG
-    if (urlOrBase64.indexOf('drive.google.com') !== -1 || urlOrBase64.indexOf('googleusercontent.com') !== -1) {
-        var fileId = '';
-        if (urlOrBase64.indexOf('googleusercontent.com/d/') !== -1) {
-            fileId = urlOrBase64.split('googleusercontent.com/d/')[1].split('?')[0].split('/')[0];
-        } else if (urlOrBase64.indexOf('/d/') !== -1) {
-            fileId = urlOrBase64.split('/d/')[1].split('/')[0];
-        } else if (urlOrBase64.indexOf('id=') !== -1) {
-            fileId = urlOrBase64.split('id=')[1].split('&')[0];
-        }
-
-        if (fileId) {
-            embedSrc = 'https://drive.google.com/file/d/' + fileId + '/preview';
-        }
-    } else if (mediaType === 'pdf' && urlOrBase64.indexOf('data:application/pdf;base64,') === 0) {
-        try {
-            var base64Data = urlOrBase64.split(',')[1];
-            var binaryStr = atob(base64Data);
-            var len = binaryStr.length;
-            var bytes = new Uint8Array(len);
-            for (var i = 0; i < len; i++) {
-                bytes[i] = binaryStr.charCodeAt(i);
+    // CÁCH 2: XỬ LÝ CHUYỂN QUA GOOGLE DOCS EMBEDDED VIEWER
+    if (mediaType === 'pdf') {
+        if (urlOrBase64.indexOf('drive.google.com') !== -1 || urlOrBase64.indexOf('googleusercontent.com') !== -1) {
+            var fileId = '';
+            if (urlOrBase64.indexOf('googleusercontent.com/d/') !== -1) {
+                fileId = urlOrBase64.split('googleusercontent.com/d/')[1].split('?')[0].split('/')[0];
+            } else if (urlOrBase64.indexOf('/d/') !== -1) {
+                fileId = urlOrBase64.split('/d/')[1].split('/')[0];
+            } else if (urlOrBase64.indexOf('id=') !== -1) {
+                fileId = urlOrBase64.split('id=')[1].split('&')[0];
             }
-            var blob = new Blob([bytes], { type: 'application/pdf' });
-            embedSrc = URL.createObjectURL(blob);
-        } catch (e) {
-            console.error('Lỗi tạo Blob URL cho PDF Inline:', e);
+
+            if (fileId) {
+                // Tạo URL tải file trực tiếp để đưa vào Google Docs Viewer
+                var pdfDirectUrl = 'https://drive.google.com/uc?export=download&id=' + fileId;
+                embedSrc = 'https://docs.google.com/viewer?url=' + encodeURIComponent(pdfDirectUrl) + '&embedded=true';
+            }
+        } else if (urlOrBase64.indexOf('data:application/pdf;base64,') === 0) {
+            try {
+                var base64Data = urlOrBase64.split(',')[1];
+                var binaryStr = atob(base64Data);
+                var len = binaryStr.length;
+                var bytes = new Uint8Array(len);
+                for (var i = 0; i < len; i++) {
+                    bytes[i] = binaryStr.charCodeAt(i);
+                }
+                var blob = new Blob([bytes], { type: 'application/pdf' });
+                embedSrc = URL.createObjectURL(blob);
+            } catch (e) {
+                console.error('Lỗi tạo Blob URL cho PDF Inline:', e);
+            }
         }
     }
 
@@ -692,7 +696,7 @@
         targetContainer.innerHTML = 
             '<div class="position-relative mt-2 w-100" style="width: 100% !important;">' +
                 headerHtml +
-                '<iframe src="' + embedSrc + '" style="width: 100%; height: 85vh; border: 1px solid #dee2e6; border-radius: 0 0 8px 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.15);" allow="autoplay"></iframe>' +
+                '<iframe src="' + embedSrc + '" style="width: 100%; height: 85vh; border: 1px solid #dee2e6; border-radius: 0 0 8px 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.15);"></iframe>' +
             '</div>';
     } else if (mediaType === 'image') {
         targetContainer.innerHTML = 
