@@ -90,6 +90,33 @@
             object-fit: contain;
             box-shadow: 0 6px 20px rgba(0,0,0,0.2);
         }
+        /* 1. Ép toàn bộ khung DataTables luôn giãn đủ 100% chiều rộng container */
+.dataTables_wrapper {
+    width: 100% !important;
+    clear: both;
+}
+
+/* 2. Ép dòng chứa ô Tìm kiếm và dòng chứa Phân trang dạt hết sang bên phải */
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_paginate {
+    float: right !important;
+    text-align: right !important;
+    margin-left: auto !important;
+}
+
+/* 3. Đảm bảo input tìm kiếm không bị méo */
+.dataTables_wrapper .dataTables_filter input {
+    margin-left: 0.5em !important;
+    display: inline-block !important;
+    width: auto !important;
+}
+
+/* 4. Tự động xóa float để không bị vỡ khung sau bảng */
+.dataTables_wrapper::after {
+    content: "";
+    display: table;
+    clear: both;
+}
     </style>
 </head>
 <body class="py-4">
