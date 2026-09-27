@@ -711,7 +711,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
         if (elementPrefixId === "asset_form_inline_viewer_container") renderImageDetailList();
         if (elementPrefixId === "swal_file_inline_viewer_container") {
             var hId = targetContainer.dataset.historyId || null;
-            renderEditHistoryFileList(hId);
+            if (typeof renderEditHistoryFileList === "function") renderEditHistoryFileList(hId);
         }
         return;
     }
@@ -738,7 +738,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
 
     var embedSrc = urlOrBase64;
 
-    // XỬ LÝ XEM FULL TOÀN BỘ CÁC TRANG PDF BẰNG GOOGLE DRIVE PREVIEW VIEWER
+    // XỬ LÝ XEM FULL CÁC TRANG BẰNG GOOGLE DOCS EMBEDDED VIEWER
     if (mediaType === "pdf") {
         if (urlOrBase64.indexOf("drive.google.com") !== -1 || urlOrBase64.indexOf("googleusercontent.com") !== -1) {
             var fileId = "";
@@ -751,8 +751,9 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
             }
 
             if (fileId) {
-                // Link nhúng preview của Google Drive cho phép cuộn xem full 100% tất cả các trang
-                embedSrc = "https://drive.google.com/file/d/" + fileId + "/preview";
+                // Sử dụng liên kết tải trực tiếp đưa vào Google Docs Viewer để đọc FULL tất cả trang PDF
+                var pdfDirectUrl = "https://drive.google.com/uc?export=download&id=" + fileId;
+                embedSrc = "https://docs.google.com/viewer?url=" + encodeURIComponent(pdfDirectUrl) + "&embedded=true";
             }
         } else if (urlOrBase64.indexOf("data:application/pdf;base64,") === 0) {
             try {
@@ -839,7 +840,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     if (elementPrefixId === "asset_form_inline_viewer_container") renderImageDetailList();
     if (elementPrefixId === "swal_file_inline_viewer_container") {
         var hId = targetContainer.dataset.historyId || null;
-        renderEditHistoryFileList(hId);
+        if (typeof renderEditHistoryFileList === "function") renderEditHistoryFileList(hId);
     }
 }
         async function deleteDriveFileDirectly(fileUrl, index, context = 'asset', historyId = null) {
