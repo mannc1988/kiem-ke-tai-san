@@ -1057,14 +1057,14 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                 <div class="mb-1">
                     <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 shadow-sm">
                         <span class="text-truncate me-2 small text-secondary" style="max-width: 90px;" title="${fName}">
-                            <i class="${getFileIconClass(fName)} me-1"></i> ${fName}
+                            <i class="fa-solid fa-file me-1"></i> ${fName}
                         </span>
                         <div class="d-flex align-items-center">
                             <!-- NÚT 1: XEM INLINE -->
                             <button type="button" class="btn btn-info btn-sm text-white py-0 px-2 me-1" style="font-size: 0.7rem;" 
                                     onclick="toggleInlineMedia('table_assets_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
                                     title="Xem trực tiếp trên web">
-                                <i class="fa-solid fa-file-pdf me-1"></i> Xem Inline
+                                <i class="fa-solid fa-file me-1"></i> Xem Inline
                             </button>
                             <!-- NÚT 2: TẢI VỀ MÁY TÍNH -->
                             <a href="${downloadUrl}" download class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.7rem;" title="Tải trực tiếp về máy tính">
