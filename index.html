@@ -487,180 +487,159 @@
     return url;
 }
         function renderImageDetailList() {
-    var container = document.getElementById("imageDetailList");
-    var inlineContainer = document.getElementById("asset_form_inline_viewer_container");
-    var currentActiveSrc = inlineContainer ? (inlineContainer.dataset.activeSrc || "") : "";
+    var container = document.getElementById('imageDetailList');
+    var inlineContainer = document.getElementById('asset_form_inline_viewer_container');
+    var currentActiveSrc = inlineContainer ? (inlineContainer.dataset.activeSrc || '') : '';
 
-    container.innerHTML = "";
+    container.innerHTML = '';
 
     if (tempFilesList.length === 0 && existingDriveUrls.length === 0) {
         container.innerHTML = 'Chưa có tệp đính kèm nào.';
         return;
     }
 
-    // Hàm nhận diện chuẩn loại Media (Hình ảnh vs PDF/Tài liệu)
-    function detectMediaType(fileNameOrUrl) {
-        if (!fileNameOrUrl) return "pdf";
+    // Hàm kiểm tra định dạng file (ẢNH hay PDF)
+    function detectType(fileNameOrUrl) {
+        if (!fileNameOrUrl) return 'pdf';
         var str = fileNameOrUrl.toLowerCase();
-        
-        // Nhận diện qua đuôi file hoặc base64 image
-        if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(str) || str.indexOf("data:image/") === 0) {
-            return "image";
+        if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(str) || str.indexOf('data:image/') === 0 || str.indexOf('googleusercontent.com') !== -1) {
+            return 'image';
         }
-        // Nhận diện các liên kết Google Drive trực tiếp tới file ảnh
-        if (str.indexOf("googleusercontent.com") !== -1 || str.indexOf("drive.google.com/thumbnail") !== -1) {
-            return "image";
-        }
-        return "pdf";
+        return 'pdf';
     }
 
-    // 1. DANH SÁCH TỆP TRÊN GOOGLE DRIVE
+    // 1. HIỂN THỊ DANH SÁCH TỆP ĐÃ CÓ TRÊN GOOGLE DRIVE
     if (existingDriveUrls.length > 0) {
-        var headerDrive = document.createElement("div");
-        headerDrive.className = "text-primary fw-semibold small mb-1";
+        var headerDrive = document.createElement('div');
+        headerDrive.className = 'text-primary fw-semibold small mb-1';
         headerDrive.innerHTML = '** Tệp trên Drive (' + existingDriveUrls.length + '):';
         container.appendChild(headerDrive);
 
         existingDriveUrls.forEach(function(url, index) {
-            var rawName = url.split("/").pop().split("?")[0] || ("Drive_File_" + (index + 1));
+            var rawName = url.split('/').pop().split('?')[0] || ('Drive_File_' + (index + 1));
             var fName = rawName;
             try { fName = decodeURIComponent(rawName); } catch(e) {}
 
             var isCurrentlyViewing = (currentActiveSrc === url);
-            var mediaType = detectMediaType(fName || url);
+            var mediaType = detectType(fName || url);
             var downloadUrl = getDownloadDriveUrl(url);
 
-            var div = document.createElement("div");
-            div.className = "file-detail-item " + (isCurrentlyViewing ? "active-viewing" : "");
-            
-            var btnClass = isCurrentlyViewing ? "btn-dark" : "btn-info text-white";
-            var btnIcon = isCurrentlyViewing ? "fa-eye-slash" : (mediaType === "image" ? "fa-file-image" : "fa-file-pdf");
-            var btnText = isCurrentlyViewing ? "Đang xem..." : "Xem Inline";
-            var fileIcon = mediaType === "image" ? "fa-file-image text-success" : "fa-file-pdf text-danger";
+            var div = document.createElement('div');
+            div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
 
-            var wrapper = document.createElement("div");
-            wrapper.className = "d-flex align-items-center justify-content-between";
+            var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
+            var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (mediaType === 'image' ? 'fa-file-image' : 'fa-file-pdf');
+            var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
+            var fileIcon = mediaType === 'image' ? 'fa-file-image text-success' : 'fa-file-pdf text-danger';
 
-            var spanName = document.createElement("span");
-            spanName.className = "text-truncate me-2 " + (isCurrentlyViewing ? "fw-bold text-primary" : "text-primary");
-            spanName.style.maxWidth = "200px";
-            spanName.title = fName;
-            spanName.innerHTML = '** ' + fName;
+            var wrapper = document.createElement('div');
+            wrapper.className = 'd-flex align-items-center justify-content-between';
 
-            var actionDiv = document.createElement("div");
-            actionDiv.className = "d-flex align-items-center";
+            var span = document.createElement('span');
+            span.className = 'text-truncate me-2 ' + (isCurrentlyViewing ? 'fw-bold text-primary' : 'text-primary');
+            span.style.maxWidth = '200px';
+            span.title = fName;
+            span.innerHTML = '** ' + fName;
 
-            // Nút Xem Inline
-            var btnView = document.createElement("button");
-            btnView.type = "button";
-            btnView.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1";
-            btnView.style.fontSize = "0.75rem";
-            btnView.title = "Xem trực tiếp trên web";
+            var btnGroup = document.createElement('div');
+            btnGroup.className = 'd-flex align-items-center';
+
+            var btnView = document.createElement('button');
+            btnView.type = 'button';
+            btnView.className = 'btn ' + btnClass + ' btn-sm py-0 px-2 me-1';
+            btnView.style.fontSize = '0.75rem';
+            btnView.title = 'Xem trực tiếp trên web';
             btnView.innerHTML = '** ' + btnText;
             btnView.onclick = function() {
                 toggleInlineMedia('asset_form_inline_viewer_container', url, mediaType, fName);
             };
 
-            // Nút Tải về
-            var btnDownload = document.createElement("a");
+            var btnDownload = document.createElement('a');
             btnDownload.href = downloadUrl;
-            btnDownload.setAttribute("download", "");
-            btnDownload.className = "btn btn-outline-secondary btn-sm py-0 px-2 me-1";
-            btnDownload.style.fontSize = "0.75rem";
-            btnDownload.title = "Tải trực tiếp về máy tính";
+            btnDownload.setAttribute('download', '');
+            btnDownload.className = 'btn btn-outline-secondary btn-sm py-0 px-2 me-1';
+            btnDownload.style.fontSize = '0.75rem';
+            btnDownload.title = 'Tải trực tiếp về máy tính';
             btnDownload.innerHTML = '** Tải về';
 
-            // Nút Xóa Drive
-            var btnDelete = document.createElement("button");
-            btnDelete.type = "button";
-            btnDelete.className = "btn btn-danger btn-sm py-0 px-1";
-            btnDelete.style.fontSize = "0.7rem";
-            btnDelete.title = "Xóa trực tiếp trên Drive";
+            var btnDelete = document.createElement('button');
+            btnDelete.type = 'button';
+            btnDelete.className = 'btn btn-danger btn-sm py-0 px-1';
+            btnDelete.style.fontSize = '0.7rem';
+            btnDelete.title = 'Xóa trực tiếp trên Drive';
             btnDelete.innerHTML = '** Xóa Drive';
             btnDelete.onclick = function() {
                 deleteDriveFileDirectly(url, index, 'asset', null);
             };
 
-            actionDiv.appendChild(btnView);
-            actionDiv.appendChild(btnDownload);
-            actionDiv.appendChild(btnDelete);
-
-            wrapper.appendChild(spanName);
-            wrapper.appendChild(actionDiv);
+            btnGroup.appendChild(btnView);
+            btnGroup.appendChild(btnDownload);
+            btnGroup.appendChild(btnDelete);
+            wrapper.appendChild(span);
+            wrapper.appendChild(btnGroup);
             div.appendChild(wrapper);
 
             container.appendChild(div);
         });
     }
 
-    // 2. DANH SÁCH TỆP MỚI CHỌN TỪ MÁY TÍNH
+    // 2. HIỂN THỊ DANH SÁCH TỆP MỚI CHỌN TỪ MÁY TÍNH (CHỜ UPLOAD)
     if (tempFilesList.length > 0) {
-        var headerTemp = document.createElement("div");
-        headerTemp.className = "d-flex justify-content-between align-items-center mt-2 mb-1";
-        
-        var spanTitle = document.createElement("span");
-        spanTitle.className = "text-success fw-semibold small";
-        spanTitle.innerHTML = '** Tệp mới chọn (' + tempFilesList.length + '):';
-
-        var btnClear = document.createElement("button");
-        btnClear.type = "button";
-        btnClear.className = "btn btn-outline-danger btn-sm py-0 px-1";
-        btnClear.style.fontSize = "0.65rem";
-        btnClear.title = "Xóa hết tệp mới";
-        btnClear.innerHTML = '** Xóa hết';
-        btnClear.onclick = function() { clearAllTempImages(); };
-
-        headerTemp.appendChild(spanTitle);
-        headerTemp.appendChild(btnClear);
+        var headerTemp = document.createElement('div');
+        headerTemp.className = 'd-flex justify-content-between align-items-center mt-2 mb-1';
+        headerTemp.innerHTML = 
+            '** Tệp mới chọn (' + tempFilesList.length + '):' +
+            '' +
+                '** Xóa hết' +
+            '';
         container.appendChild(headerTemp);
 
         tempFilesList.forEach(function(file, index) {
             var b64 = tempBase64List[index];
             var isCurrentlyViewing = (currentActiveSrc === b64);
-            var mediaType = detectMediaType(file.name || b64);
+            var mediaType = detectType(file.name || b64);
 
-            var div = document.createElement("div");
-            div.className = "file-detail-item " + (isCurrentlyViewing ? "active-viewing" : "");
+            var div = document.createElement('div');
+            div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
 
-            var btnClass = isCurrentlyViewing ? "btn-dark" : "btn-info text-white";
-            var btnIcon = isCurrentlyViewing ? "fa-eye-slash" : (mediaType === "image" ? "fa-file-image" : "fa-file-pdf");
-            var btnText = isCurrentlyViewing ? "Đang xem..." : "Xem Inline";
-            var fileIcon = mediaType === "image" ? "fa-file-image text-success" : "fa-file text-success";
+            var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
+            var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (mediaType === 'image' ? 'fa-file-image' : 'fa-file-pdf');
+            var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
+            var fileIcon = mediaType === 'image' ? 'fa-file-image text-success' : 'fa-file text-success';
 
-            var wrapper = document.createElement("div");
-            wrapper.className = "d-flex align-items-center justify-content-between";
+            var wrapper = document.createElement('div');
+            wrapper.className = 'd-flex align-items-center justify-content-between';
 
-            var spanName = document.createElement("span");
-            spanName.className = "text-truncate me-2 " + (isCurrentlyViewing ? "fw-bold text-success" : "");
-            spanName.style.maxWidth = "220px";
-            spanName.title = file.name;
-            spanName.innerHTML = '** ' + file.name;
+            var span = document.createElement('span');
+            span.className = 'text-truncate me-2 ' + (isCurrentlyViewing ? 'fw-bold text-success' : '');
+            span.style.maxWidth = '220px';
+            span.title = file.name;
+            span.innerHTML = '** ' + file.name;
 
-            var actionDiv = document.createElement("div");
+            var btnGroup = document.createElement('div');
 
-            var btnView = document.createElement("button");
-            btnView.type = "button";
-            btnView.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1";
-            btnView.style.fontSize = "0.75rem";
-            btnView.title = "Xem thử";
+            var btnView = document.createElement('button');
+            btnView.type = 'button';
+            btnView.className = 'btn ' + btnClass + ' btn-sm py-0 px-2 me-1';
+            btnView.style.fontSize = '0.75rem';
+            btnView.title = 'Xem thử';
             btnView.innerHTML = '** ' + btnText;
             btnView.onclick = function() {
                 toggleInlineMedia('asset_form_inline_viewer_container', b64, mediaType, file.name);
             };
 
-            var btnRemove = document.createElement("button");
-            btnRemove.type = "button";
-            btnRemove.className = "btn btn-outline-danger btn-sm py-0 px-1";
-            btnRemove.style.fontSize = "0.7rem";
-            btnRemove.title = "Bỏ chọn tệp";
+            var btnRemove = document.createElement('button');
+            btnRemove.type = 'button';
+            btnRemove.className = 'btn btn-outline-danger btn-sm py-0 px-1';
+            btnRemove.style.fontSize = '0.7rem';
+            btnRemove.title = 'Bỏ chọn tệp';
             btnRemove.innerHTML = '**';
             btnRemove.onclick = function() { removeTempFile(index); };
 
-            actionDiv.appendChild(btnView);
-            actionDiv.appendChild(btnRemove);
-
-            wrapper.appendChild(spanName);
-            wrapper.appendChild(actionDiv);
+            btnGroup.appendChild(btnView);
+            btnGroup.appendChild(btnRemove);
+            wrapper.appendChild(span);
+            wrapper.appendChild(btnGroup);
             div.appendChild(wrapper);
 
             container.appendChild(div);
@@ -669,29 +648,29 @@
 }
 
 function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
-    if (fileName === undefined) fileName = "";
+    if (mediaType === undefined) mediaType = 'pdf';
+    if (fileName === undefined) fileName = '';
 
-    // Tự động điều chỉnh lại mediaType dựa vào tên file / định dạng URL
-    var checkStr = (fileName || urlOrBase64).toLowerCase();
-    if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(checkStr) || checkStr.indexOf("data:image/") === 0 || checkStr.indexOf("googleusercontent.com") !== -1) {
-        mediaType = "image";
+    // Tự động ép kiểu sang 'image' nếu nhận diện được định dạng hình ảnh
+    var checkName = (fileName || urlOrBase64).toLowerCase();
+    if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(checkName) || checkName.indexOf('data:image/') === 0 || checkName.indexOf('googleusercontent.com') !== -1) {
+        mediaType = 'image';
     }
 
     var targetContainer = document.getElementById(elementPrefixId);
     if (!targetContainer) {
-        targetContainer = document.getElementById(elementPrefixId + "_media");
+        targetContainer = document.getElementById(elementPrefixId + '_media');
     }
     if (!targetContainer) return;
 
-    // Bấm lại đúng file đang mở thì đóng lại
-    if (!targetContainer.classList.contains("d-none") && targetContainer.dataset.activeSrc === urlOrBase64) {
-        targetContainer.classList.add("d-none");
-        targetContainer.innerHTML = "";
+    if (!targetContainer.classList.contains('d-none') && targetContainer.dataset.activeSrc === urlOrBase64) {
+        targetContainer.classList.add('d-none');
+        targetContainer.innerHTML = '';
         delete targetContainer.dataset.embedSrc;
         delete targetContainer.dataset.activeSrc;
 
-        if (elementPrefixId === "asset_form_inline_viewer_container") renderImageDetailList();
-        if (elementPrefixId === "swal_file_inline_viewer_container") {
+        if (elementPrefixId === 'asset_form_inline_viewer_container') renderImageDetailList();
+        if (elementPrefixId === 'swal_file_inline_viewer_container') {
             var hId = targetContainer.dataset.historyId || null;
             renderEditHistoryFileList(hId);
         }
@@ -701,118 +680,117 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     targetContainer.dataset.activeSrc = urlOrBase64;
 
     var displayFileName = fileName;
-    if (!displayFileName || displayFileName.trim() === "") {
-        if (urlOrBase64.indexOf("data:") === 0) {
-            displayFileName = mediaType === "pdf" ? "Tài liệu inline.pdf" : "Hình ảnh inline.png";
+    if (!displayFileName || displayFileName.trim() === '') {
+        if (urlOrBase64.indexOf('data:') === 0) {
+            displayFileName = mediaType === 'pdf' ? 'Tài liệu inline.pdf' : 'Hình ảnh inline.png';
         } else {
-            var rawName = urlOrBase64.split("/").pop().split("?")[0];
+            var rawName = urlOrBase64.split('/').pop().split('?')[0];
             try { displayFileName = decodeURIComponent(rawName); } catch (e) { displayFileName = rawName; }
         }
     }
 
-    var fileIconClass = mediaType === "image" ? "fa-file-image text-success" : "fa-file-pdf text-danger";
+    var fileIconClass = mediaType === 'image' ? 'fa-file-image text-success' : 'fa-file-pdf text-danger';
     var embedSrc = urlOrBase64;
 
-    // Xử lý riêng cho file PDF
-    if (mediaType === "pdf") {
-        if (urlOrBase64.indexOf("drive.google.com") !== -1 || urlOrBase64.indexOf("googleusercontent.com") !== -1) {
-            var fileId = "";
-            if (urlOrBase64.indexOf("googleusercontent.com/d/") !== -1) {
-                fileId = urlOrBase64.split("googleusercontent.com/d/")[1].split("?")[0].split("/")[0];
-            } else if (urlOrBase64.indexOf("/d/") !== -1) {
-                fileId = urlOrBase64.split("/d/")[1].split("/")[0];
-            } else if (urlOrBase64.indexOf("id=") !== -1) {
-                fileId = urlOrBase64.split("id=")[1].split("&")[0];
+    if (mediaType === 'pdf') {
+        if (urlOrBase64.indexOf('drive.google.com') !== -1 || urlOrBase64.indexOf('googleusercontent.com') !== -1) {
+            var fileId = '';
+            if (urlOrBase64.indexOf('googleusercontent.com/d/') !== -1) {
+                fileId = urlOrBase64.split('googleusercontent.com/d/')[1].split('?')[0].split('/')[0];
+            } else if (urlOrBase64.indexOf('/d/') !== -1) {
+                fileId = urlOrBase64.split('/d/')[1].split('/')[0];
+            } else if (urlOrBase64.indexOf('id=') !== -1) {
+                fileId = urlOrBase64.split('id=')[1].split('&')[0];
             }
 
             if (fileId) {
-                var pdfDirectUrl = "https://drive.google.com/uc?export=download&id=" + fileId;
-                embedSrc = "https://docs.google.com/viewer?url=" + encodeURIComponent(pdfDirectUrl) + "&embedded=true";
+                var pdfDirectUrl = 'https://drive.google.com/uc?export=download&id=' + fileId;
+                embedSrc = 'https://docs.google.com/viewer?url=' + encodeURIComponent(pdfDirectUrl) + '&embedded=true';
             }
-        } else if (urlOrBase64.indexOf("data:application/pdf;base64,") === 0) {
+        } else if (urlOrBase64.indexOf('data:application/pdf;base64,') === 0) {
             try {
-                var base64Data = urlOrBase64.split(",")[1];
+                var base64Data = urlOrBase64.split(',')[1];
                 var binaryStr = atob(base64Data);
                 var len = binaryStr.length;
                 var bytes = new Uint8Array(len);
                 for (var i = 0; i < len; i++) {
                     bytes[i] = binaryStr.charCodeAt(i);
                 }
-                var blob = new Blob([bytes], { type: "application/pdf" });
+                var blob = new Blob([bytes], { type: 'application/pdf' });
                 embedSrc = URL.createObjectURL(blob);
             } catch (e) {
-                console.error("Lỗi tạo Blob URL cho PDF:", e);
+                console.error('Lỗi tạo Blob URL cho PDF Inline:', e);
             }
         }
     }
 
     targetContainer.dataset.embedSrc = embedSrc;
 
-    // Tạo thanh Tiêu đề Viewer
-    var headerDiv = document.createElement("div");
-    headerDiv.className = "d-flex align-items-center justify-content-between bg-white px-3 py-2 border border-bottom-0 rounded-top shadow-sm";
+    // Tạo phần Header xem trực tiếp bằng DOM
+    var headerDiv = document.createElement('div');
+    headerDiv.className = 'd-flex align-items-center justify-content-between bg-white px-3 py-2 border border-bottom-0 rounded-top shadow-sm';
 
-    var titleBox = document.createElement("div");
-    titleBox.className = "d-flex align-items-center text-truncate me-2";
+    var titleBox = document.createElement('div');
+    titleBox.className = 'd-flex align-items-center text-truncate me-2';
     titleBox.innerHTML = '**' +
         '' +
         'Xem trực tiếp: ' + displayFileName + '';
 
-    var btnGroup = document.createElement("div");
-    btnGroup.className = "d-flex align-items-center";
+    var btnBox = document.createElement('div');
+    btnBox.className = 'd-flex align-items-center';
 
-    var btnNewTab = document.createElement("button");
-    btnNewTab.type = "button";
-    btnNewTab.className = "btn btn-outline-primary btn-sm py-1 px-2 me-2 shadow-sm";
-    btnNewTab.style.fontSize = "0.78rem";
+    var btnNewTab = document.createElement('button');
+    btnNewTab.type = 'button';
+    btnNewTab.className = 'btn btn-outline-primary btn-sm py-1 px-2 me-2 shadow-sm';
+    btnNewTab.style.fontSize = '0.78rem';
     btnNewTab.innerHTML = '** Mở Tab Mới';
     btnNewTab.onclick = function() { window.open(embedSrc, '_blank'); };
 
-    var btnClose = document.createElement("button");
-    btnClose.type = "button";
-    btnClose.className = "btn-close ms-1";
-    btnClose.title = "Đóng";
+    var btnClose = document.createElement('button');
+    btnClose.type = 'button';
+    btnClose.className = 'btn-close ms-1';
+    btnClose.title = 'Đóng';
     btnClose.onclick = function() {
         toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName);
     };
 
-    btnGroup.appendChild(btnNewTab);
-    btnGroup.appendChild(btnClose);
+    btnBox.appendChild(btnNewTab);
+    btnBox.appendChild(btnClose);
     headerDiv.appendChild(titleBox);
-    headerDiv.appendChild(btnGroup);
+    headerDiv.appendChild(btnBox);
 
-    // Tạo Khung hiển thị nội dung
-    var outerDiv = document.createElement("div");
-    outerDiv.className = "position-relative mt-2 w-100";
-    outerDiv.style.width = "100%";
-    outerDiv.appendChild(headerDiv);
+    // Bọc nội dung Viewer
+    var mainWrapper = document.createElement('div');
+    mainWrapper.className = 'position-relative mt-2 w-100';
+    mainWrapper.style.width = '100%';
+    mainWrapper.appendChild(headerDiv);
 
-    if (mediaType === "pdf") {
-        var iframe = document.createElement("iframe");
+    if (mediaType === 'pdf') {
+        var iframe = document.createElement('iframe');
         iframe.src = embedSrc;
-        iframe.style.cssText = "width: 100%; height: 85vh; border: 1px solid #dee2e6; border-radius: 0 0 8px 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.15);";
-        outerDiv.appendChild(iframe);
+        iframe.style.cssText = 'width: 100%; height: 85vh; border: 1px solid #dee2e6; border-radius: 0 0 8px 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.15);';
+        mainWrapper.appendChild(iframe);
     } else {
-        var imgBox = document.createElement("div");
-        imgBox.className = "w-100 d-flex justify-content-center align-items-center bg-dark rounded-bottom p-2";
-        imgBox.style.cssText = "min-height: 400px; max-height: 85vh; border: 1px solid #dee2e6; box-shadow: 0 6px 20px rgba(0,0,0,0.15);";
+        var imgContainer = document.createElement('div');
+        imgContainer.className = 'w-100 d-flex justify-content-center align-items-center bg-dark rounded-bottom p-2';
+        imgContainer.style.cssText = 'min-height: 400px; max-height: 85vh; border: 1px solid #dee2e6; box-shadow: 0 6px 20px rgba(0,0,0,0.15);';
 
-        var img = document.createElement("img");
+        var img = document.createElement('img');
         img.src = embedSrc;
-        img.style.cssText = "max-width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 4px;";
-        img.alt = "Inline Image Preview";
+        img.style.cssText = 'max-width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 4px;';
+        img.alt = 'Inline Image Preview';
 
-        imgBox.appendChild(img);
-        outerDiv.appendChild(imgBox);
+        imgContainer.appendChild(img);
+        mainWrapper.appendChild(imgContainer);
     }
 
-    targetContainer.innerHTML = "";
-    targetContainer.appendChild(outerDiv);
-    targetContainer.classList.remove("d-none");
-    targetContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    targetContainer.innerHTML = '';
+    targetContainer.appendChild(mainWrapper);
+    targetContainer.classList.remove('d-none');
+    targetContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    if (elementPrefixId === "asset_form_inline_viewer_container") renderImageDetailList();
-    if (elementPrefixId === "swal_file_inline_viewer_container") {
+    if (elementPrefixId === 'asset_form_inline_viewer_container') renderImageDetailList();
+    if (elementPrefixId === 'swal_file_inline_viewer_container') {
         var hId = targetContainer.dataset.historyId || null;
         renderEditHistoryFileList(hId);
     }
