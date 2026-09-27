@@ -846,6 +846,43 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
         if (typeof renderEditHistoryFileList === "function") renderEditHistoryFileList(hId);
     }
 }
+        function getFileIconClass(fileNameOrUrl) {
+    if (!fileNameOrUrl) return "fa-solid fa-file-pdf text-danger";
+    
+    var str = fileNameOrUrl.toLowerCase();
+    
+    // Hình ảnh
+    if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(str) || str.indexOf("data:image/") === 0) {
+        return "fa-solid fa-file-image text-success";
+    }
+    // PDF
+    if (/\.pdf($|\?)/i.test(str) || str.indexOf("data:application/pdf") === 0) {
+        return "fa-solid fa-file-pdf text-danger";
+    }
+    // Word
+    if (/\.(doc|docx)$/i.test(str)) {
+        return "fa-solid fa-file-word text-primary";
+    }
+    // Excel
+    if (/\.(xls|xlsx|csv)$/i.test(str)) {
+        return "fa-solid fa-file-excel text-success";
+    }
+    // PowerPoint
+    if (/\.(ppt|pptx)$/i.test(str)) {
+        return "fa-solid fa-file-powerpoint text-warning";
+    }
+    // File nén (Zip/Rar)
+    if (/\.(zip|rar|7z|tar|gz)$/i.test(str)) {
+        return "fa-solid fa-file-zipper text-secondary";
+    }
+    // Code / Văn bản
+    if (/\.(txt|json|html|css|js|php|py)$/i.test(str)) {
+        return "fa-solid fa-file-code text-info";
+    }
+    
+    // Mặc định nếu không trùng khớp
+    return "fa-solid fa-file text-secondary";
+}
         async function deleteDriveFileDirectly(fileUrl, index, context = 'asset', historyId = null) {
             if (!fileUrl || typeof fileUrl !== 'string') {
                 Swal.fire('Lỗi', 'Đường dẫn tệp không hợp lệ!', 'error');
@@ -1020,7 +1057,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                 <div class="mb-1">
                     <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 shadow-sm">
                         <span class="text-truncate me-2 small text-secondary" style="max-width: 90px;" title="${fName}">
-                            <i class="fa-solid fa-file-pdf text-danger me-1"></i> ${fName}
+                            <i class=${getFileIconClass(fName)}></i> ${fName}
                         </span>
                         <div class="d-flex align-items-center">
                             <!-- NÚT 1: XEM INLINE -->
