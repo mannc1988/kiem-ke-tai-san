@@ -702,13 +702,14 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     }
     if (!targetContainer) return;
 
+    // Toggle Đóng / Mở
     if (!targetContainer.classList.contains("d-none") && targetContainer.dataset.activeSrc === urlOrBase64) {
         targetContainer.classList.add("d-none");
         targetContainer.innerHTML = "";
         delete targetContainer.dataset.embedSrc;
         delete targetContainer.dataset.activeSrc;
 
-        if (elementPrefixId === "asset_form_inline_viewer_container") renderImageDetailList();
+        if (elementPrefixId === "asset_form_inline_viewer_container" && typeof renderImageDetailList === "function") renderImageDetailList();
         if (elementPrefixId === "swal_file_inline_viewer_container") {
             var hId = targetContainer.dataset.historyId || null;
             if (typeof renderEditHistoryFileList === "function") renderEditHistoryFileList(hId);
@@ -731,23 +732,24 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     var fileInfo = typeof getFileInfo === "function" ? getFileInfo(displayFileName) : { iconClass: "fa-file-pdf text-danger" };
     var embedSrc = urlOrBase64;
 
-    // BẮT CHUẨN FILE ID TỪ CẢ GOOGLEUSERCONTENT LẪN DRIVE GOOGLE ĐỂ XEM FULL TRANG
+    // CHUYỂN DÙNG GOOGLE DOCS VIEWER ĐƯỢC CẤP LINK DIRECT DOWNLOAD ĐỂ XEM FULL TRANG & KHÔNG LỖI
     if (mediaType === "pdf") {
         var fileId = "";
         
+        // Bắt mọi kiểu đường dẫn Google Drive / Googleusercontent
         if (urlOrBase64.indexOf("googleusercontent.com/d/") !== -1) {
             fileId = urlOrBase64.split("googleusercontent.com/d/")[1].split("?")[0].split("/")[0];
-        } else if (urlOrBase64.indexOf("drive.google.com") !== -1) {
-            if (urlOrBase64.indexOf("/d/") !== -1) {
-                fileId = urlOrBase64.split("/d/")[1].split("/")[0];
-            } else if (urlOrBase64.indexOf("id=") !== -1) {
-                fileId = urlOrBase64.split("id=")[1].split("&")[0];
-            }
+        } else if (urlOrBase64.indexOf("/d/") !== -1) {
+            fileId = urlOrBase64.split("/d/")[1].split("/")[0];
+        } else if (urlOrBase64.indexOf("id=") !== -1) {
+            fileId = urlOrBase64.split("id=")[1].split("&")[0];
         }
 
         if (fileId) {
-            // Chuyển sang định dạng preview chuẩn của Google Drive để xem FULL 100% các trang
-            embedSrc = "https://drive.google.com/file/d/" + fileId + "/preview";
+            // 1. Tạo link download trực tiếp file PDF
+            var directDownloadUrl = "https://drive.google.com/uc?export=download&id=" + fileId;
+            // 2. Nhúng qua Google Docs Viewer
+            embedSrc = "https://docs.google.com/viewer?url=" + encodeURIComponent(directDownloadUrl) + "&embedded=true";
         } else if (urlOrBase64.indexOf("data:application/pdf;base64,") === 0) {
             try {
                 var base64Data = urlOrBase64.split(",")[1];
@@ -775,7 +777,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     titleBox.className = "d-flex align-items-center text-truncate me-2";
     titleBox.innerHTML = '**' +
         '' +
-        'Xem trực tiếp: ' + displayFileName + '';
+        'Xem trực tiếp (Google Docs): ' + displayFileName + '';
 
     var btnBox = document.createElement("div");
     btnBox.className = "d-flex align-items-center";
@@ -830,7 +832,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     targetContainer.classList.remove("d-none");
     targetContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
-    if (elementPrefixId === "asset_form_inline_viewer_container") renderImageDetailList();
+    if (elementPrefixId === "asset_form_inline_viewer_container" && typeof renderImageDetailList === "function") renderImageDetailList();
     if (elementPrefixId === "swal_file_inline_viewer_container") {
         var hId = targetContainer.dataset.historyId || null;
         if (typeof renderEditHistoryFileList === "function") renderEditHistoryFileList(hId);
