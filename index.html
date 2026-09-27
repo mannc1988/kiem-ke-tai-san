@@ -503,26 +503,54 @@
     container.innerHTML = "";
 
     if (tempFilesList.length === 0 && existingDriveUrls.length === 0) {
-        container.innerHTML = '<span class="text-muted small fst-italic">Chưa có tệp đính kèm nào.</span>';
+        var emptySpan = document.createElement("span");
+        emptySpan.className = "text-muted small fst-italic";
+        emptySpan.textContent = "Chưa có tệp đính kèm nào.";
+        container.appendChild(emptySpan);
         return;
     }
 
-    // Hàm nhận diện chuẩn loại media (hình ảnh hay pdf/tài liệu)
-    function detectMediaType(fileNameOrUrl) {
-        if (!fileNameOrUrl) return "pdf";
+    // 1. Hàm nhận diện cấu hình Icon & Loại Media dựa trên tên tệp hoặc URL
+    function getFileInfo(fileNameOrUrl) {
+        if (!fileNameOrUrl) {
+            return { mediaType: "pdf", iconClass: "fa-file-pdf text-danger" };
+        }
         var str = fileNameOrUrl.toLowerCase();
         
+        // Hình ảnh
         if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(str) || str.indexOf("data:image/") === 0 || str.indexOf("googleusercontent.com") !== -1) {
-            return "image";
+            return { mediaType: "image", iconClass: "fa-file-image text-success" };
         }
-        return "pdf";
+        
+        // Word
+        if (/\.(doc|docx)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-file-word text-primary" };
+        }
+        // Excel
+        if (/\.(xls|xlsx|csv)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-file-excel text-success" };
+        }
+        // PowerPoint
+        if (/\.(ppt|pptx)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-file-powerpoint text-warning" };
+        }
+        // Zip / Nén
+        if (/\.(zip|rar|7z|tar|gz)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-file-zipper text-secondary" };
+        }
+        // Code / Văn bản
+        if (/\.(txt|json|html|css|js|php|py)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-file-code text-info" };
+        }
+        // PDF (Mặc định)
+        return { mediaType: "pdf", iconClass: "fa-file-pdf text-danger" };
     }
 
-    // 1. HIỂN THỊ DANH SÁCH TỆP ĐÃ CÓ TRÊN GOOGLE DRIVE
+    // 2. HIỂN THỊ DANH SÁCH TỆP ĐÃ CÓ TRÊN GOOGLE DRIVE
     if (existingDriveUrls.length > 0) {
         var headerDrive = document.createElement("div");
         headerDrive.className = "text-primary fw-semibold small mb-1";
-        headerDrive.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i> Tệp trên Drive (' + existingDriveUrls.length + '):';
+        headerDrive.innerHTML = '** Tệp trên Drive (' + existingDriveUrls.length + '):';
         container.appendChild(headerDrive);
 
         existingDriveUrls.forEach(function(url, index) {
@@ -531,89 +559,132 @@
             try { fName = decodeURIComponent(rawName); } catch(e) {}
 
             var isCurrentlyViewing = (currentActiveSrc === url);
-            var safeName = fName.replace(/'/g, "\\'");
-            var safeUrl = url.replace(/'/g, "\\'");
-            
-            var mediaType = detectMediaType(fName || url);
+            var fileInfo = getFileInfo(fName || url);
             var downloadUrl = getDownloadDriveUrl(url);
 
             var div = document.createElement("div");
             div.className = "file-detail-item " + (isCurrentlyViewing ? "active-viewing" : "");
             
             var btnClass = isCurrentlyViewing ? "btn-dark" : "btn-info text-white";
-            var btnIcon = isCurrentlyViewing ? "fa-eye-slash" : (mediaType === "image" ? "fa-file-image" : "fa-file-pdf");
+            var btnIcon = isCurrentlyViewing ? "fa-eye-slash" : fileInfo.iconClass.split(" ")[0];
             var btnText = isCurrentlyViewing ? "Đang xem..." : "Xem Inline";
-            var fileIcon = mediaType === "image" ? "fa-file-image text-success" : "fa-file-pdf text-danger";
 
-            var actionButtonsHtml = 
-                '<div class="d-flex align-items-center">' +
-                    '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" ' +
-                            'onclick="toggleInlineMedia(\'asset_form_inline_viewer_container\', \'' + safeUrl + '\', \'' + mediaType + '\', \'' + safeName + '\')" title="Xem trực tiếp trên web">' +
-                        '<i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText +
-                    '</button>' +
-                    '<a href="' + downloadUrl + '" download class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" title="Tải trực tiếp về máy tính">' +
-                        '<i class="fa-solid fa-download me-1"></i> Tải về' +
-                    '</a>' +
-                    '<button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" ' +
-                            'onclick="deleteDriveFileDirectly(\'' + safeUrl + '\', ' + index + ', \'asset\', null)" title="Xóa trực tiếp trên Drive">' +
-                        '<i class="fa-solid fa-trash-can me-1"></i> Xóa Drive' +
-                    '</button>' +
-                '</div>';
+            var row = document.createElement("div");
+            row.className = "d-flex align-items-center justify-content-between";
 
-            div.innerHTML = 
-                '<div class="d-flex align-items-center justify-content-between">' +
-                    '<span class="text-truncate me-2 ' + (isCurrentlyViewing ? "fw-bold text-primary" : "text-primary") + '" style="max-width: 200px;" title="' + fName + '">' +
-                        '<i class="fa-solid ' + fileIcon + ' me-1"></i> ' + fName +
-                    '</span>' +
-                    actionButtonsHtml +
-                '</div>';
+            var fileNameSpan = document.createElement("span");
+            fileNameSpan.className = "text-truncate me-2 " + (isCurrentlyViewing ? "fw-bold text-primary" : "text-primary");
+            fileNameSpan.style.maxWidth = "200px";
+            fileNameSpan.title = fName;
+            fileNameSpan.innerHTML = '** ' + fName;
+
+            var actionDiv = document.createElement("div");
+            actionDiv.className = "d-flex align-items-center";
+
+            // Nút Xem Inline
+            var btnView = document.createElement("button");
+            btnView.type = "button";
+            btnView.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1";
+            btnView.style.fontSize = "0.75rem";
+            btnView.title = "Xem trực tiếp trên web";
+            btnView.innerHTML = '** ' + btnText;
+            btnView.onclick = function() {
+                toggleInlineMedia('asset_form_inline_viewer_container', url, fileInfo.mediaType, fName);
+            };
+
+            // Nút Tải về
+            var btnDownload = document.createElement("a");
+            btnDownload.href = downloadUrl;
+            btnDownload.setAttribute("download", "");
+            btnDownload.className = "btn btn-outline-secondary btn-sm py-0 px-2 me-1";
+            btnDownload.style.fontSize = "0.75rem";
+            btnDownload.title = "Tải trực tiếp về máy tính";
+            btnDownload.innerHTML = '** Tải về';
+
+            // Nút Xóa Drive
+            var btnDelete = document.createElement("button");
+            btnDelete.type = "button";
+            btnDelete.className = "btn btn-danger btn-sm py-0 px-1";
+            btnDelete.style.fontSize = "0.7rem";
+            btnDelete.title = "Xóa trực tiếp trên Drive";
+            btnDelete.innerHTML = '** Xóa Drive';
+            btnDelete.onclick = function() {
+                deleteDriveFileDirectly(url, index, 'asset', null);
+            };
+
+            actionDiv.appendChild(btnView);
+            actionDiv.appendChild(btnDownload);
+            actionDiv.appendChild(btnDelete);
+
+            row.appendChild(fileNameSpan);
+            row.appendChild(actionDiv);
+            div.appendChild(row);
 
             container.appendChild(div);
         });
     }
 
-    // 2. HIỂN THỊ DANH SÁCH TỆP MỚI CHỌN TỪ MÁY TÍNH (CHỜ UPLOAD)
+    // 3. HIỂN THỊ DANH SÁCH TỆP MỚI CHỌN TỪ MÁY TÍNH
     if (tempFilesList.length > 0) {
         var headerTemp = document.createElement("div");
         headerTemp.className = "d-flex justify-content-between align-items-center mt-2 mb-1";
         headerTemp.innerHTML = 
-            '<span class="text-success fw-semibold small"><i class="fa-solid fa-circle-plus me-1"></i> Tệp mới chọn (' + tempFilesList.length + '):</span>' +
-            '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllTempImages()" title="Xóa hết tệp mới">' +
-                '<i class="fa-solid fa-trash-can me-1"></i> Xóa hết' +
-            '</button>';
+            '** Tệp mới chọn (' + tempFilesList.length + '):' +
+            '' +
+                '** Xóa hết' +
+            '';
         container.appendChild(headerTemp);
 
         tempFilesList.forEach(function(file, index) {
             var b64 = tempBase64List[index];
             var isCurrentlyViewing = (currentActiveSrc === b64);
-            var safeName = file.name.replace(/'/g, "\\'");
-            var safeB64 = b64 ? b64.replace(/'/g, "\\'") : "";
-
-            var mediaType = detectMediaType(file.name || b64);
+            var fileInfo = getFileInfo(file.name || b64);
 
             var div = document.createElement("div");
             div.className = "file-detail-item " + (isCurrentlyViewing ? "active-viewing" : "");
 
             var btnClass = isCurrentlyViewing ? "btn-dark" : "btn-info text-white";
-            var btnIcon = isCurrentlyViewing ? "fa-eye-slash" : (mediaType === "image" ? "fa-file-image" : "fa-file-pdf");
+            var btnIcon = isCurrentlyViewing ? "fa-eye-slash" : fileInfo.iconClass.split(" ")[0];
             var btnText = isCurrentlyViewing ? "Đang xem..." : "Xem Inline";
-            var fileIcon = mediaType === "image" ? "fa-file-image text-success" : "fa-file text-success";
 
-            div.innerHTML = 
-                '<div class="d-flex align-items-center justify-content-between">' +
-                    '<span class="text-truncate me-2 ' + (isCurrentlyViewing ? "fw-bold text-success" : "") + '" style="max-width: 220px;" title="' + file.name + '">' +
-                        '<i class="fa-solid ' + fileIcon + ' me-1"></i> ' + file.name +
-                    '</span>' +
-                    '<div>' +
-                        '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" ' +
-                                'onclick="toggleInlineMedia(\'asset_form_inline_viewer_container\', \'' + safeB64 + '\', \'' + mediaType + '\', \'' + safeName + '\')" title="Xem thử">' +
-                            '<i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText +
-                        '</button>' +
-                        '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeTempFile(' + index + ')" title="Bỏ chọn tệp">' +
-                            '<i class="fa-solid fa-xmark"></i>' +
-                        '</button>' +
-                    '</div>' +
-                '</div>';
+            var row = document.createElement("div");
+            row.className = "d-flex align-items-center justify-content-between";
+
+            var fileNameSpan = document.createElement("span");
+            fileNameSpan.className = "text-truncate me-2 " + (isCurrentlyViewing ? "fw-bold text-success" : "");
+            fileNameSpan.style.maxWidth = "220px";
+            fileNameSpan.title = file.name;
+            fileNameSpan.innerHTML = '** ' + file.name;
+
+            var actionDiv = document.createElement("div");
+
+            var btnView = document.createElement("button");
+            btnView.type = "button";
+            btnView.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1";
+            btnView.style.fontSize = "0.75rem";
+            btnView.title = "Xem thử";
+            btnView.innerHTML = '** ' + btnText;
+            btnView.onclick = function() {
+                toggleInlineMedia('asset_form_inline_viewer_container', b64, fileInfo.mediaType, file.name);
+            };
+
+            var btnRemove = document.createElement("button");
+            btnRemove.type = "button";
+            btnRemove.className = "btn btn-outline-danger btn-sm py-0 px-1";
+            btnRemove.style.fontSize = "0.7rem";
+            btnRemove.title = "Bỏ chọn tệp";
+            btnRemove.innerHTML = '**';
+            btnRemove.onclick = function() {
+                removeTempFile(index);
+            };
+
+            actionDiv.appendChild(btnView);
+            actionDiv.appendChild(btnRemove);
+
+            row.appendChild(fileNameSpan);
+            row.appendChild(actionDiv);
+            div.appendChild(row);
+
             container.appendChild(div);
         });
     }
@@ -661,11 +732,14 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
         }
     }
 
-    var fileIconClass = mediaType === "image" ? "fa-file-image text-success" : "fa-file-pdf text-danger";
+    // Tự động nhận diện lại icon tiêu đề khi mở trực tiếp
+    var headerIconClass = "fa-file-pdf text-danger";
     var ext = displayFileName.toLowerCase();
-    if (ext.indexOf(".doc") !== -1 || ext.indexOf(".docx") !== -1) {
-        fileIconClass = "fa-file-word text-primary";
-    }
+    if (mediaType === "image") headerIconClass = "fa-file-image text-success";
+    else if (/\.(doc|docx)$/i.test(ext)) headerIconClass = "fa-file-word text-primary";
+    else if (/\.(xls|xlsx|csv)$/i.test(ext)) headerIconClass = "fa-file-excel text-success";
+    else if (/\.(ppt|pptx)$/i.test(ext)) headerIconClass = "fa-file-powerpoint text-warning";
+    else if (/\.(zip|rar|7z)$/i.test(ext)) headerIconClass = "fa-file-zipper text-secondary";
 
     var embedSrc = urlOrBase64;
 
@@ -681,8 +755,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
             }
 
             if (fileId) {
-                var pdfDirectUrl = "https://drive.google.com/uc?export=download&id=" + fileId;
-                embedSrc = "https://docs.google.com/viewer?url=" + encodeURIComponent(pdfDirectUrl) + "&embedded=true";
+                embedSrc = "https://drive.google.com/file/d/" + fileId + "/preview";
             }
         } else if (urlOrBase64.indexOf("data:application/pdf;base64,") === 0) {
             try {
@@ -703,41 +776,66 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
 
     targetContainer.dataset.embedSrc = embedSrc;
 
-    var safeFileName = displayFileName.replace(/'/g, "\\'");
-    var safeUrl = urlOrBase64.replace(/'/g, "\\'");
+    // Header Viewer
+    var headerDiv = document.createElement("div");
+    headerDiv.className = "d-flex align-items-center justify-content-between bg-white px-3 py-2 border border-bottom-0 rounded-top shadow-sm";
 
-    var headerHtml = 
-        '<div class="d-flex align-items-center justify-content-between bg-white px-3 py-2 border border-bottom-0 rounded-top shadow-sm">' +
-            '<div class="d-flex align-items-center text-truncate me-2">' +
-                '<i class="fa-solid ' + fileIconClass + ' fs-5 me-2"></i>' +
-                '<span class="fw-semibold text-dark text-truncate" style="font-size: 0.9rem;" title="' + displayFileName + '">' +
-                    'Xem trực tiếp: ' + displayFileName +
-                '</span>' +
-            '</div>' +
-            '<div class="d-flex align-items-center">' +
-                '<button type="button" class="btn btn-outline-primary btn-sm py-1 px-2 me-2 shadow-sm" style="font-size: 0.78rem;" onclick="window.open(this.closest(\'[data-embed-src]\').dataset.embedSrc, \'_blank\')">' +
-                    '<i class="fa-solid fa-up-right-from-square me-1"></i> Mở Tab Mới' +
-                '</button>' +
-                '<button type="button" class="btn-close ms-1" aria-label="Close" onclick="toggleInlineMedia(\'' + elementPrefixId + '\', \'' + safeUrl + '\', \'' + mediaType + '\', \'' + safeFileName + '\')" title="Đóng"></button>' +
-            '</div>' +
-        '</div>';
+    var titleBox = document.createElement("div");
+    titleBox.className = "d-flex align-items-center text-truncate me-2";
+    titleBox.innerHTML = '**' +
+        '' +
+        'Xem trực tiếp: ' + displayFileName + '';
+
+    var btnBox = document.createElement("div");
+    btnBox.className = "d-flex align-items-center";
+
+    var btnNewTab = document.createElement("button");
+    btnNewTab.type = "button";
+    btnNewTab.className = "btn btn-outline-primary btn-sm py-1 px-2 me-2 shadow-sm";
+    btnNewTab.style.fontSize = "0.78rem";
+    btnNewTab.innerHTML = '** Mở Tab Mới';
+    btnNewTab.onclick = function() { window.open(embedSrc, "_blank"); };
+
+    var btnClose = document.createElement("button");
+    btnClose.type = "button";
+    btnClose.className = "btn-close ms-1";
+    btnClose.title = "Đóng";
+    btnClose.onclick = function() {
+        toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName);
+    };
+
+    btnBox.appendChild(btnNewTab);
+    btnBox.appendChild(btnClose);
+    headerDiv.appendChild(titleBox);
+    headerDiv.appendChild(btnBox);
+
+    var mainWrapper = document.createElement("div");
+    mainWrapper.className = "position-relative mt-2 w-100";
+    mainWrapper.style.width = "100%";
+    mainWrapper.appendChild(headerDiv);
 
     if (mediaType === "pdf") {
-        targetContainer.innerHTML = 
-            '<div class="position-relative mt-2 w-100" style="width: 100% !important;">' +
-                headerHtml +
-                '<iframe src="' + embedSrc + '" style="width: 100%; height: 85vh; border: 1px solid #dee2e6; border-radius: 0 0 8px 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.15);"></iframe>' +
-            '</div>';
+        var iframe = document.createElement("iframe");
+        iframe.src = embedSrc;
+        iframe.setAttribute("allow", "autoplay");
+        iframe.style.cssText = "width: 100%; height: 85vh; border: 1px solid #dee2e6; border-radius: 0 0 8px 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.15);";
+        mainWrapper.appendChild(iframe);
     } else if (mediaType === "image") {
-        targetContainer.innerHTML = 
-            '<div class="position-relative mt-2 w-100" style="width: 100% !important;">' +
-                headerHtml +
-                '<div class="w-100 d-flex justify-content-center align-items-center bg-dark rounded-bottom p-2" style="min-height: 400px; max-height: 85vh; border: 1px solid #dee2e6; box-shadow: 0 6px 20px rgba(0,0,0,0.15);">' +
-                    '<img src="' + embedSrc + '" style="max-width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 4px;" alt="Inline Image Preview" />' +
-                '</div>' +
-            '</div>';
+        var imgContainer = document.createElement("div");
+        imgContainer.className = "w-100 d-flex justify-content-center align-items-center bg-dark rounded-bottom p-2";
+        imgContainer.style.cssText = "min-height: 400px; max-height: 85vh; border: 1px solid #dee2e6; box-shadow: 0 6px 20px rgba(0,0,0,0.15);";
+
+        var img = document.createElement("img");
+        img.src = embedSrc;
+        img.style.cssText = "max-width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 4px;";
+        img.alt = "Inline Image Preview";
+
+        imgContainer.appendChild(img);
+        mainWrapper.appendChild(imgContainer);
     }
 
+    targetContainer.innerHTML = "";
+    targetContainer.appendChild(mainWrapper);
     targetContainer.classList.remove("d-none");
     targetContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
