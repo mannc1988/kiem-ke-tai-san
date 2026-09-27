@@ -690,7 +690,6 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     if (fileName === undefined) fileName = "";
 
     var checkStr = (fileName || urlOrBase64).toLowerCase();
-    // Tự động nhận diện chính xác loại Media
     if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(checkStr) || checkStr.indexOf("data:image/") === 0) {
         mediaType = "image";
     } else if (!mediaType) {
@@ -703,7 +702,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     }
     if (!targetContainer) return;
 
-    // Toggle Đóng / Mở
+    // Toggle đóng/mở
     if (!targetContainer.classList.contains("d-none") && targetContainer.dataset.activeSrc === urlOrBase64) {
         targetContainer.classList.add("d-none");
         targetContainer.innerHTML = "";
@@ -730,23 +729,29 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
         }
     }
 
-    var fileInfo = typeof getFileInfo === "function" ? getFileInfo(displayFileName) : { iconClass: mediaType === "image" ? "fa-file-image text-success" : "fa-file-pdf text-danger" };
+    var fileInfo = typeof getFileInfo === "function" ? getFileInfo(displayFileName) : { iconClass: "fa-file-pdf text-danger" };
     var embedSrc = urlOrBase64;
 
-    // XỬ LÝ RIÊNG CHO FILE PDF
+    // TỰ ĐỘNG TÁCH FILE ID VÀ CHUYỂN SANG ĐỊNH DẠNG DRIVE PREVIEW KHÔNG BỊ LỖI CSP & XEM FULL TRANG
     if (mediaType === "pdf") {
         var fileId = "";
+        
+        // 1. Tách từ lh3.googleusercontent.com/d/{fileId}
         if (urlOrBase64.indexOf("googleusercontent.com/d/") !== -1) {
             fileId = urlOrBase64.split("googleusercontent.com/d/")[1].split("?")[0].split("/")[0];
-        } else if (urlOrBase64.indexOf("/d/") !== -1) {
+        } 
+        // 2. Tách từ drive.google.com/file/d/{fileId}
+        else if (urlOrBase64.indexOf("/d/") !== -1) {
             fileId = urlOrBase64.split("/d/")[1].split("/")[0];
-        } else if (urlOrBase64.indexOf("id=") !== -1) {
+        } 
+        // 3. Tách từ drive.google.com/open?id={fileId} hoặc uc?id={fileId}
+        else if (urlOrBase64.indexOf("id=") !== -1) {
             fileId = urlOrBase64.split("id=")[1].split("&")[0];
         }
 
         if (fileId) {
-            var pdfDirectUrl = "https://drive.google.com/uc?export=download&id=" + fileId;
-            embedSrc = "https://docs.google.com/viewer?url=" + encodeURIComponent(pdfDirectUrl) + "&embedded=true";
+            // Định dạng preview này không bị chặn bởi chính sách Content Security Policy và cuộn xem FULL các trang
+            embedSrc = "https://drive.google.com/file/d/" + fileId + "/preview";
         } else if (urlOrBase64.indexOf("data:application/pdf;base64,") === 0) {
             try {
                 var base64Data = urlOrBase64.split(",")[1];
@@ -804,12 +809,10 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     mainWrapper.style.width = "100%";
     mainWrapper.appendChild(headerDiv);
 
-    // HIỂN THỊ NỘI DUNG
     if (mediaType === "pdf") {
         var iframe = document.createElement("iframe");
         iframe.src = embedSrc;
-        iframe.setAttribute("allow", "autoplay; cross-origin-isolated");
-        iframe.setAttribute("sandbox", "allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts");
+        iframe.setAttribute("allow", "autoplay");
         iframe.style.cssText = "width: 100%; height: 85vh; border: 1px solid #dee2e6; border-radius: 0 0 8px 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.15);";
         mainWrapper.appendChild(iframe);
     } else if (mediaType === "image") {
