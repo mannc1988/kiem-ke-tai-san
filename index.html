@@ -486,6 +486,15 @@
     
     return url;
 }
+        function detectType(fileNameOrUrl) {
+    if (!fileNameOrUrl) return 'pdf';
+    var str = fileNameOrUrl.toLowerCase();
+    // Kiểm tra đuôi file ảnh, base64 hoặc link CDN ảnh của Google Drive
+    if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(str) || str.indexOf('data:image/') === 0 || str.indexOf('googleusercontent.com') !== -1) {
+        return 'image';
+    }
+    return 'pdf';
+}
         function renderImageDetailList() {
     var container = document.getElementById('imageDetailList');
     var inlineContainer = document.getElementById('asset_form_inline_viewer_container');
@@ -524,12 +533,12 @@
             var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
             var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : 'fa-file-pdf';
             var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
-
+            var mediaType = detectType(fName || url);
             var actionButtonsHtml = 
                 '<div class="d-flex align-items-center">' +
                     // NÚT 1: XEM INLINE
                     '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" ' +
-                            'onclick="toggleInlineMedia(\'asset_form_inline_viewer_container\', \'' + safeUrl + '\', \'pdf\', \'' + safeName + '\')" title="Xem trực tiếp trên web">' +
+                            'onclick="toggleInlineMedia('asset_form_inline_viewer_container', '" + safeUrl + "', '" + mediaType + "', '" + safeName + "')" title="Xem trực tiếp trên web">' +
                         '<i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText +
                     '</button>' +
                     // NÚT 2: TẢI VỀ MÁY TÍNH
