@@ -510,7 +510,7 @@
         return;
     }
 
-    // 1. Hàm nhận diện cấu hình Icon & Loại Media dựa trên tên tệp hoặc URL
+    // 1. Hàm nhận diện cấu hình Icon & Loại Media
     function getFileInfo(fileNameOrUrl) {
         if (!fileNameOrUrl) {
             return { mediaType: "pdf", iconClass: "fa-file-pdf text-danger" };
@@ -521,7 +521,6 @@
         if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(str) || str.indexOf("data:image/") === 0 || str.indexOf("googleusercontent.com") !== -1) {
             return { mediaType: "image", iconClass: "fa-file-image text-success" };
         }
-        
         // Word
         if (/\.(doc|docx)$/i.test(str)) {
             return { mediaType: "pdf", iconClass: "fa-file-word text-primary" };
@@ -581,7 +580,6 @@
             var actionDiv = document.createElement("div");
             actionDiv.className = "d-flex align-items-center";
 
-            // Nút Xem Inline
             var btnView = document.createElement("button");
             btnView.type = "button";
             btnView.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1";
@@ -592,7 +590,6 @@
                 toggleInlineMedia('asset_form_inline_viewer_container', url, fileInfo.mediaType, fName);
             };
 
-            // Nút Tải về
             var btnDownload = document.createElement("a");
             btnDownload.href = downloadUrl;
             btnDownload.setAttribute("download", "");
@@ -601,7 +598,6 @@
             btnDownload.title = "Tải trực tiếp về máy tính";
             btnDownload.innerHTML = '** Tải về';
 
-            // Nút Xóa Drive
             var btnDelete = document.createElement("button");
             btnDelete.type = "button";
             btnDelete.className = "btn btn-danger btn-sm py-0 px-1";
@@ -732,7 +728,6 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
         }
     }
 
-    // Tự động nhận diện lại icon tiêu đề khi mở trực tiếp
     var headerIconClass = "fa-file-pdf text-danger";
     var ext = displayFileName.toLowerCase();
     if (mediaType === "image") headerIconClass = "fa-file-image text-success";
@@ -743,6 +738,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
 
     var embedSrc = urlOrBase64;
 
+    // XỬ LÝ XEM FULL TOÀN BỘ CÁC TRANG BẰNG GOOGLE DOCS VIEWER
     if (mediaType === "pdf") {
         if (urlOrBase64.indexOf("drive.google.com") !== -1 || urlOrBase64.indexOf("googleusercontent.com") !== -1) {
             var fileId = "";
@@ -755,7 +751,9 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
             }
 
             if (fileId) {
-                embedSrc = "https://drive.google.com/file/d/" + fileId + "/preview";
+                // Tạo link tải trực tiếp và truyền vào Google Docs Embedded Viewer
+                var pdfDirectUrl = "https://drive.google.com/uc?export=download&id=" + fileId;
+                embedSrc = "https://docs.google.com/viewer?url=" + encodeURIComponent(pdfDirectUrl) + "&embedded=true";
             }
         } else if (urlOrBase64.indexOf("data:application/pdf;base64,") === 0) {
             try {
