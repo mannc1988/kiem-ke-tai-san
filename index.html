@@ -738,7 +738,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
 
     var embedSrc = urlOrBase64;
 
-    // XỬ LÝ XEM FULL TOÀN BỘ CÁC TRANG BẰNG GOOGLE DOCS VIEWER
+    // XỬ LÝ XEM FULL TOÀN BỘ CÁC TRANG PDF BẰNG GOOGLE DRIVE PREVIEW VIEWER
     if (mediaType === "pdf") {
         if (urlOrBase64.indexOf("drive.google.com") !== -1 || urlOrBase64.indexOf("googleusercontent.com") !== -1) {
             var fileId = "";
@@ -751,9 +751,8 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
             }
 
             if (fileId) {
-                // Tạo link tải trực tiếp và truyền vào Google Docs Embedded Viewer
-                var pdfDirectUrl = "https://drive.google.com/uc?export=download&id=" + fileId;
-                embedSrc = "https://docs.google.com/viewer?url=" + encodeURIComponent(pdfDirectUrl) + "&embedded=true";
+                // Link nhúng preview của Google Drive cho phép cuộn xem full 100% tất cả các trang
+                embedSrc = "https://drive.google.com/file/d/" + fileId + "/preview";
             }
         } else if (urlOrBase64.indexOf("data:application/pdf;base64,") === 0) {
             try {
