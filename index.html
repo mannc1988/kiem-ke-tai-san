@@ -690,7 +690,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     if (fileName === undefined) fileName = "";
 
     var checkStr = (fileName || urlOrBase64).toLowerCase();
-    if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(checkStr) || checkStr.indexOf("data:image/") === 0 || checkStr.indexOf("googleusercontent.com") !== -1) {
+    if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(checkStr) || checkStr.indexOf("data:image/") === 0) {
         mediaType = "image";
     } else if (!mediaType) {
         mediaType = "pdf";
@@ -728,33 +728,26 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
         }
     }
 
-    var headerIconClass = "fa-file-pdf text-danger";
-    var ext = displayFileName.toLowerCase();
-    if (mediaType === "image") headerIconClass = "fa-file-image text-success";
-    else if (/\.(doc|docx)$/i.test(ext)) headerIconClass = "fa-file-word text-primary";
-    else if (/\.(xls|xlsx|csv)$/i.test(ext)) headerIconClass = "fa-file-excel text-success";
-    else if (/\.(ppt|pptx)$/i.test(ext)) headerIconClass = "fa-file-powerpoint text-warning";
-    else if (/\.(zip|rar|7z)$/i.test(ext)) headerIconClass = "fa-file-zipper text-secondary";
-
+    var fileInfo = typeof getFileInfo === "function" ? getFileInfo(displayFileName) : { iconClass: "fa-file-pdf text-danger" };
     var embedSrc = urlOrBase64;
 
-    // XỬ LÝ XEM FULL CÁC TRANG BẰNG GOOGLE DOCS EMBEDDED VIEWER
+    // BẮT CHUẨN FILE ID TỪ CẢ GOOGLEUSERCONTENT LẪN DRIVE GOOGLE ĐỂ XEM FULL TRANG
     if (mediaType === "pdf") {
-        if (urlOrBase64.indexOf("drive.google.com") !== -1 || urlOrBase64.indexOf("googleusercontent.com") !== -1) {
-            var fileId = "";
-            if (urlOrBase64.indexOf("googleusercontent.com/d/") !== -1) {
-                fileId = urlOrBase64.split("googleusercontent.com/d/")[1].split("?")[0].split("/")[0];
-            } else if (urlOrBase64.indexOf("/d/") !== -1) {
+        var fileId = "";
+        
+        if (urlOrBase64.indexOf("googleusercontent.com/d/") !== -1) {
+            fileId = urlOrBase64.split("googleusercontent.com/d/")[1].split("?")[0].split("/")[0];
+        } else if (urlOrBase64.indexOf("drive.google.com") !== -1) {
+            if (urlOrBase64.indexOf("/d/") !== -1) {
                 fileId = urlOrBase64.split("/d/")[1].split("/")[0];
             } else if (urlOrBase64.indexOf("id=") !== -1) {
                 fileId = urlOrBase64.split("id=")[1].split("&")[0];
             }
+        }
 
-            if (fileId) {
-                // Sử dụng liên kết tải trực tiếp đưa vào Google Docs Viewer để đọc FULL tất cả trang PDF
-                var pdfDirectUrl = "https://drive.google.com/uc?export=download&id=" + fileId;
-                embedSrc = "https://docs.google.com/viewer?url=" + encodeURIComponent(pdfDirectUrl) + "&embedded=true";
-            }
+        if (fileId) {
+            // Chuyển sang định dạng preview chuẩn của Google Drive để xem FULL 100% các trang
+            embedSrc = "https://drive.google.com/file/d/" + fileId + "/preview";
         } else if (urlOrBase64.indexOf("data:application/pdf;base64,") === 0) {
             try {
                 var base64Data = urlOrBase64.split(",")[1];
