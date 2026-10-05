@@ -1393,17 +1393,14 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                     if (selectDot) {
                         const currentVal = selectDot.value;
 						let optionsHtml = '-- Tất cả các đợt --';
+                        selectDot.innerHTML = optionsHtml;
 						listDotKiemKe.forEach(d => {
                             const activeText = Number(d.active) === 0 ? ' [ĐÃ KHÓA]' : '';
                             selectDot.innerHTML += `<option value="${d.id}">${d.name}${activeText}</option>`;
                         });
-                        selectDot.innerHTML = optionsHtml;
                         if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) {
                             selectDot.value = currentVal;
                         }
-						else {
-        				selectDot.value = ''; // Mặc định chọn "Tất cả các đợt" nếu không khớp
-    					}
                     }
                 }
             } catch (e) {
