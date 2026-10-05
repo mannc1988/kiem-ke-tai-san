@@ -1112,22 +1112,15 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                 },
                 columns: [
                     { data: null, render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 },
-                    { 
-            data: 'dotId', 
-            render: data => {
-                if (!data) return 'Chưa xác định';
-
-                // 1. Giải mã ID đợt
-                let rawDotId = decryptData(data) || data;
-
-                // 2. Tra cứu trong listDotKiemKe
-                let dotObj = listDotKiemKe.find(d => String(d.id) === String(rawDotId));
-
-                // 3. Lấy tên đợt (Nếu không tìm thấy trong list thì hiển thị giá trị rawDotId, hoàn toàn không ghép chữ "Đợt ID:")
-                let displayName = dotObj ? dotObj.name : rawDotId;
-
-                // 4. Badge thông báo nếu đợt đã khóa
-                let activeBadge = (dotObj && Number(dotObj.active) === 0) 
+                    
+            { 
+            data: 'dotName', 
+            render: (data, type, row) => {
+                // Ưu tiên hiển thị dotName trả về từ JOIN
+                let displayName = data || decryptData(row.dotId) || row.dotId || 'Chưa xác định';
+                
+                // Cảnh báo đợt đã khóa
+                let activeBadge = (Number(row.dotActive) === 0) 
                     ? ' Đã khóa' 
                     : '';
 
