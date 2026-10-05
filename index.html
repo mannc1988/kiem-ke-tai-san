@@ -1400,6 +1400,10 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                         if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) {
                             selectDot.value = currentVal;
                         }
+						else
+						{
+							selectDot.value = '';
+						}
                     }
                 }
             } catch (e) {
