@@ -622,79 +622,57 @@ module.exports = async (req, res) => {
                 remainingUrls: updatedList.join(',')
             });
         }
-        if (action === 'server_history_grouped') {
-    const draw = parseInt(req.query.draw) || 1;
-    const start = parseInt(req.query.start) || 0;
-    const length = parseInt(req.query.length) || 10;
-    const selectedDotId = req.query.dot_id ? String(req.query.dot_id).trim() : '';
+         // 11. XUẤT BÁO CÁO
+        if (action === 'export_excel') {
+    try {
+        const selectedDotId = req.query.dot_id ? String(req.query.dot_id).trim() : '';
 
-    // 1. Lấy tất cả dữ liệu lịch sử và danh sách đợt kiểm kê
-    const [allRows] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
-    const [allDots] = await connection.execute('SELECT id, name, active FROM dot_kiem_ke');
+        // 1. Truy vấn toàn bộ lịch sử kiểm kê và tên các đợt
+        const [allRows] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
+        const [allDots] = await connection.execute('SELECT id, name FROM dot_kiem_ke');
 
-    // Tạo Map lưu thông tin đợt kiểm kê
-    const dotMap = new Map();
-    allDots.forEach(d => dotMap.set(String(d.id), { name: d.name, active: d.active }));
+        // Tạo Map để đối chiếu tên đợt
+        const dotMap = new Map();
+        allDots.forEach(d => dotMap.set(String(d.id), d.name));
 
-    // 2. Lọc theo đợt nếu có chọn đợt cụ thể
-    let filteredRows = allRows;
-    if (selectedDotId) {
-        filteredRows = allRows.filter(row => {
-            const decryptedDotId = (decryptData(row.dotId) || row.dotId || '').toString().trim();
-            return decryptedDotId === selectedDotId || String(row.dotId).trim() === selectedDotId;
-        });
-    }
-
-    // 3. Gom nhóm lịch sử kiểm kê theo Mã Tài Sản (tsId)
-    const groupedMap = new Map();
-
-    filteredRows.forEach(row => {
-        const tsId = row.tsId;
-        const decryptedDotId = (decryptData(row.dotId) || row.dotId || '').toString().trim();
-        const dotInfo = dotMap.get(decryptedDotId) || dotMap.get(String(row.dotId).trim());
-
-        // Giải mã các trường dữ liệu bị mã hóa
-        const historyItem = {
-            ...row,
-            dotIdDecrypted: decryptedDotId,
-            dotName: dotInfo ? dotInfo.name : null,
-            dotActive: dotInfo ? dotInfo.active : null,
-            tsName: decryptData(row.tsName) || row.tsName,
-            phong_ban: decryptData(row.phong_ban) || row.phong_ban,
-            so_serial: decryptData(row.so_serial) || row.so_serial,
-            ket_qua_kk: decryptData(row.ket_qua_kk) || row.ket_qua_kk,
-            phuong_an_xl: decryptData(row.phuong_an_xl) || row.phuong_an_xl,
-            ghiChu: decryptData(row.ghiChu) || row.ghiChu
-        };
-
-        if (!groupedMap.has(tsId)) {
-            groupedMap.set(tsId, {
-                tsId: tsId,
-                tsName: historyItem.tsName,
-                phong_ban: historyItem.phong_ban,
-                so_serial: historyItem.so_serial,
-                totalCount: 1,
-                latestTime: historyItem.thoiGian,
-                historyList: [historyItem]
+        // 2. Lọc theo đợt nếu có truyền selectedDotId
+        let filteredRows = allRows;
+        if (selectedDotId) {
+            filteredRows = allRows.filter(row => {
+                const decryptedDotId = (decryptData(row.dotId) || row.dotId || '').toString().trim();
+                return decryptedDotId === selectedDotId || String(row.dotId).trim() === selectedDotId;
             });
-        } else {
-            const group = groupedMap.get(tsId);
-            group.totalCount += 1;
-            group.historyList.push(historyItem);
         }
-    });
 
-    const groupedArray = Array.from(groupedMap.values());
-    const paginatedData = groupedArray.slice(start, start + length);
+        // 3. Tạo nội dung file CSV UTF-8 BOM (không bị lỗi font tiếng Việt khi mở bằng Excel)
+        let csvContent = "\uFEFF";
+        csvContent += "STT,Đợt Kiểm Kê,Mã Tài Sản,Tên Tài Sản,Phòng Ban,Số Serial,Cán Bộ Kiểm Kê,Kết Quả KK,Phương Án Xử Lý,Thời Gian,Ghi Chú\n";
 
-    return res.json({
-        draw: draw,
-        recordsTotal: groupedArray.length,
-        recordsFiltered: groupedArray.length,
-        data: paginatedData
-    });
+        filteredRows.forEach((row, index) => {
+            const decryptedDotId = (decryptData(row.dotId) || row.dotId || '').toString().trim();
+            const dotName = dotMap.get(decryptedDotId) || dotMap.get(String(row.dotId).trim()) || decryptedDotId;
+
+            const tsName = decryptData(row.tsName) || row.tsName || '';
+            const phong_ban = decryptData(row.phong_ban) || row.phong_ban || '';
+            const so_serial = decryptData(row.so_serial) || row.so_serial || '';
+            const ket_qua_kk = decryptData(row.ket_qua_kk) || row.ket_qua_kk || '';
+            const phuong_an_xl = decryptData(row.phuong_an_xl) || row.phuong_an_xl || '';
+            const ghiChu = decryptData(row.ghiChu) || row.ghiChu || '';
+
+            csvContent += `"\({index + 1}","\){dotName}","\({row.tsId}","\){tsName}","\({phong_ban}","\){so_serial}","\({row.nguoiKK || ''}","\){ket_qua_kk}","\({phuong_an_xl}","\){row.thoiGian || ''}","${ghiChu}"\n`;
+        });
+
+        // 4. Trả file trực tiếp về client để tải xuống
+        const fileName = `Bao_Cao_Kiem_Ke_${Date.now()}.csv`;
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+        return res.send(csvContent);
+
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Lỗi xuất báo cáo: ' + error.message });
+    }
 }
-        // 11. LOẠI BỎ TỆP LỊCH SỬ KIỂM KÊ KHỎI CSDL
+        // 12. LOẠI BỎ TỆP LỊCH SỬ KIỂM KÊ KHỎI CSDL
         if (action === 'remove_history_file' && req.method === 'POST') {
             const id = req.body.id || req.body.historyId;
             const removeUrl = req.body.removeUrl;
