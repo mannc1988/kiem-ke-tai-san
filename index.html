@@ -230,7 +230,7 @@
                             <th>Cán Bộ SD</th>
                             <th>Phòng Ban</th>
                             <th>Serial</th>
-                            <th>Thời Gian Thêm (Import At)</th>
+                            <th>Thời Gian Thêm</th>
                             <th class="text-center">Thao Tác</th>
                         </tr>
                     </thead>
@@ -242,7 +242,7 @@
 
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white py-3">
-                <h5 class="mb-0"><i class="fa-solid fa-camera me-2"></i> 2. Quét QR Kiểm Kê Theo Đợt</h5>
+                <h5 class="mb-0"><i class="fa-solid fa-camera me-2"></i> 2. Kiểm kê tài sản</h5>
             </div>
             <div class="card-body">
                 <div class="row">
@@ -251,7 +251,7 @@
                             <h5 class="card-title fw-bold text-dark mb-3"><i class="fa-solid fa-sliders me-1 text-primary"></i> Thiết Lập Đợt Kiểm Kê</h5>
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <label class="form-label fw-semibold text-secondary mb-0">Đợt Kiểm Kê <span class="text-danger">*</span>:</label>
+                                    <label class="form-label fw-semibold text-secondary mb-0">Đợt kiểm kê <span class="text-danger">*</span>:</label>
                                     <div>
                                         <button type="button" class="btn btn-outline-success btn-sm py-0 px-2" onclick="addDotKiemKe()" title="Tạo đợt kiểm kê mới"><i class="fa-solid fa-plus me-1"></i> Mới</button>
                                         <button type="button" class="btn btn-outline-warning btn-sm py-0 px-2" onclick="editDotKiemKe()" title="Sửa đợt đang chọn"><i class="fa-solid fa-pen"></i> Sửa</button>
@@ -262,17 +262,14 @@
                                 <select id="selectDot" class="form-select border-primary-subtle" onchange="filterHistoryByDot()"></select>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label fw-semibold text-secondary">Cán Bộ Kiểm Kê:</label>
-                                <input type="text" id="txtNguoiKK" class="form-control border-primary-subtle" value="Nguyễn Cao Mẫn">
-                            </div>
-                            <div class="alert alert-warning py-2 small mb-0">
-                                <i class="fa-solid fa-shield-halved me-1"></i> <b>Chống trùng tuyệt đối trong CSDL:</b> Máy chủ sẽ tự động từ chối nếu mã tài sản đã tồn tại trong đợt này.
+                                <label class="form-label fw-semibold text-secondary">Người kiểm kê:</label>
+                                <input type="text" id="txtNguoiKK" class="form-control border-primary-subtle" value="Nguyễn Cao Mẩn">
                             </div>
                         </div>
                     </div>
                     <div class="col-lg-7">
                         <div class="p-3 border rounded bg-light text-center">
-                            <h5 class="card-title fw-bold text-dark mb-3"><i class="fa-solid fa-qrcode me-1 text-success"></i> Camera Quét Mã</h5>
+                            <h5 class="card-title fw-bold text-dark mb-3"><i class="fa-solid fa-qrcode me-1 text-success"></i> Quét QR</h5>
                             <div id="reader" style="width: 100%; max-width: 380px; margin: auto;" class="p-2"></div>
                             <div id="scan-result" class="mt-3 fw-bold fs-6 p-2 rounded"></div>
                         </div>
@@ -284,11 +281,11 @@
         <div class="card shadow-sm">
             <div class="card-header bg-info text-white d-flex justify-content-between align-items-center py-3">
     <h5 class="mb-0">
-        <i class="fa-solid fa-clock-rotate-left me-2"></i> 3. Lịch Sử Đã Kiểm Kê (Theo Đợt)
+        <i class="fa-solid fa-clock-rotate-left me-2"></i> 3. Lịch Sử Đã Kiểm Kê
     </h5>
     <div class="d-flex align-items-center">
         <button class="btn btn-success btn-sm fw-semibold me-2" onclick="exportExcelReport()">
-            <i class="fa-solid fa-file-excel me-1"></i> Xuất Báo Cáo
+            <i class="fa-solid fa-file-excel me-1"></i> Xuất báo cáo
         </button>
         <button class="btn btn-light btn-sm fw-semibold" onclick="refreshData()">
             <i class="fa-solid fa-rotate me-1"></i> Làm mới toàn bộ
