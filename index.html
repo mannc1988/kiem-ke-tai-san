@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ Thống Kiểm Kê Tài Sản QR Pro (Viewer.js & Google Drive)</title>
+    <title>Hệ Thống Kiểm Kê Tài Sản</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -119,7 +119,7 @@
 
     <div class="container-fluid px-4">
         <div class="text-center mb-4">
-            <h2 class="fw-bold text-primary"><i class="fa-solid fa-boxes-stacked me-2"></i>QUẢN LÝ & KIỂM KẾ TÀI SẢN (AES & GOOGLE DRIVE)</h2>
+            <h2 class="fw-bold text-primary"><i class="fa-solid fa-boxes-stacked me-2"></i>QUẢN LÝ & KIỂM KẾ TÀI SẢN</h2>
             <p class="text-muted">Hệ thống bảo mật dữ liệu đầu cuối & lưu trữ tệp trực tiếp lên Google Drive</p>
         </div>
 
@@ -349,6 +349,31 @@
                 return cipherText; 
             }
         }
+		// Function gọi xuất báo cáo khi click nút trên giao diện
+function exportExcelReport() {
+    const dotSelect = document.getElementById('selectDot');
+    const dotId = dotSelect ? dotSelect.value : '';
+    
+    // Lấy tên đợt đang chọn trên dropdown
+    const selectedDotName = (dotSelect && dotSelect.selectedIndex >= 0 && dotSelect.value !== '') 
+        ? dotSelect.options[dotSelect.selectedIndex].text 
+        : 'Tất cả các đợt';
+
+    Swal.fire({
+        title: 'Xuất Báo Cáo Kiểm Kê?',
+        text: `Hệ thống sẽ tải về báo cáo file Excel cho: [${selectedDotName}]`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '** Tải Báo Cáo',
+        cancelButtonText: 'Hủy',
+        confirmButtonColor: '#198754'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Chuyển hướng trình duyệt gọi API xuất file
+            window.location.href = `\({API_URL}?action=export_excel&dot_id=\){encodeURIComponent(dotId)}`;
+        }
+    });
+}
 
         function formatDateToDMY(dateInput) {
             if (dateInput === undefined || dateInput === null || dateInput === '') return '';
