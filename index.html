@@ -362,31 +362,16 @@
 async function exportExcelReport() {
     if (!historyTable) return;
 
-    // 1. Lấy toàn bộ dữ liệu từ DataTables
+    // 1. Lấy trực tiếp toàn bộ dữ liệu đang có trong DataTables
     const tableData = historyTable.rows().data().toArray();
     if (tableData.length === 0) {
-        Swal.fire('Thông báo', 'Không có dữ liệu để xuất báo cáo!', 'warning');
+        Swal.fire('Thông báo', 'Không có dữ liệu trong bảng để xuất báo cáo!', 'warning');
         return;
     }
 
-    // 2. Tạo Map tra cứu tên đợt từ dropdown #selectDot
-    const dotMap = new Map();
-    $('#selectDot option').each(function() {
-        const val = $(this).val();
-        const text = $(this).text();
-        if (val) {
-            dotMap.set(val.trim(), text.trim());
-        }
-    });
-
-    const dotSelect = document.getElementById('selectDot');
-    const selectedDotName = (dotSelect && dotSelect.selectedIndex >= 0 && dotSelect.value !== '') 
-        ? dotSelect.options[dotSelect.selectedIndex].text 
-        : 'Tất cả các đợt';
-
     Swal.fire({
         title: 'Xuất Báo Cáo Kiểm Kê?',
-        text: `Hệ thống sẽ tải về file Excel cho: [${selectedDotName}]`,
+        text: `Hệ thống sẽ tải về file Excel chứa ${tableData.length} bản ghi hiện có trên bảng.`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: '** Tải Báo Cáo',
@@ -399,7 +384,7 @@ async function exportExcelReport() {
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('BaoCaoKiemKe');
 
-            // Cấu hình các cột Excel
+            // Cấu hình danh sách các cột trong file Excel
             worksheet.columns = [
                 { header: 'STT', key: 'stt', width: 8 },
                 { header: 'Đợt Kiểm Kê', key: 'dotName', width: 25 },
@@ -424,19 +409,13 @@ async function exportExcelReport() {
                 return val;
             };
 
-            // 3. Đổ dữ liệu đã được giải mã đầy đủ vào từng dòng
+            // 2. Đổ dữ liệu từ DataTable vào từng dòng Excel (có giải mã)
             tableData.forEach((row, idx) => {
-                // Giải mã mã đợt (dotId) và tên đợt (dotName)
-                const decryptedDotId = safeDecrypt(row.dotId);
                 const decryptedDotName = safeDecrypt(row.dotName);
+                const decryptedDotId = safeDecrypt(row.dotId);
 
-                // Xác định Tên đợt kiểm kê theo thứ tự ưu tiên: 
-                // 1. Tên đợt đã giải mã -> 2. Tra cứu từ Dropdown qua ID -> 3. Tên đợt thô -> 4. Mặc định
-                let finalDotName = decryptedDotName 
-                    || dotMap.get(decryptedDotId) 
-                    || dotMap.get(row.dotId) 
-                    || row.dotName 
-                    || 'Chưa xác định';
+                // Ưu tiên tên đợt đã giải mã -> ID đợt đã giải mã -> tên đợt gốc
+                const finalDotName = decryptedDotName || decryptedDotId || row.dotName || row.dotId || 'Chưa xác định';
 
                 worksheet.addRow({
                     stt: idx + 1,
@@ -453,13 +432,13 @@ async function exportExcelReport() {
                 });
             });
 
-            // 4. Định dạng Header
+            // 3. Định dạng Header (Màu xanh Primary, chữ trắng đậm, căn giữa)
             const headerRow = worksheet.getRow(1);
             headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
             headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0D6EFD' } };
             headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-            // 5. Kẻ ô Border
+            // 4. Kẻ ô Border và thiết lập căn chỉnh ô
             worksheet.eachRow((row, rNum) => {
                 row.eachCell((cell) => {
                     cell.border = {
@@ -470,7 +449,7 @@ async function exportExcelReport() {
                 });
             });
 
-            // 6. Xuất và tải file trực tiếp (HTML5 Blob URL)
+            // 5. Tạo file và tải xuống trực tiếp bằng HTML5 Blob URL
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             
