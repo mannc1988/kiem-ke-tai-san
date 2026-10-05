@@ -1393,24 +1393,24 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                     if (selectDot) {
     const currentVal = selectDot.value;
     
-    // 1. Dùng mảng tạm để build HTML (nhanh hơn cộng dồn innerHTML nhiều lần)
-    let optionsHtml = '-- Tất cả các đợt kiểm kê --';
-    
-    listDotKiemKe.forEach(d => {
-        const activeText = Number(d.active) === 0 ? ' [ĐÃ KHÓA]' : '';
-        optionsHtml += `${d.name}${activeText}`;
-    });
+    // 1. Tạo chuỗi HTML bắt đầu bằng tùy chọn "Tất cả các đợt kiểm kê" (value="")
+let optionsHtml = '<option value="">-- Tất cả các đợt kiểm kê --</option>';
 
-    // 2. Gán lại toàn bộ danh sách option mới
-    selectDot.innerHTML = optionsHtml;
+// 2. Nối thêm các option đợt kiểm kê từ danh sách
+listDotKiemKe.forEach(d => {
+    const activeText = Number(d.active) === 0 ? ' [ĐÃ KHÓA]' : '';
+    optionsHtml += `<option value="${d.id}">${d.name}${activeText}</option>`;
+});
 
-    // 3. Giữ lại giá trị người dùng đang chọn (bao gồm cả trường hợp đang chọn Tất cả các đợt "")
-    const isValidVal = currentVal === '' || listDotKiemKe.some(d => String(d.id) === String(currentVal));
-    if (currentVal !== null && currentVal !== undefined && isValidVal) {
-        selectDot.value = currentVal;
-    } else {
-        selectDot.value = ''; // Mặc định chọn "-- Tất cả các đợt kiểm kê --"
-    }
+// 3. Gán lại innerHTML một lần duy nhất
+selectDot.innerHTML = optionsHtml;
+
+// 4. Khôi phục giá trị đang chọn (hoặc chọn "-- Tất cả các đợt kiểm kê --" nếu chưa chọn gì/không khớp)
+if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) {
+    selectDot.value = currentVal;
+} else {
+    selectDot.value = ''; // Khớp chính xác với <option value=""> ở trên
+}
 }
                 }
             } catch (e) {
