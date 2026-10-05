@@ -222,32 +222,38 @@ module.exports = async (req, res) => {
 
         // 3. PHÂN TRANG DATATABLE LỊCH SỬ KIỂM KÊ
         if (action === 'server_history') {
-            const draw = parseInt(req.query.draw) || 1;
-            const start = parseInt(req.query.start) || 0;
-            const length = parseInt(req.query.length) || 10;
-            const selectedDotId = req.query.dot_id ? String(req.query.dot_id).trim() : '';
+    const draw = parseInt(req.query.draw) || 1;
+    const start = parseInt(req.query.start) || 0;
+    const length = parseInt(req.query.length) || 10;
+    const selectedDotId = req.query.dot_id ? String(req.query.dot_id).trim() : '';
 
-            const [allRows] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
-            
-            let filteredRows = allRows;
-            if (selectedDotId) {
-                filteredRows = allRows.filter(row => {
-                    const decryptedDotId = decryptData(row.dotId).trim();
-                    return decryptedDotId === selectedDotId || String(row.dotId).trim() === selectedDotId;
-                });
-            }
+    // LEFT JOIN với bảng dot_kiem_ke để lấy cột name (đặt tên là dotName) và active (dotActive)
+    const [allRows] = await connection.execute(`
+        SELECT l.*, d.name AS dotName, d.active AS dotActive
+        FROM lich_su_kk l
+        LEFT JOIN dot_kiem_ke d ON CAST(l.dotId AS CHAR) = CAST(d.id AS CHAR)
+        ORDER BY l.id DESC
+    `);
+    
+    let filteredRows = allRows;
+    if (selectedDotId) {
+        filteredRows = allRows.filter(row => {
+            const decryptedDotId = (decryptData(row.dotId) || row.dotId || '').toString().trim();
+            return decryptedDotId === selectedDotId || String(row.dotId).trim() === selectedDotId;
+        });
+    }
 
-            const totalRecords = allRows.length;
-            const recordsFiltered = filteredRows.length;
-            const paginatedRows = filteredRows.slice(start, start + length);
+    const totalRecords = allRows.length;
+    const recordsFiltered = filteredRows.length;
+    const paginatedRows = filteredRows.slice(start, start + length);
 
-            return res.json({
-                draw: draw,
-                recordsTotal: totalRecords,
-                recordsFiltered: recordsFiltered,
-                data: paginatedRows
-            });
-        }
+    return res.json({
+        draw: draw,
+        recordsTotal: totalRecords,
+        recordsFiltered: recordsFiltered,
+        data: paginatedRows
+    });
+}
 
         // 4. LƯU TỪNG TÀI SẢN LẺ
         if (action === 'save_asset' && req.method === 'POST') {
