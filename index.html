@@ -1117,7 +1117,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
             data: 'dotName', 
             render: (data, type, row) => {
                 // Ưu tiên hiển thị dotName trả về từ JOIN
-                let displayName = data || decryptData(row.dotId) || row.dotId || 'Chưa xác định';
+                let displayName = decryptData(row.dotName);
                 
                 // Cảnh báo đợt đã khóa
                 let activeBadge = (Number(row.dotActive) === 0) 
