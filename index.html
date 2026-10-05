@@ -1113,15 +1113,26 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                 columns: [
                     { data: null, render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 },
                     { 
-                        data: 'dotId', 
-                        render: data => {
-                            let decryptedDotId = decryptData(data);
-                            let dotObj = listDotKiemKe.find(d => String(d.id) === String(decryptedDotId) || String(d.id) === String(data));
-                            let name = dotObj ? dotObj.name : `Đợt ID: ${decryptedDotId}`;
-                            let activeBadge = (dotObj && Number(dotObj.active) === 0) ? ' <span class="badge bg-danger ms-1">Đã khóa</span>' : '';
-                            return `<span class="badge bg-info text-dark">${name}</span>${activeBadge}`;
-                        }
-                    },
+            data: 'dotId', 
+            render: data => {
+                if (!data) return 'Chưa xác định';
+
+                // 1. Giải mã ID đợt
+                let rawDotId = decryptData(data) || data;
+
+                // 2. Tra cứu trong listDotKiemKe
+                let dotObj = listDotKiemKe.find(d => String(d.id) === String(rawDotId));
+
+                // 3. Lấy tên đợt (Nếu không tìm thấy trong list thì hiển thị giá trị rawDotId, hoàn toàn không ghép chữ "Đợt ID:")
+                let displayName = dotObj ? dotObj.name : rawDotId;
+
+                // 4. Badge thông báo nếu đợt đã khóa
+                let activeBadge = (dotObj && Number(dotObj.active) === 0) 
+                    ? ' Đã khóa' 
+                    : '';
+
+                return `${displayName}${activeBadge}`;
+            },
                     { data: 'tsId', render: data => `<span class="badge bg-secondary">${decryptData(data)}</span>` },
                     { data: 'tsName', render: data => `<span class="fw-semibold text-dark">${decryptData(data)}</span>` },
                     { data: 'phong_ban', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
