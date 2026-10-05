@@ -354,7 +354,6 @@
         }
 		// Function gọi xuất báo cáo khi click nút trên giao diện
 function exportExcelReport() {
-    // 1. Lấy tất cả dữ liệu hiện có trong DataTable (bao gồm các trang)
     if (!historyTable) return;
     const tableData = historyTable.rows().data().toArray();
 
@@ -378,12 +377,11 @@ function exportExcelReport() {
         confirmButtonColor: '#198754'
     }).then((result) => {
         if (result.isConfirmed) {
-            // 2. Tạo nội dung CSV định dạng UTF-8 BOM để Excel hiển thị tiếng Việt đúng font
-            let csvContent = "\uFEFF";
-            csvContent += "STT,Đợt Kiểm Kê,Mã Tài Sản,Tên Tài Sản,Phòng Ban,Số Serial,Cán Bộ Kiểm Kê,Kết Quả KK,Phương Án Xử Lý,Thời Gian,Ghi Chú\n";
+            // Header file CSV có UTF-8 BOM để Excel hiển thị đúng tiếng Việt
+            let csvContent = "\uFEFFSTT,Đợt Kiểm Kê,Mã Tài Sản,Tên Tài Sản,Phòng Ban,Số Serial,Cán Bộ Kiểm Kê,Kết Quả KK,Phương Án Xử Lý,Thời Gian,Ghi Chú\n";
 
             tableData.forEach((row, index) => {
-                // Đọc và giải mã dữ liệu nếu có mã hóa ở frontend
+                // Đọc và giải mã dữ liệu an toàn
                 let dotName = row.dotName || (typeof decryptData === 'function' ? decryptData(row.dotId) : row.dotId) || 'Chưa xác định';
                 let tsId = row.tsId || '';
                 let tsName = (typeof decryptData === 'function' ? decryptData(row.tsName) : row.tsName) || row.tsName || '';
@@ -395,10 +393,11 @@ function exportExcelReport() {
                 let thoiGian = row.thoiGian || '';
                 let ghiChu = (typeof decryptData === 'function' ? decryptData(row.ghiChu) : row.ghiChu) || row.ghiChu || '';
 
+                // Sửa cú pháp nối chuỗi chuẩn xác tại đây
                 csvContent += `"\({index + 1}","\){dotName}","\({tsId}","\){tsName}","\({phongBan}","\){soSerial}","\({nguoiKK}","\){ketQua}","\({phuongAn}","\){thoiGian}","${ghiChu}"\n`;
             });
 
-            // 3. Kích hoạt trình duyệt tải file xuống (Thao tác thuần Client)
+            // Tải file trực tiếp về máy
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
