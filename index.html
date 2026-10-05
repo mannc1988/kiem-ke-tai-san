@@ -358,6 +358,7 @@
 async function exportExcelReport() {
     if (!historyTable) return;
 
+    // 1. Lấy toàn bộ dữ liệu từ DataTables
     const tableData = historyTable.rows().data().toArray();
     if (tableData.length === 0) {
         Swal.fire('Thông báo', 'Không có dữ liệu để xuất báo cáo!', 'warning');
@@ -384,7 +385,7 @@ async function exportExcelReport() {
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('BaoCaoKiemKe');
 
-            // Cấu hình các cột Excel
+            // Cấu hình danh sách cột Excel
             worksheet.columns = [
                 { header: 'STT', key: 'stt', width: 8 },
                 { header: 'Đợt Kiểm Kê', key: 'dotName', width: 25 },
@@ -399,32 +400,51 @@ async function exportExcelReport() {
                 { header: 'Ghi Chú', key: 'ghiChu', width: 25 }
             ];
 
-            // Đổ dữ liệu từ DataTable vào Excel
+            // 2. Helper giải mã dữ liệu an toàn
+            const safeDecrypt = (val) => {
+                if (!val) return '';
+                if (typeof decryptData === 'function') {
+                    const decrypted = decryptData(val);
+                    return decrypted || val;
+                }
+                return val;
+            };
+
+            // 3. Đổ dữ liệu đã được giải mã vào Excel
             tableData.forEach((row, idx) => {
-                const getVal = (val) => (typeof decryptData === 'function' ? decryptData(val) : val) || val || '';
+                const dotNameVal = row.dotName || safeDecrypt(row.dotId) || 'Chưa xác định';
+                const tsIdVal = safeDecrypt(row.tsId) || row.tsId || '';
+                const tsNameVal = safeDecrypt(row.tsName);
+                const phongBanVal = safeDecrypt(row.phong_ban);
+                const soSerialVal = safeDecrypt(row.so_serial);
+                const nguoiKKVal = safeDecrypt(row.nguoiKK) || row.nguoiKK || '';
+                const ketQuaVal = safeDecrypt(row.ket_qua_kk);
+                const phuongAnVal = safeDecrypt(row.phuong_an_xl);
+                const thoiGianVal = safeDecrypt(row.thoiGian) || row.thoiGian || '';
+                const ghiChuVal = safeDecrypt(row.ghiChu);
 
                 worksheet.addRow({
                     stt: idx + 1,
-                    dotName: row.dotName || getVal(row.dotId) || 'Chưa xác định',
-                    tsId: row.tsId || '',
-                    tsName: getVal(row.tsName),
-                    phongBan: getVal(row.phong_ban),
-                    soSerial: getVal(row.so_serial),
-                    nguoiKK: row.nguoiKK || '',
-                    ketQua: getVal(row.ket_qua_kk),
-                    phuongAn: getVal(row.phuong_an_xl),
-                    thoiGian: row.thoiGian || '',
-                    ghiChu: getVal(row.ghiChu)
+                    dotName: dotNameVal,
+                    tsId: tsIdVal,
+                    tsName: tsNameVal,
+                    phongBan: phongBanVal,
+                    soSerial: soSerialVal,
+                    nguoiKK: nguoiKKVal,
+                    ketQua: ketQuaVal,
+                    phuongAn: phuongAnVal,
+                    thoiGian: thoiGianVal,
+                    ghiChu: ghiChuVal
                 });
             });
 
-            // Định dạng Header (Nền xanh Primary, chữ trắng)
+            // 4. Style cho Header (Nền xanh Primary, chữ trắng đậm, căn giữa)
             const headerRow = worksheet.getRow(1);
             headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
             headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0D6EFD' } };
             headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-            // Kẻ ô Border
+            // 5. Kẻ ô Border và tự động xuống dòng
             worksheet.eachRow((row, rNum) => {
                 row.eachCell((cell) => {
                     cell.border = {
@@ -435,7 +455,7 @@ async function exportExcelReport() {
                 });
             });
 
-            // TẢI FILE TRỰC TIẾP (KHÔNG CẦN FileSaver / saveAs)
+            // 6. Xuất và tải file trực tiếp (HTML5 Blob URL)
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             
