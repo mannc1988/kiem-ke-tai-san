@@ -64,23 +64,42 @@ module.exports = async (req, res) => {
 
         // 1. LẤY DỮ LIỆU BAN ĐẦU (GIẢI MÃ ACTIVE VÀ TÊN ĐỢT TRẢ VỀ CLIENT XEM)
         if (action === 'data') {
-            const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
-            const [dotRows] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
-            const [lich_su] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
-            
-            // Giải mã name và active từ DB để trả về dạng thuần (1/0) cho client hiển thị
-            const dot_kiem_ke = dotRows.map(d => {
-                const decActive = decryptData(d.active);
-                const rawActiveNum = !isNaN(decActive) && decActive !== '' ? Number(decActive) : Number(d.active);
-                return {
-                    ...d,
-                    name: decryptData(d.name),
-                    active: isNaN(rawActiveNum) ? 1 : rawActiveNum
-                };
-            });
+    // 1. Lấy dot_id từ query parameters (ví dụ: /api?action=data&dot_id=123)
+    const dot_id = req.query.dot_id;
 
-            return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
-        }
+    // 2. Lấy toàn bộ danh sách tài sản và danh sách các đợt kiểm kê
+    const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
+    const [dotRows] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
+
+    // 3. Xử lý truy vấn Lịch sử kiểm kê: 
+    // Nếu có dot_id (khác rỗng/null/undefined) -> Lọc theo dot_id
+    // Nếu dot_id rỗng ("") hoặc không có -> Lấy TẤT CẢ các đợt kiểm kê
+    let sqlLichSu = 'SELECT * FROM lich_su_kk';
+    let paramsLichSu = [];
+
+    if (dot_id && dot_id.trim() !== '') {
+        sqlLichSu += ' WHERE dot_id = ? ORDER BY id DESC';
+        paramsLichSu.push(dot_id.trim());
+    } else {
+        sqlLichSu += ' ORDER BY id DESC';
+    }
+
+    const [lich_su] = await connection.execute(sqlLichSu, paramsLichSu);
+
+    // 4. Giải mã name và active từ DB cho danh sách đợt kiểm kê
+    const dot_kiem_ke = dotRows.map(d => {
+        const decActive = decryptData(d.active);
+        const rawActiveNum = !isNaN(decActive) && decActive !== '' ? Number(decActive) : Number(d.active);
+        return {
+            ...d,
+            name: decryptData(d.name),
+            active: isNaN(rawActiveNum) ? 1 : rawActiveNum
+        };
+    });
+
+    // 5. Trả về JSON cho Client
+    return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
+}
 
         // 1.1 TẠO MỚI ĐỢT KIỂM KÊ (MÃ HÓA ACTIVE KHI LƯU VÀO DB)
         if (action === 'add_dot' && req.method === 'POST') {
