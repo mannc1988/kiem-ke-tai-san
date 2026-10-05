@@ -353,12 +353,12 @@
             }
         }
 		// Function gọi xuất báo cáo khi click nút trên giao diện
-function exportExcelReport() {
+async function exportExcelReport() {
     if (!historyTable) return;
-    const tableData = historyTable.rows().data().toArray();
 
+    const tableData = historyTable.rows().data().toArray();
     if (tableData.length === 0) {
-        Swal.fire('Thông báo', 'Không có dữ liệu trong bảng để xuất báo cáo!', 'warning');
+        Swal.fire('Thông báo', 'Không có dữ liệu để xuất báo cáo!', 'warning');
         return;
     }
 
@@ -369,44 +369,77 @@ function exportExcelReport() {
 
     Swal.fire({
         title: 'Xuất Báo Cáo Kiểm Kê?',
-        text: `Hệ thống sẽ tải về báo cáo file Excel trực tiếp từ trình duyệt cho: [${selectedDotName}]`,
+        text: `Hệ thống sẽ tải về file Excel cho: [${selectedDotName}]`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: '** Tải Báo Cáo',
         cancelButtonText: 'Hủy',
         confirmButtonColor: '#198754'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            // Header file CSV có UTF-8 BOM để Excel hiển thị đúng tiếng Việt
-            let csvContent = "\uFEFFSTT,Đợt Kiểm Kê,Mã Tài Sản,Tên Tài Sản,Phòng Ban,Số Serial,Cán Bộ Kiểm Kê,Kết Quả KK,Phương Án Xử Lý,Thời Gian,Ghi Chú\n";
+    }).then(async (result) => {
+        if (!result.isConfirmed) return;
 
-            tableData.forEach((row, index) => {
-                // Đọc và giải mã dữ liệu an toàn
-                let dotName = row.dotName || (typeof decryptData === 'function' ? decryptData(row.dotId) : row.dotId) || 'Chưa xác định';
-                let tsId = row.tsId || '';
-                let tsName = (typeof decryptData === 'function' ? decryptData(row.tsName) : row.tsName) || row.tsName || '';
-                let phongBan = (typeof decryptData === 'function' ? decryptData(row.phong_ban) : row.phong_ban) || row.phong_ban || '';
-                let soSerial = (typeof decryptData === 'function' ? decryptData(row.so_serial) : row.so_serial) || row.so_serial || '';
-                let nguoiKK = row.nguoiKK || '';
-                let ketQua = (typeof decryptData === 'function' ? decryptData(row.ket_qua_kk) : row.ket_qua_kk) || row.ket_qua_kk || '';
-                let phuongAn = (typeof decryptData === 'function' ? decryptData(row.phuong_an_xl) : row.phuong_an_xl) || row.phuong_an_xl || '';
-                let thoiGian = row.thoiGian || '';
-                let ghiChu = (typeof decryptData === 'function' ? decryptData(row.ghiChu) : row.ghiChu) || row.ghiChu || '';
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('BaoCaoKiemKe');
 
-                // Sửa cú pháp nối chuỗi chuẩn xác tại đây
-                csvContent += `"\({index + 1}","\){dotName}","\({tsId}","\){tsName}","\({phongBan}","\){soSerial}","\({nguoiKK}","\){ketQua}","\({phuongAn}","\){thoiGian}","${ghiChu}"\n`;
+            // Cấu hình cột
+            worksheet.columns = [
+                { header: 'STT', key: 'stt', width: 8 },
+                { header: 'Đợt Kiểm Kê', key: 'dotName', width: 25 },
+                { header: 'Mã Tài Sản', key: 'tsId', width: 18 },
+                { header: 'Tên Tài Sản', key: 'tsName', width: 30 },
+                { header: 'Phòng Ban', key: 'phongBan', width: 22 },
+                { header: 'Số Serial', key: 'soSerial', width: 18 },
+                { header: 'Cán Bộ KK', key: 'nguoiKK', width: 20 },
+                { header: 'Kết Quả KK', key: 'ketQua', width: 18 },
+                { header: 'Phương Án XL', key: 'phuongAn', width: 18 },
+                { header: 'Thời Gian', key: 'thoiGian', width: 22 },
+                { header: 'Ghi Chú', key: 'ghiChu', width: 25 }
+            ];
+
+            // Đổ dữ liệu
+            tableData.forEach((row, idx) => {
+                const getVal = (val) => (typeof decryptData === 'function' ? decryptData(val) : val) || val || '';
+
+                worksheet.addRow({
+                    stt: idx + 1,
+                    dotName: row.dotName || getVal(row.dotId) || 'Chưa xác định',
+                    tsId: row.tsId || '',
+                    tsName: getVal(row.tsName),
+                    phongBan: getVal(row.phong_ban),
+                    soSerial: getVal(row.so_serial),
+                    nguoiKK: row.nguoiKK || '',
+                    ketQua: getVal(row.ket_qua_kk),
+                    phuongAn: getVal(row.phuong_an_xl),
+                    thoiGian: row.thoiGian || '',
+                    ghiChu: getVal(row.ghiChu)
+                });
             });
 
-            // Tải file trực tiếp về máy
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Bao_Cao_Kiem_Ke_${Date.now()}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            // Style cho Header (Màu xanh Primary, chữ trắng đậm)
+            const headerRow = worksheet.getRow(1);
+            headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+            headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0D6EFD' } };
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+            // Kẻ ô Border
+            worksheet.eachRow((row, rNum) => {
+                row.eachCell((cell) => {
+                    cell.border = {
+                        top: { style: 'thin' }, left: { style: 'thin' },
+                        bottom: { style: 'thin' }, right: { style: 'thin' }
+                    };
+                    if (rNum > 1) cell.alignment = { vertical: 'middle', wrapText: true };
+                });
+            });
+
+            // Tải file xuống
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            saveAs(blob, `Bao_Cao_Kiem_Ke_${Date.now()}.xlsx`);
+
+        } catch (err) {
+            Swal.fire('Lỗi', 'Không thể tạo file Excel: ' + err.message, 'error');
         }
     });
 }
