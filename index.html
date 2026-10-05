@@ -2768,13 +2768,10 @@ html5QrcodeScanner.render(onScanSuccess, (err) => {});
                         errorDetails.push(`Lỗi kết nối máy chủ khi đồng bộ theo lô.`);
                         totalFailCount = errorDetails.length;
                     }
-
                     document.getElementById('excelFile').value = '';
                     refreshAssetsData();
-
                     let htmlMsg = `Thành công: <b>${successCount}</b> tài sản.<br>`;
                     if (skipCount > 0) htmlMsg += `Đã bỏ qua (trùng mã): <b>${skipCount}</b> dòng.<br>`;
-                    
                     if (totalFailCount > 0) {
                         htmlMsg += `<span class="text-danger">Tổng số lỗi ghi nhận: <b>${totalFailCount}</b> lỗi</span><br>`;
                         htmlMsg += `<div id="errorListContainer" class="mt-2 text-start small border p-2 bg-light" style="max-height: 130px; overflow-y: auto;">` + errorDetails.join('<br>') + `</div>`;
