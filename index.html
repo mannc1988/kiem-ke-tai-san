@@ -1391,20 +1391,27 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
 
                     const selectDot = document.getElementById('selectDot');
                     if (selectDot) {
-                        const currentVal = selectDot.value;
-                        selectDot.innerHTML += `<option value="all">--Tất cả các đợt kiểm kê--</option>`;
-						listDotKiemKe.forEach(d => {
-                            const activeText = Number(d.active) === 0 ? ' [ĐÃ KHÓA]' : '';
-                            selectDot.innerHTML += `<option value="${d.id}">${d.name}${activeText}</option>`;
-                        });
-                        if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) {
-                            selectDot.value = currentVal;
-                        }
-						else
-						{
-							selectDot.value = '';
-						}
-                    }
+    const currentVal = selectDot.value;
+    
+    // 1. Dùng mảng tạm để build HTML (nhanh hơn cộng dồn innerHTML nhiều lần)
+    let optionsHtml = '-- Tất cả các đợt kiểm kê --';
+    
+    listDotKiemKe.forEach(d => {
+        const activeText = Number(d.active) === 0 ? ' [ĐÃ KHÓA]' : '';
+        optionsHtml += `\({d.name}\){activeText}`;
+    });
+
+    // 2. Gán lại toàn bộ danh sách option mới
+    selectDot.innerHTML = optionsHtml;
+
+    // 3. Giữ lại giá trị người dùng đang chọn (bao gồm cả trường hợp đang chọn Tất cả các đợt "")
+    const isValidVal = currentVal === '' || listDotKiemKe.some(d => String(d.id) === String(currentVal));
+    if (currentVal !== null && currentVal !== undefined && isValidVal) {
+        selectDot.value = currentVal;
+    } else {
+        selectDot.value = ''; // Mặc định chọn "-- Tất cả các đợt kiểm kê --"
+    }
+}
                 }
             } catch (e) {
                 console.error('Lỗi nạp cache lịch sử:', e);
