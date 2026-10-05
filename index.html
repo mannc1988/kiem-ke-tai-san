@@ -384,7 +384,7 @@ async function exportExcelReport() {
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('BaoCaoKiemKe');
 
-            // Cấu hình cột
+            // Cấu hình các cột Excel
             worksheet.columns = [
                 { header: 'STT', key: 'stt', width: 8 },
                 { header: 'Đợt Kiểm Kê', key: 'dotName', width: 25 },
@@ -399,7 +399,7 @@ async function exportExcelReport() {
                 { header: 'Ghi Chú', key: 'ghiChu', width: 25 }
             ];
 
-            // Đổ dữ liệu
+            // Đổ dữ liệu từ DataTable vào Excel
             tableData.forEach((row, idx) => {
                 const getVal = (val) => (typeof decryptData === 'function' ? decryptData(val) : val) || val || '';
 
@@ -418,7 +418,7 @@ async function exportExcelReport() {
                 });
             });
 
-            // Style cho Header (Màu xanh Primary, chữ trắng đậm)
+            // Định dạng Header (Nền xanh Primary, chữ trắng)
             const headerRow = worksheet.getRow(1);
             headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
             headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0D6EFD' } };
@@ -435,10 +435,18 @@ async function exportExcelReport() {
                 });
             });
 
-            // Tải file xuống
+            // TẢI FILE TRỰC TIẾP (KHÔNG CẦN FileSaver / saveAs)
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            saveAs(blob, `Bao_Cao_Kiem_Ke_${Date.now()}.xlsx`);
+            
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Bao_Cao_Kiem_Ke_${Date.now()}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
 
         } catch (err) {
             Swal.fire('Lỗi', 'Không thể tạo file Excel: ' + err.message, 'error');
