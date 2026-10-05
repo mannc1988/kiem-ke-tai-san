@@ -1132,7 +1132,8 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                     : '';
 
                 return `${displayName}${activeBadge}`;
-            },
+            }
+        },
                     { data: 'tsId', render: data => `<span class="badge bg-secondary">${decryptData(data)}</span>` },
                     { data: 'tsName', render: data => `<span class="fw-semibold text-dark">${decryptData(data)}</span>` },
                     { data: 'phong_ban', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
