@@ -227,23 +227,43 @@ module.exports = async (req, res) => {
     const length = parseInt(req.query.length) || 10;
     const selectedDotId = req.query.dot_id ? String(req.query.dot_id).trim() : '';
 
-    // LEFT JOIN với bảng dot_kiem_ke để lấy cột name (đặt tên là dotName) và active (dotActive)
-    const [allRows] = await connection.execute(`
-        SELECT l.*, d.name AS dotName, d.active AS dotActive
-        FROM lich_su_kk l
-        LEFT JOIN dot_kiem_ke d ON CAST(l.dotId AS CHAR) = CAST(d.id AS CHAR)
-        ORDER BY l.id DESC
-    `);
-    
-    let filteredRows = allRows;
+    // 1. Lấy toàn bộ lịch sử kiểm kê
+    const [allRows] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
+
+    // 2. Lấy danh sách tất cả các Đợt Kiểm Kê để đối chiếu
+    const [allDots] = await connection.execute('SELECT id, name, active FROM dot_kiem_ke');
+
+    // Tạo Map để tra cứu danh sách đợt nhanh theo ID
+    const dotMap = new Map();
+    allDots.forEach(d => {
+        dotMap.set(String(d.id), { name: d.name, active: d.active });
+    });
+
+    // 3. Giải mã dotId và ghép dotName vào từng dòng dữ liệu
+    const processedRows = allRows.map(row => {
+        // Giải mã dotId (nếu không giải mã được thì lấy giá trị gốc)
+        const decryptedDotId = (decryptData(row.dotId) || row.dotId || '').toString().trim();
+        
+        // Tìm thông tin đợt trong Map
+        const dotInfo = dotMap.get(decryptedDotId) || dotMap.get(String(row.dotId).trim());
+
+        return {
+            ...row,
+            realDotId: decryptedDotId, // ID đã giải mã
+            dotName: dotInfo ? dotInfo.name : null,
+            dotActive: dotInfo ? dotInfo.active : null
+        };
+    });
+
+    // 4. Lọc dữ liệu theo đợt được chọn (nếu có chọn selectDot)
+    let filteredRows = processedRows;
     if (selectedDotId) {
-        filteredRows = allRows.filter(row => {
-            const decryptedDotId = (decryptData(row.dotId) || row.dotId || '').toString().trim();
-            return decryptedDotId === selectedDotId || String(row.dotId).trim() === selectedDotId;
-        });
+        filteredRows = processedRows.filter(row => 
+            row.realDotId === selectedDotId || String(row.dotId).trim() === selectedDotId
+        );
     }
 
-    const totalRecords = allRows.length;
+    const totalRecords = processedRows.length;
     const recordsFiltered = filteredRows.length;
     const paginatedRows = filteredRows.slice(start, start + length);
 
