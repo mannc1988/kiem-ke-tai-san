@@ -1393,25 +1393,17 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
 
                     const selectDot = document.getElementById('selectDot');
                     if (selectDot) {
-    const currentVal = selectDot.value;
-    
-    // Mặc định luôn có tùy chọn Tất cả các đợt ở đầu danh sách
-    let optionsHtml = '-- Tất cả các đợt --';
-    
-    listDotKiemKe.forEach(d => {
-        const activeText = Number(d.active) === 0 ? ' [ĐÃ KHÓA]' : '';
-        optionsHtml += `\({d.name}\){activeText}`;
-    });
-
-    selectDot.innerHTML = optionsHtml;
-
-    // Giữ lại giá trị đang chọn nếu nó vẫn tồn tại trong danh sách (hoặc nếu là "")
-    if (currentVal !== null && currentVal !== undefined && (currentVal === '' || listDotKiemKe.some(d => String(d.id) === String(currentVal)))) {
-        selectDot.value = currentVal;
-    } else {
-        selectDot.value = ''; // Mặc định chọn "Tất cả các đợt" nếu không khớp
-    }
-}
+                        const currentVal = selectDot.value;
+						let optionsHtml = '-- Tất cả các đợt --';
+                        selectDot.innerHTML = '';
+                        listDotKiemKe.forEach(d => {
+                            const activeText = Number(d.active) === 0 ? ' [ĐÃ KHÓA]' : '';
+                            selectDot.innerHTML += `<option value="${d.id}">${d.name}${activeText}</option>`;
+                        });
+                        if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) {
+                            selectDot.value = currentVal;
+                        }
+                    }
                 }
             } catch (e) {
                 console.error('Lỗi nạp cache lịch sử:', e);
