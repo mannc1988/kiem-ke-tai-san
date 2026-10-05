@@ -2277,137 +2277,139 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
             return infoHtml;
         }
 
-        async function onScanSuccess(decodedText) {
-            if (!isScanning) return;
-            isScanning = false;
+async function onScanSuccess(decodedText) {
+    if (!isScanning) return;
+    isScanning = false;
 
-            const scannedCode = decodedText.trim();
-            const dotId = document.getElementById('selectDot').value;
-            const nguoiKK = document.getElementById('txtNguoiKK').value || 'Nhân viên';
+    const scannedCode = decodedText.trim();
+    const dotId = document.getElementById('selectDot').value;
+    const nguoiKK = document.getElementById('txtNguoiKK').value || 'Nhân viên';
 
-            if (!dotId) {
-                Swal.fire('Chưa chọn đợt', 'Vui lòng chọn Đợt Kiểm Kê trước khi quét!', 'warning');
-                isScanning = true;
-                return;
-            }
+    if (!dotId) {
+        Swal.fire('Chưa chọn đợt', 'Vui lòng chọn Đợt Kiểm Kê trước khi quét!', 'warning');
+        isScanning = true;
+        return;
+    }
 
-            const currentDotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
-            if (currentDotObj && Number(currentDotObj.active) === 0) {
-                Swal.fire('Đợt đã khóa', `Đợt kiểm kê [${currentDotObj.name}] đã bị khóa/tắt kích hoạt. Không thể thực hiện quét mới!`, 'error');
-                isScanning = true;
-                return;
-            }
+    // Lấy đối tượng Đợt Kiểm Kê hiện tại
+    const currentDotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
+    
+    if (currentDotObj && Number(currentDotObj.active) === 0) {
+        Swal.fire('Đợt đã khóa', `Đợt kiểm kê [${currentDotObj.name}] đã bị khóa/tắt kích hoạt. Không thể thực hiện quét mới!`, 'error');
+        isScanning = true;
+        return;
+    }
 
-            const resultDiv = document.getElementById('scan-result');
-            const assetObj = danhSachTS.find(t => String(t.ma_tai_san) === String(scannedCode));
-            const rawTsName = assetObj ? assetObj.ten_tai_san : `Tài sản quét (${scannedCode})`;
-            const rawPhongBan = assetObj ? (assetObj.phong_ban_quan_ly || '') : '';
-            const rawSerial = assetObj ? (assetObj.so_serial || '') : '';
-            
-            const previousHistories = lichSuKiemKeCache.filter(h => {
-                let dId = decryptData(h.dotId) || h.dotId;
-                let tId = decryptData(h.tsId) || h.tsId;
-                return String(tId) === String(scannedCode) && String(dId) !== String(dotId);
+    // Lấy Tên Đợt để hiển thị thay vì ID
+    const currentDotName = currentDotObj ? currentDotObj.name : `Đợt ID: ${dotId}`;
+
+    const resultDiv = document.getElementById('scan-result');
+    const assetObj = danhSachTS.find(t => String(t.ma_tai_san) === String(scannedCode));
+    const rawTsName = assetObj ? assetObj.ten_tai_san : `Tài sản quét (${scannedCode})`;
+    const rawPhongBan = assetObj ? (assetObj.phong_ban_quan_ly || '') : '';
+    const rawSerial = assetObj ? (assetObj.so_serial || '') : '';
+
+    const previousHistories = lichSuKiemKeCache.filter(h => {
+        let dId = decryptData(h.dotId) || h.dotId;
+        let tId = decryptData(h.tsId) || h.tsId;
+        return String(tId) === String(scannedCode) && String(dId) !== String(dotId);
+    });
+
+    const thoiGian = new Date().toLocaleString('vi-VN');
+    const tsId = scannedCode;
+    const tsName = encryptData(rawTsName);
+    const phong_ban = encryptData(rawPhongBan);
+    const so_serial = encryptData(rawSerial);
+    const ket_qua_kk = encryptData('Khớp danh mục');
+    const phuong_an_xl = encryptData('Giữ nguyên');
+    const tep_dinh_kem = encryptData('');
+    const ghiChu = encryptData('Quét QR hệ thống');
+
+    resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-warning-subtle text-warning border border-warning rounded';
+    resultDiv.innerText = `Đang kiểm tra CSDL & ghi nhận: ${scannedCode}...`;
+
+    try {
+        const response = await fetch(`${API_URL}?action=history`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                dotId, 
+                tsId, 
+                tsName, 
+                phong_ban, 
+                so_serial, 
+                nguoiKK, 
+                ket_qua_kk, 
+                phuong_an_xl, 
+                tep_dinh_kem, 
+                thoiGian, 
+                ghiChu 
+            })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            playBeep();
+
+            // Lưu tên đợt (dotName) vào Cache để hiển thị trên bảng lịch sử
+            lichSuKiemKeCache.push({
+                dotId: dotId,
+                dotName: currentDotName,
+                tsId: scannedCode,
+                tsName: rawTsName,
+                phong_ban: rawPhongBan,
+                so_serial: rawSerial,
+                nguoiKK: nguoiKK,
+                ket_qua_kk: 'Khớp danh mục',
+                phuong_an_xl: 'Giữ nguyên',
+                tep_dinh_kem: '',
+                thoiGian: thoiGian,
+                ghiChu: 'Quét QR hệ thống'
             });
 
-            const thoiGian = new Date().toLocaleString('vi-VN');
-            const tsId = scannedCode;
-            const tsName = encryptData(rawTsName);
-            const phong_ban = encryptData(rawPhongBan);
-            const so_serial = encryptData(rawSerial);
-            const ket_qua_kk = encryptData('Khớp danh mục');
-            const phuong_an_xl = encryptData('Giữ nguyên');
-            const tep_dinh_kem = encryptData('');
-            const ghiChu = encryptData('Quét QR hệ thống');
+            resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-success-subtle text-success border border-success rounded';
+            resultDiv.innerHTML = `<i class="fa-solid fa-circle-check me-1"></i> Ghi nhận thành công: ${rawTsName}!`;
 
-            resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-warning-subtle text-warning border border-warning rounded';
-            resultDiv.innerText = `Đang kiểm tra CSDL & ghi nhận: ${scannedCode}...`;
+            refreshHistoryData();
 
-            try {
-                const response = await fetch(`${API_URL}?action=history`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        dotId, 
-                        tsId, 
-                        tsName, 
-                        phong_ban, 
-                        so_serial, 
-                        nguoiKK, 
-                        ket_qua_kk, 
-                        phuong_an_xl, 
-                        tep_dinh_kem, 
-                        thoiGian, 
-                        ghiChu 
-                    })
-                });
-                const result = await response.json();
-                
-                if (result.success) {
-                    playBeep();
-
-                    lichSuKiemKeCache.push({
-                        dotId: dotId,
-                        tsId: scannedCode,
-                        tsName: rawTsName,
-                        phong_ban: rawPhongBan,
-                        so_serial: rawSerial,
-                        nguoiKK: nguoiKK,
-                        ket_qua_kk: 'Khớp danh mục',
-                        phuong_an_xl: 'Giữ nguyên',
-                        tep_dinh_kem: '',
-                        thoiGian: thoiGian,
-                        ghiChu: 'Quét QR hệ thống'
-                    });
-
-                    resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-success-subtle text-success border border-success rounded';
-                    resultDiv.innerHTML = `<i class="fa-solid fa-circle-check me-1"></i> Ghi nhận thành công: ${rawTsName}!`;
-                    
-                    refreshHistoryData();
-
-                    let dotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
-                    let currentDotName = dotObj ? dotObj.name : `Đợt ID: ${dotId}`;
-                    
-                    Swal.fire({
-                        title: `<span class="text-success"><i class="fa-solid fa-circle-check me-2"></i>Ghi Nhận Kiểm Kê Thành Công!</span>`,
-                        html: generateModalHtml(scannedCode, assetObj, previousHistories, currentDotName),
-                        width: '750px',
-                        confirmButtonText: '<i class="fa-solid fa-check me-1"></i> Đóng & Tiếp tục quét',
-                        confirmButtonColor: '#198754'
-                    }).then(() => {
-                        isScanning = true;
-                    });
-
-                } else {
-                    playBeep();
-                    let dotObj = listDotKiemKe.find(d => String(d.id) === String(dotId));
-                    let dotName = dotObj ? dotObj.name : `Đợt ID: ${dotId}`;
-                    let errorMsg = result.error || `Tài sản ${scannedCode} đã kiểm kê trong đợt này!`;
-
-                    resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
-                    resultDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> ${errorMsg}`;
-
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Đã Kiểm Kê Trước Đó!',
-                        html: `Mã tài sản <b>${scannedCode}</b> đã tồn tại trong CSDL kiểm kê của đợt: <br><b class="text-danger">${dotName}</b>.<br><br>Hệ thống đã hủy lưu tự động!`,
-                        confirmButtonText: 'Đóng & Tiếp tục',
-                        confirmButtonColor: '#dc3545'
-                    }).then(() => {
-                        isScanning = true;
-                    });
-                }
-            } catch (err) {
-                resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
-                resultDiv.innerText = `Lỗi kết nối máy chủ!`;
+            Swal.fire({
+                title: `<span class="text-success"><i class="fa-solid fa-circle-check me-2"></i>Ghi Nhận Kiểm Kê Thành Công!</span>`,
+                html: generateModalHtml(scannedCode, assetObj, previousHistories, currentDotName),
+                width: '750px',
+                confirmButtonText: '<i class="fa-solid fa-check me-1"></i> Đóng & Tiếp tục quét',
+                confirmButtonColor: '#198754'
+            }).then(() => {
                 isScanning = true;
-            }
-        }
+            });
 
-        const html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader", { fps: 15, qrbox: 250 }, false
-        );
-        html5QrcodeScanner.render(onScanSuccess, (err) => {});
+        } else {
+            playBeep();
+            let errorMsg = result.error || `Tài sản ${scannedCode} đã kiểm kê trong đợt này!`;
+
+            resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
+            resultDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i> ${errorMsg}`;
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Đã Kiểm Kê Trước Đó!',
+                html: `Mã tài sản <b>${scannedCode}</b> đã tồn tại trong CSDL kiểm kê của đợt: <br><b class="text-danger">${currentDotName}</b>.<br><br>Hệ thống đã hủy lưu tự động!`,
+                confirmButtonText: 'Đóng & Tiếp tục',
+                confirmButtonColor: '#dc3545'
+            }).then(() => {
+                isScanning = true;
+            });
+        }
+    } catch (err) {
+        resultDiv.className = 'mt-3 fw-bold fs-6 p-2 bg-danger-subtle text-danger border border-danger rounded';
+        resultDiv.innerText = `Lỗi kết nối máy chủ!`;
+        isScanning = true;
+    }
+}
+
+const html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader", { fps: 15, qrbox: 250 }, false
+);
+html5QrcodeScanner.render(onScanSuccess, (err) => {});
 
         function downloadTemplate(e) {
             e.preventDefault();
