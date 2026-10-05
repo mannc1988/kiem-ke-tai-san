@@ -1392,8 +1392,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                     const selectDot = document.getElementById('selectDot');
                     if (selectDot) {
                         const currentVal = selectDot.value;
-						let optionsHtml = '-- Tất cả các đợt --';
-                        selectDot.innerHTML = optionsHtml;
+                        selectDot.innerHTML += `<option value="all">--Tất cả các đợt kiểm kê--</option>`;
 						listDotKiemKe.forEach(d => {
                             const activeText = Number(d.active) === 0 ? ' [ĐÃ KHÓA]' : '';
                             selectDot.innerHTML += `<option value="${d.id}">${d.name}${activeText}</option>`;
