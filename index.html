@@ -1398,7 +1398,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     
     listDotKiemKe.forEach(d => {
         const activeText = Number(d.active) === 0 ? ' [ĐÃ KHÓA]' : '';
-        optionsHtml += `\({d.name}\){activeText}`;
+        optionsHtml += `${d.name}${activeText}`;
     });
 
     // 2. Gán lại toàn bộ danh sách option mới
