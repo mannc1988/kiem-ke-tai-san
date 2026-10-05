@@ -365,6 +365,16 @@ async function exportExcelReport() {
         return;
     }
 
+    // 2. Tạo Map tra cứu tên đợt từ dropdown #selectDot
+    const dotMap = new Map();
+    $('#selectDot option').each(function() {
+        const val = $(this).val();
+        const text = $(this).text();
+        if (val) {
+            dotMap.set(val.trim(), text.trim());
+        }
+    });
+
     const dotSelect = document.getElementById('selectDot');
     const selectedDotName = (dotSelect && dotSelect.selectedIndex >= 0 && dotSelect.value !== '') 
         ? dotSelect.options[dotSelect.selectedIndex].text 
@@ -385,7 +395,7 @@ async function exportExcelReport() {
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('BaoCaoKiemKe');
 
-            // Cấu hình danh sách cột Excel
+            // Cấu hình các cột Excel
             worksheet.columns = [
                 { header: 'STT', key: 'stt', width: 8 },
                 { header: 'Đợt Kiểm Kê', key: 'dotName', width: 25 },
@@ -400,7 +410,7 @@ async function exportExcelReport() {
                 { header: 'Ghi Chú', key: 'ghiChu', width: 25 }
             ];
 
-            // 2. Helper giải mã dữ liệu an toàn
+            // Helper giải mã dữ liệu an toàn
             const safeDecrypt = (val) => {
                 if (!val) return '';
                 if (typeof decryptData === 'function') {
@@ -410,41 +420,42 @@ async function exportExcelReport() {
                 return val;
             };
 
-            // 3. Đổ dữ liệu đã được giải mã vào Excel
+            // 3. Đổ dữ liệu đã được giải mã đầy đủ vào từng dòng
             tableData.forEach((row, idx) => {
-                const dotNameVal = row.dotName || safeDecrypt(row.dotId) || 'Chưa xác định';
-                const tsIdVal = safeDecrypt(row.tsId) || row.tsId || '';
-                const tsNameVal = safeDecrypt(row.tsName);
-                const phongBanVal = safeDecrypt(row.phong_ban);
-                const soSerialVal = safeDecrypt(row.so_serial);
-                const nguoiKKVal = safeDecrypt(row.nguoiKK) || row.nguoiKK || '';
-                const ketQuaVal = safeDecrypt(row.ket_qua_kk);
-                const phuongAnVal = safeDecrypt(row.phuong_an_xl);
-                const thoiGianVal = safeDecrypt(row.thoiGian) || row.thoiGian || '';
-                const ghiChuVal = safeDecrypt(row.ghiChu);
+                // Giải mã mã đợt (dotId) và tên đợt (dotName)
+                const decryptedDotId = safeDecrypt(row.dotId);
+                const decryptedDotName = safeDecrypt(row.dotName);
+
+                // Xác định Tên đợt kiểm kê theo thứ tự ưu tiên: 
+                // 1. Tên đợt đã giải mã -> 2. Tra cứu từ Dropdown qua ID -> 3. Tên đợt thô -> 4. Mặc định
+                let finalDotName = decryptedDotName 
+                    || dotMap.get(decryptedDotId) 
+                    || dotMap.get(row.dotId) 
+                    || row.dotName 
+                    || 'Chưa xác định';
 
                 worksheet.addRow({
                     stt: idx + 1,
-                    dotName: dotNameVal,
-                    tsId: tsIdVal,
-                    tsName: tsNameVal,
-                    phongBan: phongBanVal,
-                    soSerial: soSerialVal,
-                    nguoiKK: nguoiKKVal,
-                    ketQua: ketQuaVal,
-                    phuongAn: phuongAnVal,
-                    thoiGian: thoiGianVal,
-                    ghiChu: ghiChuVal
+                    dotName: finalDotName,
+                    tsId: safeDecrypt(row.tsId) || row.tsId || '',
+                    tsName: safeDecrypt(row.tsName),
+                    phongBan: safeDecrypt(row.phong_ban),
+                    soSerial: safeDecrypt(row.so_serial),
+                    nguoiKK: safeDecrypt(row.nguoiKK) || row.nguoiKK || '',
+                    ketQua: safeDecrypt(row.ket_qua_kk),
+                    phuongAn: safeDecrypt(row.phuong_an_xl),
+                    thoiGian: safeDecrypt(row.thoiGian) || row.thoiGian || '',
+                    ghiChu: safeDecrypt(row.ghiChu)
                 });
             });
 
-            // 4. Style cho Header (Nền xanh Primary, chữ trắng đậm, căn giữa)
+            // 4. Định dạng Header
             const headerRow = worksheet.getRow(1);
             headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
             headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0D6EFD' } };
             headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-            // 5. Kẻ ô Border và tự động xuống dòng
+            // 5. Kẻ ô Border
             worksheet.eachRow((row, rNum) => {
                 row.eachCell((cell) => {
                     cell.border = {
