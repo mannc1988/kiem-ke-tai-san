@@ -354,17 +354,23 @@
         }
 		// Function gọi xuất báo cáo khi click nút trên giao diện
 function exportExcelReport() {
+    // 1. Lấy tất cả dữ liệu hiện có trong DataTable (bao gồm các trang)
+    if (!historyTable) return;
+    const tableData = historyTable.rows().data().toArray();
+
+    if (tableData.length === 0) {
+        Swal.fire('Thông báo', 'Không có dữ liệu trong bảng để xuất báo cáo!', 'warning');
+        return;
+    }
+
     const dotSelect = document.getElementById('selectDot');
-    const dotId = dotSelect ? dotSelect.value : '';
-    
-    // Lấy tên đợt đang chọn trên dropdown
     const selectedDotName = (dotSelect && dotSelect.selectedIndex >= 0 && dotSelect.value !== '') 
         ? dotSelect.options[dotSelect.selectedIndex].text 
         : 'Tất cả các đợt';
 
     Swal.fire({
         title: 'Xuất Báo Cáo Kiểm Kê?',
-        text: `Hệ thống sẽ tải về báo cáo file Excel cho: [${selectedDotName}]`,
+        text: `Hệ thống sẽ tải về báo cáo file Excel trực tiếp từ trình duyệt cho: [${selectedDotName}]`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: '** Tải Báo Cáo',
@@ -372,8 +378,36 @@ function exportExcelReport() {
         confirmButtonColor: '#198754'
     }).then((result) => {
         if (result.isConfirmed) {
-            // Chuyển hướng trình duyệt gọi API xuất file
-            window.location.href = `\({API_URL}?action=export_excel&dot_id=\){encodeURIComponent(dotId)}`;
+            // 2. Tạo nội dung CSV định dạng UTF-8 BOM để Excel hiển thị tiếng Việt đúng font
+            let csvContent = "\uFEFF";
+            csvContent += "STT,Đợt Kiểm Kê,Mã Tài Sản,Tên Tài Sản,Phòng Ban,Số Serial,Cán Bộ Kiểm Kê,Kết Quả KK,Phương Án Xử Lý,Thời Gian,Ghi Chú\n";
+
+            tableData.forEach((row, index) => {
+                // Đọc và giải mã dữ liệu nếu có mã hóa ở frontend
+                let dotName = row.dotName || (typeof decryptData === 'function' ? decryptData(row.dotId) : row.dotId) || 'Chưa xác định';
+                let tsId = row.tsId || '';
+                let tsName = (typeof decryptData === 'function' ? decryptData(row.tsName) : row.tsName) || row.tsName || '';
+                let phongBan = (typeof decryptData === 'function' ? decryptData(row.phong_ban) : row.phong_ban) || row.phong_ban || '';
+                let soSerial = (typeof decryptData === 'function' ? decryptData(row.so_serial) : row.so_serial) || row.so_serial || '';
+                let nguoiKK = row.nguoiKK || '';
+                let ketQua = (typeof decryptData === 'function' ? decryptData(row.ket_qua_kk) : row.ket_qua_kk) || row.ket_qua_kk || '';
+                let phuongAn = (typeof decryptData === 'function' ? decryptData(row.phuong_an_xl) : row.phuong_an_xl) || row.phuong_an_xl || '';
+                let thoiGian = row.thoiGian || '';
+                let ghiChu = (typeof decryptData === 'function' ? decryptData(row.ghiChu) : row.ghiChu) || row.ghiChu || '';
+
+                csvContent += `"\({index + 1}","\){dotName}","\({tsId}","\){tsName}","\({phongBan}","\){soSerial}","\({nguoiKK}","\){ketQua}","\({phuongAn}","\){thoiGian}","${ghiChu}"\n`;
+            });
+
+            // 3. Kích hoạt trình duyệt tải file xuống (Thao tác thuần Client)
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Bao_Cao_Kiem_Ke_${Date.now()}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
     });
 }
