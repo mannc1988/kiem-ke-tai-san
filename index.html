@@ -2427,7 +2427,7 @@ if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) 
             btnView.title = "Xem trực tiếp trên web";
             btnView.innerHTML = '**' + btnText;
             btnView.onclick = function() {
-                toggleInlineMedia('asset_form_inline_viewer_container', url, fileInfo.mediaType, fName);
+                toggleInlineMedia('swal_file_inline_viewer_container', url, fileInfo.mediaType, fName);
             };
 
             var btnDownload = document.createElement("a");
