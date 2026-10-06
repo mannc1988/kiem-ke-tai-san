@@ -391,7 +391,6 @@ async function exportExcelReport() {
                 { header: 'Thời Gian', key: 'thoiGian', width: 22 },
                 { header: 'Ghi Chú', key: 'ghiChu', width: 25 }
             ];
-
             // Helper giải mã dữ liệu an toàn
             const safeDecrypt = (val) => {
                 if (!val) return '';
@@ -401,7 +400,6 @@ async function exportExcelReport() {
                 }
                 return val;
             };
-
             // 2. Đổ dữ liệu từ DataTable vào từng dòng Excel (có giải mã)
             tableData.forEach((row, idx) => {
                 const decryptedDotName = safeDecrypt(row.dotName);
