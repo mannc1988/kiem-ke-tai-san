@@ -658,7 +658,7 @@ async function exportExcelReport() {
     if (existingDriveUrls.length > 0) {
         var headerDrive = document.createElement("div");
         headerDrive.className = "text-primary fw-semibold small mb-1";
-        headerDrive.innerHTML = '** Tệp trên Drive (' + existingDriveUrls.length + '):';
+        headerDrive.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i> Tệp trên Drive (' + existingDriveUrls.length + '):';
         container.appendChild(headerDrive);
 
         existingDriveUrls.forEach(function(url, index) {
