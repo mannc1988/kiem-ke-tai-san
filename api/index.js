@@ -60,7 +60,7 @@ function getRawActiveNumber(activeInput) {
 }
 
 // Helper: Ghi nhật ký tác động (Audit Log)
-async function logAssetAction(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
+async function logAssetAction1(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
     try {
         const sql = 'INSERT INTO asset_audit_logs (ts_id, action_type, performed_by, old_data, new_data, note) VALUES (?, ?, ?, ?, ?, ?)';
         const encUser = performed_by ? encryptData(performed_by) : '';
@@ -79,7 +79,7 @@ async function logAssetAction(connection, { ts_id, action_type, performed_by, ol
     }
 }
 // Helper: Ghi nhật ký tác động (Audit Log - Mã hóa tất cả các cột trừ id)
-async function logAssetAction1(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
+async function logAssetAction(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
     try {
         const sql = 'INSERT INTO asset_audit_logs (ts_id, action_type, performed_by, old_data, new_data, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
         // 3. Mã hóa toàn bộ các cột trước khi ghi vào MySQL
