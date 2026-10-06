@@ -1309,11 +1309,12 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                             let safeParam = encodeURIComponent(JSON.stringify({
                                 id: hId, dotId: hDot, tsId: hTsId, tsName: hTsName, phong_ban: hPb, so_serial: hSerial, nguoiKK: hNguoi, ket_qua_kk: hKetQua, phuong_an_xl: hPa, tep_dinh_kem: hTep, ghiChu: hNote, thoiGian: hTime
                             }));
-
+							const rawTsId = row.ma_tai_san || row.ts_id || row.tsId;
+        const safeTsId = (typeof decryptData === 'function' ? decryptData(rawTsId) : rawTsId) || rawTsId;
                             return `
                                 <button class="btn btn-warning btn-sm text-white me-1" onclick="openEditHistoryModal('${safeParam}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
                                 <button class="btn btn-outline-danger btn-sm" onclick="deleteHistory(${hId})" title="Xóa"><i class="fa-solid fa-xmark"></i></button>
-                            	
+                            	<button class="btn btn-sm btn-outline-dark me-1" title="Xem Nhật Ký Tác Động" onclick="viewAssetAuditLogs('${safeTsId}')">
                 <i class="fa-solid fa-receipt me-1"></i> Nhật ký
             </button>
 							`;
