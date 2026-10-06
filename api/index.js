@@ -60,7 +60,34 @@ module.exports = async (req, res) => {
         }
 
         connection = await mysql.createConnection(dbConfig);
+if (action === 'get_asset_logs') {
+    try {
+        const ts_id = (req.body && req.body.ts_id) || req.query.ts_id || '';
 
+        if (!ts_id.toString().trim()) {
+            return res.status(200).json({ success: false, message: 'Thiếu mã tài sản!' });
+        }
+
+        const sql = `SELECT * FROM asset_audit_logs WHERE ts_id = ? ORDER BY id DESC`;
+        const [rows] = await connection.execute(sql, [ts_id.toString().trim()]);
+
+        const logs = rows.map(item => ({
+            id: item.id,
+            ts_id: item.ts_id,
+            action_type: item.action_type,
+            performed_by: decryptData(item.performed_by) || item.performed_by || 'Hệ thống',
+            old_data: item.old_data ? JSON.parse(item.old_data) : null,
+            new_data: item.new_data ? JSON.parse(item.new_data) : null,
+            note: decryptData(item.note) || item.note,
+            created_at: item.created_at
+        }));
+
+        return res.status(200).json({ success: true, data: logs });
+    } catch (err) {
+        console.error('Lỗi get_asset_logs:', err);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+}
         // 1. LẤY DỮ LIỆU BAN ĐẦU (GIẢI MÃ ACTIVE VÀ TÊN ĐỢT TRẢ VỀ CLIENT XEM)
         if (action === 'data') {
     // 1. Lấy dot_id từ query parameters (ví dụ: /api?action=data&dot_id=123)
