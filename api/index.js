@@ -34,7 +34,7 @@ function decryptData(cipherText) {
     }
 }
 
-// Helper: Giải mã toàn bộ đối tượng (Object) chứa dữ liệu mã hóa về Dạng Plain-Text
+// Helper: Giải mã toàn bộ đối tượng (Object) đệ quy về dạng Plain-Text
 function decryptObjectFields(obj) {
     if (!obj || typeof obj !== 'object') return null;
     const decryptedObj = {};
@@ -42,7 +42,11 @@ function decryptObjectFields(obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
             const val = obj[key];
             if (val !== null && val !== undefined) {
-                decryptedObj[key] = decryptData(val);
+                if (typeof val === 'object') {
+                    decryptedObj[key] = decryptObjectFields(val);
+                } else {
+                    decryptedObj[key] = decryptData(val);
+                }
             } else {
                 decryptedObj[key] = val;
             }
@@ -59,36 +63,28 @@ function getRawActiveNumber(activeInput) {
     return isNaN(val) ? 1 : (val !== 0 ? 1 : 0);
 }
 
-// Helper: Ghi nhật ký tác động (Audit Log)
-async function logAssetAction1(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
-    try {
-        const sql = 'INSERT INTO asset_audit_logs (ts_id, action_type, performed_by, old_data, new_data, note) VALUES (?, ?, ?, ?, ?, ?)';
-        const encUser = performed_by ? encryptData(performed_by) : '';
-        const encNote = note ? encryptData(note) : '';
-
-        await connection.execute(sql, [
-            ts_id || 'SYSTEM',
-            action_type,
-            encUser,
-            old_data ? JSON.stringify(old_data) : null,
-            new_data ? JSON.stringify(new_data) : null,
-            encNote
-        ]);
-    } catch (err) {
-        console.error('Lỗi khi ghi Audit Log:', err);
-    }
-}
-// Helper: Ghi nhật ký tác động (Audit Log - Mã hóa tất cả các cột trừ id)
+// Helper: Ghi nhật ký tác động (Audit Log - Mã hóa 100% các cột TEXT ngoại trừ id)
 async function logAssetAction(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
     try {
         const sql = 'INSERT INTO asset_audit_logs (ts_id, action_type, performed_by, old_data, new_data, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
-        // 3. Mã hóa toàn bộ các cột trước khi ghi vào MySQL
-        const encTsId = encryptData(ts_id);
-        const encActionType = encryptData(action_type);
-        const encUser = encryptData(performed_by);
-        const encOldData = encryptData(old_data ? JSON.stringify(old_data) : '');
-        const encNewData = encryptData(new_data ? JSON.stringify(new_data) : '');
-        const encNote = encryptData(note);
+        
+        // 1. Chuẩn hóa dữ liệu về dạng chuỗi/object Plain-Text trước khi mã hóa
+        const rawTsId = (decryptData(ts_id) || ts_id || 'SYSTEM').toString().trim();
+        const rawActionType = (action_type || '').toString().trim();
+        const rawUser = (decryptData(performed_by) || performed_by || 'Hệ thống').toString().trim();
+        const rawNote = (note || '').toString().trim();
+
+        // 2. Giải mã đệ quy old_data & new_data nếu chúng chứa các trường bị mã hóa sẵn
+        const plainOldData = old_data ? decryptObjectFields(old_data) : null;
+        const plainNewData = new_data ? decryptObjectFields(new_data) : null;
+
+        // 3. Mã hóa toàn bộ các cột kiểu TEXT trước khi lưu CSDL
+        const encTsId = encryptData(rawTsId);
+        const encActionType = encryptData(rawActionType);
+        const encUser = encryptData(rawUser);
+        const encOldData = encryptData(plainOldData ? JSON.stringify(plainOldData) : '');
+        const encNewData = encryptData(plainNewData ? JSON.stringify(plainNewData) : '');
+        const encNote = encryptData(rawNote);
         const encCreatedAt = encryptData(new Date().toISOString());
 
         await connection.execute(sql, [
@@ -124,98 +120,69 @@ module.exports = async (req, res) => {
 
         connection = await mysql.createConnection(dbConfig);
 
-        // ACTION: GET_ASSET_LOGS (LẤY LỊCH SỬ LOG TÁC ĐỘNG)
+        // ACTION: GET_ASSET_LOGS (LẤY VÀ GIẢI MÃ TOÀN BỘ CỘT LOG TÁC ĐỘNG)
         if (action === 'get_asset_logs') {
-    try {
-        const searchTsId = (req.body && req.body.ts_id) || req.query.ts_id || '';
-
-        if (!searchTsId.toString().trim()) {
-            return res.status(200).json({ success: false, message: 'Thiếu mã tài sản!' });
-        }
-
-        // Chuẩn hóa và giải mã mã tài sản cần tìm từ client (tránh trường hợp client gửi dạng mã hóa)
-        const targetTsId = decryptData(searchTsId).toString().trim().toLowerCase();
-        
-        // Vì cột ts_id trong CSDL đã bị mã hóa mã hóa AES nên phải lấy danh sách ra giải mã để so sánh
-        const sql = 'SELECT * FROM asset_audit_logs ORDER BY id DESC';
-        const [rows] = await connection.execute(sql);
-
-        const logs = [];
-        for (const item of rows) {
             try {
-                // 1. Giải mã cột ts_id
-                const decTsId = decryptData(item.ts_id).toString().trim();
+                const searchTsId = (req.body && req.body.ts_id) || req.query.ts_id || '';
 
-                // 2. So sánh mã tài sản sau khi giải mã
-                if (decTsId.toLowerCase() === targetTsId) {
-                    // 3. Giải mã các cột còn lại
-                    const decActionType = decryptData(item.action_type) || item.action_type;
-                    const decPerformedBy = decryptData(item.performed_by) || item.performed_by || 'Hệ thống';
-                    const decNote = decryptData(item.note) || item.note;
-                    const decCreatedAt = decryptData(item.created_at) || item.created_at;
-
-                    // 4. Giải mã chuỗi JSON old_data và new_data
-                    const decOldDataStr = decryptData(item.old_data);
-                    const decNewDataStr = decryptData(item.new_data);
-
-                    let parsedOldData = null;
-                    let parsedNewData = null;
-
-                    try { 
-                        parsedOldData = decOldDataStr ? JSON.parse(decOldDataStr) : null; 
-                    } catch (e) { 
-                        parsedOldData = decOldDataStr; 
-                    }
-
-                    try { 
-                        parsedNewData = decNewDataStr ? JSON.parse(decNewDataStr) : null; 
-                    } catch (e) { 
-                        parsedNewData = decNewDataStr; 
-                    }
-
-                    logs.push({
-                        id: item.id, // Cột id giữ nguyên không mã hóa
-                        ts_id: decTsId,
-                        action_type: decActionType,
-                        performed_by: decPerformedBy,
-                        old_data: parsedOldData,
-                        new_data: parsedNewData,
-                        note: decNote,
-                        created_at: decCreatedAt
-                    });
-                }
-            } catch (lineErr) {
-                console.error(`Lỗi giải mã dòng log ID ${item.id}:`, lineErr);
-            }
-        }
-
-        return res.status(200).json({ success: true, data: logs });
-    } catch (err) {
-        console.error('Lỗi get_asset_logs:', err);
-        return res.status(500).json({ success: false, error: err.message });
-    }
-}
-        if (action === 'get_asset_logs1') {
-            try {
-                const ts_id = (req.body && req.body.ts_id) || req.query.ts_id || '';
-
-                if (!ts_id.toString().trim()) {
+                if (!searchTsId.toString().trim()) {
                     return res.status(200).json({ success: false, message: 'Thiếu mã tài sản!' });
                 }
 
-                const sql = 'SELECT * FROM asset_audit_logs WHERE ts_id = ? ORDER BY id DESC';
-                const [rows] = await connection.execute(sql, [ts_id.toString().trim()]);
+                // Chuẩn hóa và giải mã mã tài sản cần tìm từ client
+                const targetTsId = decryptData(searchTsId).toString().trim().toLowerCase();
+                
+                const sql = 'SELECT * FROM asset_audit_logs ORDER BY id DESC';
+                const [rows] = await connection.execute(sql);
 
-                const logs = rows.map(item => ({
-                    id: item.id,
-                    ts_id: item.ts_id,
-                    action_type: item.action_type,
-                    performed_by: decryptData(item.performed_by) || item.performed_by || 'Hệ thống',
-                    old_data: item.old_data ? JSON.parse(item.old_data) : null,
-                    new_data: item.new_data ? JSON.parse(item.new_data) : null,
-                    note: decryptData(item.note) || item.note,
-                    created_at: item.created_at
-                }));
+                const logs = [];
+                for (const item of rows) {
+                    try {
+                        // 1. Giải mã cột ts_id
+                        const decTsId = decryptData(item.ts_id).toString().trim();
+
+                        // 2. So sánh mã tài sản sau khi giải mã
+                        if (decTsId.toLowerCase() === targetTsId) {
+                            // 3. Giải mã các cột kiểu TEXT
+                            const decActionType = decryptData(item.action_type) || item.action_type;
+                            const decPerformedBy = decryptData(item.performed_by) || item.performed_by || 'Hệ thống';
+                            const decNote = decryptData(item.note) || item.note;
+                            const decCreatedAt = decryptData(item.created_at) || item.created_at;
+
+                            // 4. Giải mã chuỗi JSON old_data và new_data
+                            const decOldDataStr = decryptData(item.old_data);
+                            const decNewDataStr = decryptData(item.new_data);
+
+                            let parsedOldData = null;
+                            let parsedNewData = null;
+
+                            try { 
+                                parsedOldData = decOldDataStr ? JSON.parse(decOldDataStr) : null; 
+                            } catch (e) { 
+                                parsedOldData = decOldDataStr; 
+                            }
+
+                            try { 
+                                parsedNewData = decNewDataStr ? JSON.parse(decNewDataStr) : null; 
+                            } catch (e) { 
+                                parsedNewData = decNewDataStr; 
+                            }
+
+                            logs.push({
+                                id: item.id, // Cột id duy nhất giữ nguyên kiểu số INT
+                                ts_id: decTsId,
+                                action_type: decActionType,
+                                performed_by: decPerformedBy,
+                                old_data: parsedOldData,
+                                new_data: parsedNewData,
+                                note: decNote,
+                                created_at: decCreatedAt
+                            });
+                        }
+                    } catch (lineErr) {
+                        console.error(`Lỗi giải mã dòng log ID ${item.id}:`, lineErr);
+                    }
+                }
 
                 return res.status(200).json({ success: true, data: logs });
             } catch (err) {
@@ -487,7 +454,7 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 4. LƯU TỪNG TÀI SẢN LẺ (LOG: CREATE / UPDATE ALL FIELDS)
+        // 4. LƯU TỪNG TÀI SẢN LẺ (LOG: CREATE / UPDATE)
         if (action === 'save_asset' && req.method === 'POST') {
             const { 
                 ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
@@ -501,12 +468,12 @@ module.exports = async (req, res) => {
                 return res.status(400).json({ success: false, error: 'Thiếu trường bắt buộc!' });
             }
 
-            const decryptedNewMaTS = decryptData(ma_tai_san);
+            const decryptedNewMaTS = decryptData(ma_tai_san).toString().trim();
             const [allAssets] = await connection.execute('SELECT * FROM danh_sach_tai_san');
 
             let matchedExistingRow = null;
             for (let row of allAssets) {
-                if (decryptData(row.ma_tai_san) === decryptedNewMaTS) {
+                if (decryptData(row.ma_tai_san).toString().trim() === decryptedNewMaTS) {
                     matchedExistingRow = row; 
                     break;
                 }
@@ -570,7 +537,7 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 4.1. LƯU TÀI SẢN THEO LÔ (LOG: CREATE / UPDATE BATCH ALL FIELDS)
+        // 4.1. LƯU TÀI SẢN THEO LÔ (LOG: CREATE / UPDATE BATCH)
         if (action === 'save_asset_batch' && req.method === 'POST') {
             const { payloads, duplicateAction, currentUser } = req.body;
 
@@ -598,10 +565,10 @@ module.exports = async (req, res) => {
                     continue;
                 }
 
-                const decryptedNewMaTS = decryptData(ma_tai_san);
+                const decryptedNewMaTS = decryptData(ma_tai_san).toString().trim();
                 let matchedExistingRow = null;
                 for (let row of allAssets) {
-                    if (decryptData(row.ma_tai_san) === decryptedNewMaTS) {
+                    if (decryptData(row.ma_tai_san).toString().trim() === decryptedNewMaTS) {
                         matchedExistingRow = row; 
                         break;
                     }
@@ -678,7 +645,7 @@ module.exports = async (req, res) => {
             return res.json({ success: true, successCount, skipCount, errors: batchErrors });
         }
 
-        // 5. XÓA TÀI SẢN (LOG: DELETE ALL FIELDS)
+        // 5. XÓA TÀI SẢN (LOG: DELETE)
         if (action === 'delete_asset' && req.method === 'POST') {
             const { ma_tai_san, currentUser } = req.body;
 
@@ -686,12 +653,12 @@ module.exports = async (req, res) => {
                 return res.status(400).json({ success: false, error: 'Thiếu mã tài sản cần xóa!' });
             }
 
-            const targetMaTS = ma_tai_san.toString().trim();
+            const targetMaTS = decryptData(ma_tai_san).toString().trim();
             const [allAssets] = await connection.execute('SELECT * FROM danh_sach_tai_san');
 
             let matchedDbRow = null;
             for (let row of allAssets) {
-                let decMa = decryptData(row.ma_tai_san).trim();
+                let decMa = decryptData(row.ma_tai_san).toString().trim();
                 if (decMa === targetMaTS || row.ma_tai_san === targetMaTS) {
                     matchedDbRow = row;
                     break;
@@ -720,7 +687,7 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 6. GHI NHẬN LỊCH SỬ QR (LOG: AUDIT ALL FIELDS)
+        // 6. GHI NHẬN LỊCH SỬ QR (LOG: AUDIT)
         if (action === 'history' && req.method === 'POST') {
             const { 
                 tsId, phong_ban, so_serial, nguoiKK, ghiChu, 
@@ -731,15 +698,15 @@ module.exports = async (req, res) => {
                 return res.status(400).json({ success: false, error: 'Thiếu thông tin Đợt kiểm kê hoặc Mã tài sản!' });
             }
 
-            const rawTargetDotId = decryptData(dotId).trim();
-            const rawTargetTsId = decryptData(tsId).trim();
+            const rawTargetDotId = decryptData(dotId).toString().trim();
+            const rawTargetTsId = decryptData(tsId).toString().trim();
 
             const [allHistories] = await connection.execute('SELECT dotId, tsId FROM lich_su_kk');
 
             let isDuplicate = false;
             for (let row of allHistories) {
-                const dbDotIdDecrypted = decryptData(row.dotId).trim();
-                const dbTsIdDecrypted = decryptData(row.tsId).trim();
+                const dbDotIdDecrypted = decryptData(row.dotId).toString().trim();
+                const dbTsIdDecrypted = decryptData(row.tsId).toString().trim();
 
                 if (dbDotIdDecrypted === rawTargetDotId && dbTsIdDecrypted === rawTargetTsId) {
                     isDuplicate = true;
@@ -805,12 +772,13 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: 'Đã ghi nhận lịch sử kiểm kê!' });
         }
 
-        // 7. XÓA LỊCH SỬ KIỂM KÊ (LOG: DELETE ALL FIELDS)
+        // 7. XÓA LỊCH SỬ KIỂM KÊ (LOG: DELETE)
         if (action === 'delete_history' && req.method === 'POST') {
             const { id, currentUser } = req.body;
 
             const [oldRows] = await connection.execute('SELECT * FROM lich_su_kk WHERE id = ?', [id]);
-            const targetTsId = oldRows[0] ? (decryptData(oldRows[0].tsId) || oldRows[0].tsId) : 'UNKNOWN';
+            const oldRowPlain = oldRows[0] ? decryptObjectFields(oldRows[0]) : null;
+            const targetTsId = oldRowPlain ? (oldRowPlain.tsId || 'UNKNOWN') : 'UNKNOWN';
 
             await connection.execute('DELETE FROM lich_su_kk WHERE id = ?', [id]);
 
@@ -818,7 +786,7 @@ module.exports = async (req, res) => {
                 ts_id: targetTsId,
                 action_type: 'DELETE',
                 performed_by: currentUser || 'Hệ thống',
-                old_data: oldRows[0] ? decryptObjectFields(oldRows[0]) : null,
+                old_data: oldRowPlain,
                 new_data: null,
                 note: 'Xóa bản ghi lịch sử kiểm kê ID: ' + id
             });
@@ -826,7 +794,7 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: 'Đã xóa lịch sử!' });
         }
 
-        // 7.1. CẬP NHẬT LỊCH SỬ KIỂM KÊ (LOG: UPDATE ALL FIELDS)
+        // 7.1. CẬP NHẬT LỊCH SỬ KIỂM KÊ (LOG: UPDATE)
         if (action === 'update_history' && req.method === 'POST') {
             const { id, phong_ban, so_serial, nguoiKK, ket_qua_kk, phuong_an_xl, tep_dinh_kem, ghiChu, currentUser } = req.body;
 
@@ -942,12 +910,13 @@ module.exports = async (req, res) => {
                 return res.status(400).json({ success: false, error: 'Thiếu mã tài sản hoặc URL tệp cần xóa!' });
             }
 
+            const rawMaTS = decryptData(ma_tai_san).toString().trim();
             const [allAssets] = await connection.execute('SELECT * FROM danh_sach_tai_san');
 
             let matchedDbRow = null;
             for (let row of allAssets) {
-                let decMa = decryptData(row.ma_tai_san);
-                if (decMa === ma_tai_san || row.ma_tai_san === ma_tai_san) {
+                let decMa = decryptData(row.ma_tai_san).toString().trim();
+                if (decMa === rawMaTS || row.ma_tai_san === rawMaTS) {
                     matchedDbRow = row;
                     break;
                 }
@@ -970,7 +939,7 @@ module.exports = async (req, res) => {
             );
 
             await logAssetAction(connection, {
-                ts_id: ma_tai_san,
+                ts_id: rawMaTS,
                 action_type: 'DELETE',
                 performed_by: currentUser || 'Hệ thống',
                 old_data: oldAssetPlain,
