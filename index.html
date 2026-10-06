@@ -656,59 +656,81 @@ async function exportExcelReport() {
 
     // 2. HIỂN THỊ DANH SÁCH TỆP ĐÃ CÓ TRÊN GOOGLE DRIVE
     if (existingDriveUrls.length > 0) {
-                var headerDrive = document.createElement('div');
-                headerDrive.className = 'text-primary fw-semibold small mb-1';
-                headerDrive.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i> Tệp trên Drive (' + existingDriveUrls.length + '):';
-                container.appendChild(headerDrive);
+        var headerDrive = document.createElement("div");
+        headerDrive.className = "text-primary fw-semibold small mb-1";
+        headerDrive.innerHTML = '** Tệp trên Drive (' + existingDriveUrls.length + '):';
+        container.appendChild(headerDrive);
 
-                existingDriveUrls.forEach(function(url, index) {
-                    var rawName = url.split('/').pop().split('?')[0] || ('Drive_File_' + (index + 1));
-                    var fName = rawName;
-                    try { fName = decodeURIComponent(rawName); } catch(e) {}
+        existingDriveUrls.forEach(function(url, index) {
+            var rawName = url.split("/").pop().split("?")[0] || ("Drive_File_" + (index + 1));
+            var fName = rawName;
+            try { fName = decodeURIComponent(rawName); } catch(e) {}
 
-                    var fileNameLower = fName.toLowerCase();
-                    var isPdf = fileNameLower.indexOf('.pdf') !== -1 || url.indexOf('.pdf') !== -1;
-                    var isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fileNameLower) || url.indexOf('image/') !== -1;
-                    var isWord = fileNameLower.indexOf('.doc') !== -1 || fileNameLower.indexOf('.docx') !== -1;
-                    var isExcel = fileNameLower.indexOf('.xls') !== -1 || fileNameLower.indexOf('.xlsx') !== -1 || fileNameLower.indexOf('.csv') !== -1;
+            var isCurrentlyViewing = (currentActiveSrc === url);
+            var fileInfo = getFileInfo(fName || url);
+            var downloadUrl = typeof getDownloadDriveUrl === "function" ? getDownloadDriveUrl(url) : url;
 
-                    var fileIconClass = 'fa-file text-secondary';
-                    if (isPdf) fileIconClass = 'fa-file-pdf text-danger';
-                    else if (isImage) fileIconClass = 'fa-file-image text-success';
-                    else if (isWord) fileIconClass = 'fa-file-word text-primary';
-                    else if (isExcel) fileIconClass = 'fa-file-excel text-success';
+            var div = document.createElement("div");
+            div.className = "file-detail-item mb-1 p-1 border rounded " + (isCurrentlyViewing ? "bg-light border-primary" : "");
+            
+            var btnClass = isCurrentlyViewing ? "btn-dark" : "btn-info text-white";
+            var btnIcon = isCurrentlyViewing ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
+            var btnText = isCurrentlyViewing ? "Đang xem..." : "Xem Inline";
 
-                    var isCurrentlyViewing = (currentActiveSrc === url);
-                    var safeName = fName.replace(/'/g, "\\'");
-                    var safeUrl = url.replace(/'/g, "\\'");
-                    
-                    var div = document.createElement('div');
-                    div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
-                    
-                    var inlineBtnHtml = '';
-                    if (isPdf || isImage) {
-                        var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
-                        var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
-                        var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
+            var row = document.createElement("div");
+            row.className = "d-flex align-items-center justify-content-between";
 
-                        inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'asset_form_inline_viewer_container\', \'' + safeUrl + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
-                    } else {
-                        inlineBtnHtml = '<a href="' + url + '" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>';
-                    }
+            var fileNameSpan = document.createElement("span");
+            fileNameSpan.className = "text-truncate me-2 " + (isCurrentlyViewing ? "fw-bold text-primary" : "");
+            fileNameSpan.style.maxWidth = "200px";
+            fileNameSpan.title = fName;
+            // Chèn icon chuẩn FontAwesome vào trước tên tệp
+            fileNameSpan.innerHTML = '**' + fName;
 
-                    div.innerHTML = 
-                        '<div class="d-flex align-items-center justify-content-between">' +
-                            '<span class="text-truncate me-2 ' + (isCurrentlyViewing ? 'fw-bold text-primary' : 'text-primary') + '" style="max-width: 220px;" title="' + fName + '">' +
-                                '<i class="fa-solid ' + fileIconClass + ' me-1"></i> ' + fName +
-                            '</span>' +
-                            '<div>' +
-                                inlineBtnHtml +
-                                '<button type="button" class="btn btn-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="deleteDriveFileDirectly(\'' + safeUrl + '\', ' + index + ', \'asset\', null)" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>' +
-                            '</div>' +
-                        '</div>';
-                    container.appendChild(div);
-                });
-            }
+            var actionDiv = document.createElement("div");
+            actionDiv.className = "d-flex align-items-center";
+
+            var btnView = document.createElement("button");
+            btnView.type = "button";
+            btnView.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1";
+            btnView.style.fontSize = "0.75rem";
+            btnView.title = "Xem trực tiếp trên web";
+            btnView.innerHTML = '**' + btnText;
+            btnView.onclick = function() {
+                toggleInlineMedia('asset_form_inline_viewer_container', url, fileInfo.mediaType, fName);
+            };
+
+            var btnDownload = document.createElement("a");
+            btnDownload.href = downloadUrl;
+            btnDownload.setAttribute("download", "");
+            btnDownload.className = "btn btn-outline-secondary btn-sm py-0 px-2 me-1";
+            btnDownload.style.fontSize = "0.75rem";
+            btnDownload.title = "Tải trực tiếp về máy tính";
+            btnDownload.innerHTML = '**Tải về';
+
+            var btnDelete = document.createElement("button");
+            btnDelete.type = "button";
+            btnDelete.className = "btn btn-danger btn-sm py-0 px-1";
+            btnDelete.style.fontSize = "0.7rem";
+            btnDelete.title = "Xóa trực tiếp trên Drive";
+            btnDelete.innerHTML = '**Xóa Drive';
+            btnDelete.onclick = function() {
+                if (typeof deleteDriveFileDirectly === "function") {
+                    deleteDriveFileDirectly(url, index, 'asset', null);
+                }
+            };
+
+            actionDiv.appendChild(btnView);
+            actionDiv.appendChild(btnDownload);
+            actionDiv.appendChild(btnDelete);
+
+            row.appendChild(fileNameSpan);
+            row.appendChild(actionDiv);
+            div.appendChild(row);
+
+            container.appendChild(div);
+        });
+    }
 
     // 3. HIỂN THỊ DANH SÁCH TỆP MỚI CHỌN TỪ MÁY TÍNH
     if (tempFilesList.length > 0) {
