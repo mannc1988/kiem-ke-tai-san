@@ -2895,5 +2895,35 @@ html5QrcodeScanner.render(onScanSuccess, (err) => {});
             reader.readAsArrayBuffer(file);
         }
     </script>
+	<!-- Modal Bảng Nhật Ký Tác Động Tài Sản -->
+<div class="modal fade" id="modalAssetAuditLogs" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white py-3">
+                <h5 class="modal-title">
+                    <i class="fa-solid fa-receipt me-2"></i> Nhật Ký Tác Động Tài Sản - <span id="lblLogTsId" class="text-warning fw-bold"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <table class="table table-bordered table-hover align-middle w-100">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 50px;">STT</th>
+                            <th style="width: 160px;">Thời Gian</th>
+                            <th style="width: 120px;">Hành Động</th>
+                            <th style="width: 150px;">Người Thực Hiện</th>
+                            <th>Chi Tiết Thay Đổi / Ghi Chú</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyAssetLogs"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
