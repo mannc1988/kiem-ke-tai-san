@@ -98,36 +98,42 @@ module.exports = async (req, res) => {
         // ----------------------------------------------------
         // 1. LẤY DỮ LIỆU BAN ĐẦU
         // ----------------------------------------------------
-        if (action === 'data') {
-            const dot_id = req.query.dot_id || req.body.dot_id;
+        // Action: Lấy dữ liệu ban đầu
+if (action === 'data') {
+    try {
+        const dot_id = req.query.dot_id || req.body.dot_id || '';
 
-            const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
-            const [dotRows] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
+        const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
+        const [dotRows] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
 
-            let sqlLichSu = 'SELECT * FROM lich_su_kk';
-            let paramsLichSu = [];
+        let sqlLichSu = 'SELECT * FROM lich_su_kk';
+        let paramsLichSu = [];
 
-            if (dot_id && dot_id.toString().trim() !== '') {
-                sqlLichSu += ' WHERE dot_id = ? ORDER BY id DESC';
-                paramsLichSu.push(dot_id.toString().trim());
-            } else {
-                sqlLichSu += ' ORDER BY id DESC';
-            }
-
-            const [lich_su] = await connection.execute(sqlLichSu, paramsLichSu);
-
-            const dot_kiem_ke = dotRows.map(d => {
-                const decActive = decryptData(d.active);
-                const rawActiveNum = !isNaN(decActive) && decActive !== '' ? Number(decActive) : Number(d.active);
-                return {
-                    ...d,
-                    name: decryptData(d.name),
-                    active: isNaN(rawActiveNum) ? 1 : rawActiveNum
-                };
-            });
-
-            return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
+        if (dot_id && String(dot_id).trim() !== '') {
+            sqlLichSu += ' WHERE dot_id = ? ORDER BY id DESC';
+            paramsLichSu.push(String(dot_id).trim());
+        } else {
+            sqlLichSu += ' ORDER BY id DESC';
         }
+
+        const [lich_su] = await connection.execute(sqlLichSu, paramsLichSu);
+
+        const dot_kiem_ke = dotRows.map(d => {
+            const decActive = decryptData(d.active);
+            const rawActiveNum = !isNaN(decActive) && decActive !== '' ? Number(decActive) : Number(d.active);
+            return {
+                ...d,
+                name: decryptData(d.name),
+                active: isNaN(rawActiveNum) ? 1 : rawActiveNum
+            };
+        });
+
+        return res.status(200).json({ success: true, danh_sach, dot_kiem_ke, lich_su });
+    } catch (err) {
+        console.error('Lỗi action=data:', err);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+}
 
         // ----------------------------------------------------
         // 1.1 - 1.4 QUẢN LÝ ĐỢT KIỂM KÊ
