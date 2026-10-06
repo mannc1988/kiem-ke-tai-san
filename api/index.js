@@ -51,8 +51,7 @@ module.exports = async (req, res) => {
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
-
-    const action = req.query.action;
+    const action = req.query.action || (req.body && req.body.action);
     let connection;
 
     try {
@@ -685,27 +684,33 @@ if (action === 'data') {
         }
 
 // Route API: Lấy nhật ký tác động Audit Log
-if (action === 'get_asset_logs') {
-    const ts_id = req.query.ts_id;
-    if (!ts_id) {
-        return res.json({ success: false, message: 'Thiếu mã tài sản!' });
+f (action === 'get_asset_logs') {
+    try {
+        const ts_id = (req.body && req.body.ts_id) || req.query.ts_id || '';
+
+        if (!ts_id.toString().trim()) {
+            return res.status(200).json({ success: false, message: 'Thiếu mã tài sản!' });
+        }
+
+        const sql = `SELECT * FROM asset_audit_logs WHERE ts_id = ? ORDER BY id DESC`;
+        const [rows] = await connection.execute(sql, [ts_id.toString().trim()]);
+
+        const logs = rows.map(item => ({
+            id: item.id,
+            ts_id: item.ts_id,
+            action_type: item.action_type,
+            performed_by: decryptData(item.performed_by) || item.performed_by || 'Hệ thống',
+            old_data: item.old_data ? JSON.parse(item.old_data) : null,
+            new_data: item.new_data ? JSON.parse(item.new_data) : null,
+            note: decryptData(item.note) || item.note,
+            created_at: item.created_at
+        }));
+
+        return res.status(200).json({ success: true, data: logs });
+    } catch (err) {
+        console.error('Lỗi get_asset_logs:', err);
+        return res.status(500).json({ success: false, error: err.message });
     }
-
-    const sql = `SELECT * FROM asset_audit_logs WHERE ts_id = ? ORDER BY id DESC`;
-    const [rows] = await connection.execute(sql, [ts_id.trim()]);
-
-    const logs = rows.map(item => ({
-        id: item.id,
-        ts_id: item.ts_id,
-        action_type: item.action_type,
-        performed_by: decryptData(item.performed_by) || item.performed_by || 'Hệ thống',
-        old_data: item.old_data ? JSON.parse(item.old_data) : null,
-        new_data: item.new_data ? JSON.parse(item.new_data) : null,
-        note: decryptData(item.note) || item.note,
-        created_at: item.created_at
-    }));
-
-    return res.json({ success: true, data: logs });
 }
          // 11. XUẤT BÁO CÁO
         if (action === 'export_excel') {
