@@ -1757,7 +1757,7 @@ if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) 
 		/**
  * Hàm xuất báo cáo danh sách tài sản ĐẦY ĐỦ CÁC CỘT CSDL từ DataTables Plugin
  * - Giải mã AES cho toàn bộ trường dữ liệu bị mã hóa
- * - Sử dụng  trung gian để làm sạch tag HTML
+ * - Sử dụng DOMParser thuần JS (KHÔNG dùng <textarea>) để làm sạch tag HTML
  * - Xuất ra file CSV Unicode (UTF-8) hiển thị chuẩn tiếng Việt trên Excel
  */
 function exportAssetReportToExcel() {
@@ -1786,7 +1786,10 @@ function exportAssetReportToExcel() {
             return;
         }
 
-        // Hàm bổ trợ giải mã AES & làm sạch HTML qua Textarea
+        // Tạo sẵn instance DOMParser để dùng lại nhiều lần
+        var parser = new DOMParser();
+
+        // Hàm bổ trợ giải mã AES & làm sạch HTML thuần (Không cần DOM/Textarea)
         function decryptAndCleanText(inputVal) {
             if (inputVal === null || inputVal === undefined) return '';
             var strVal = String(inputVal).trim();
@@ -1804,14 +1807,9 @@ function exportAssetReportToExcel() {
                 }
             }
 
-            // Bước 2: Bóc tách text qua textarea (không render HTML)
-            var $textarea =$('#rawHtmlDataContainer');
-            if (!$textarea.length) {
-                $textarea =$('<textarea id="rawHtmlDataContainer" class="d-none" readonly>').appendTo('body');
-            }
-            
-            $textarea.html(strVal);
-            var cleanText = \(textarea.text() \vert{}\vert{}\)textarea.val() || '';
+            // Bước 2: Dùng DOMParser để bóc tách text thuần từ chuỗi HTML
+            var doc = parser.parseFromString(strVal, 'text/html');
+            var cleanText = doc.body.textContent || '';
 
             // Bước 3: Escape dấu " và xóa xuống dòng để tránh vỡ cột CSV
             return cleanText.replace(/"/g, '""').replace(/(\r\n|\n|\r)/gm, " ");
