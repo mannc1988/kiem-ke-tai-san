@@ -666,36 +666,23 @@ async function logAssetAction(connection, { ts_id, action_type, performed_by, ol
 
 // Route API: Lấy danh sách & Lịch sử kiểm kê (Xử lý Tất cả các đợt khi dot_id = "")
 if (action === 'data') {
-    const dot_id = req.query && req.query.dot_id ? String(req.query.dot_id).trim() : '';
+            const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
+            const [dotRows] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
+            const [lich_su] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
+            
+            // Giải mã name và active từ DB để trả về dạng thuần (1/0) cho client hiển thị
+            const dot_kiem_ke = dotRows.map(d => {
+                const decActive = decryptData(d.active);
+                const rawActiveNum = !isNaN(decActive) && decActive !== '' ? Number(decActive) : Number(d.active);
+                return {
+                    ...d,
+                    name: decryptData(d.name),
+                    active: isNaN(rawActiveNum) ? 1 : rawActiveNum
+                };
+            });
 
-    const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
-    const [dotRows] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
-
-    // Nếu dot_id rỗng ("") -> Lấy TẤT CẢ các đợt kiểm kê
-    let sqlLichSu = 'SELECT * FROM lich_su_kk';
-    let paramsLichSu = [];
-
-    if (dot_id !== '') {
-        sqlLichSu += ' WHERE dot_id = ? ORDER BY id DESC';
-        paramsLichSu.push(dot_id);
-    } else {
-        sqlLichSu += ' ORDER BY id DESC';
-    }
-
-    const [lich_su] = await connection.execute(sqlLichSu, paramsLichSu);
-
-    const dot_kiem_ke = dotRows.map(d => {
-        const decActive = decryptData(d.active);
-        const rawActiveNum = !isNaN(decActive) && decActive !== '' ? Number(decActive) : Number(d.active);
-        return {
-            ...d,
-            name: decryptData(d.name),
-            active: isNaN(rawActiveNum) ? 1 : rawActiveNum
-        };
-    });
-
-    return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
-}
+            return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
+        }
 
 // Route API: Lấy nhật ký tác động Audit Log
 if (action === 'get_asset_logs') {
