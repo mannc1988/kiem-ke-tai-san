@@ -698,14 +698,39 @@ if (action === 'data') {
 }
 
 // Route API: Lấy nhật ký tác động Audit Log
+// Helper: Ghi log tác động tài sản
+async function logAssetAction(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
+    try {
+        const sql = `
+            INSERT INTO asset_audit_logs (ts_id, action_type, performed_by, old_data, new_data, note)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        const encUser = performed_by ? (typeof encryptData === 'function' ? encryptData(performed_by) : performed_by) : '';
+        const encNote = note ? (typeof encryptData === 'function' ? encryptData(note) : note) : '';
+        
+        await connection.execute(sql, [
+            ts_id,
+            action_type,
+            encUser,
+            old_data ? JSON.stringify(old_data) : null,
+            new_data ? JSON.stringify(new_data) : null,
+            encNote
+        ]);
+    } catch (err) {
+        console.error('Lỗi khi ghi Audit Log:', err);
+    }
+}
+
+// Action POST: Lấy nhật ký tác động theo mã tài sản
 if (action === 'get_asset_logs') {
-    const ts_id = req.query.ts_id;
+    const ts_id = req.body && req.body.ts_id ? String(req.body.ts_id).trim() : '';
+
     if (!ts_id) {
         return res.json({ success: false, message: 'Thiếu mã tài sản!' });
     }
 
     const sql = `SELECT * FROM asset_audit_logs WHERE ts_id = ? ORDER BY id DESC`;
-    const [rows] = await connection.execute(sql, [ts_id.trim()]);
+    const [rows] = await connection.execute(sql, [ts_id]);
 
     const logs = rows.map(item => ({
         id: item.id,
