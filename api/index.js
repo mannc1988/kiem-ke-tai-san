@@ -82,24 +82,13 @@ async function logAssetAction1(connection, { ts_id, action_type, performed_by, o
 async function logAssetAction(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
     try {
         const sql = 'INSERT INTO asset_audit_logs (ts_id, action_type, performed_by, old_data, new_data, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
-        
-        // 1. Chuẩn hóa dữ liệu về dạng chuỗi/object Plain-Text trước khi mã hóa
-        const rawTsId = (decryptData(ts_id) || ts_id || 'SYSTEM').toString().trim();
-        const rawActionType = (action_type || '').toString().trim();
-        const rawUser = (decryptData(performed_by) || performed_by || 'Hệ thống').toString().trim();
-        const rawNote = (note || '').toString().trim();
-
-        // 2. Giải mã đệ quy old_data & new_data nếu chúng chứa trường bị mã hóa sẵn
-        const plainOldData = old_data ? decryptObjectFields(old_data) : null;
-        const plainNewData = new_data ? decryptObjectFields(new_data) : null;
-
         // 3. Mã hóa toàn bộ các cột trước khi ghi vào MySQL
-        const encTsId = encryptData(rawTsId);
-        const encActionType = encryptData(rawActionType);
-        const encUser = encryptData(rawUser);
-        const encOldData = encryptData(plainOldData ? JSON.stringify(plainOldData) : '');
-        const encNewData = encryptData(plainNewData ? JSON.stringify(plainNewData) : '');
-        const encNote = encryptData(rawNote);
+        const encTsId = encryptData(ts_id);
+        const encActionType = encryptData(action_type);
+        const encUser = encryptData(performed_by);
+        const encOldData = encryptData(old_data ? JSON.stringify(old_data) : '');
+        const encNewData = encryptData(new_data ? JSON.stringify(new_data) : '');
+        const encNote = encryptData(note);
         const encCreatedAt = encryptData(new Date().toISOString());
 
         await connection.execute(sql, [
