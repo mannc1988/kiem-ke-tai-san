@@ -59,20 +59,28 @@ function getRawActiveNumber(activeInput) {
     return isNaN(val) ? 1 : (val !== 0 ? 1 : 0);
 }
 
-// Helper: Ghi nhật ký tác động (Audit Log)
+// Helper: Ghi nhật ký tác động (Audit Log - Mã hóa tất cả các cột trừ id)
 async function logAssetAction(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
     try {
-        const sql = 'INSERT INTO asset_audit_logs (ts_id, action_type, performed_by, old_data, new_data, note) VALUES (?, ?, ?, ?, ?, ?)';
-        const encUser = performed_by ? encryptData(performed_by) : '';
-        const encNote = note ? encryptData(note) : '';
+        const sql = 'INSERT INTO asset_audit_logs (ts_id, action_type, performed_by, old_data, new_data, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
+        
+        // Mã hóa toàn bộ dữ liệu trước khi lưu vào CSDL
+        const encTsId = encryptData(ts_id || 'SYSTEM');
+        const encActionType = encryptData(action_type || '');
+        const encUser = encryptData(performed_by || 'Hệ thống');
+        const encOldData = encryptData(old_data ? JSON.stringify(old_data) : '');
+        const encNewData = encryptData(new_data ? JSON.stringify(new_data) : '');
+        const encNote = encryptData(note || '');
+        const encCreatedAt = encryptData(new Date().toISOString());
 
         await connection.execute(sql, [
-            ts_id || 'SYSTEM',
-            action_type,
+            encTsId,
+            encActionType,
             encUser,
-            old_data ? JSON.stringify(old_data) : null,
-            new_data ? JSON.stringify(new_data) : null,
-            encNote
+            encOldData,
+            encNewData,
+            encNote,
+            encCreatedAt
         ]);
     } catch (err) {
         console.error('Lỗi khi ghi Audit Log:', err);
@@ -98,30 +106,49 @@ module.exports = async (req, res) => {
 
         connection = await mysql.createConnection(dbConfig);
 
-        // ACTION: GET_ASSET_LOGS (LẤY LỊCH SỬ LOG TÁC ĐỘNG)
+        // ACTION: GET_ASSET_LOGS (LẤY VÀ GIẢI MÃ TOÀN BỘ CỘT LOG TÁC ĐỘNG)
         if (action === 'get_asset_logs') {
             try {
-                const ts_id = (req.body && req.body.ts_id) || req.query.ts_id || '';
+                const searchTsId = (req.body && req.body.ts_id) || req.query.ts_id || '';
 
-                if (!ts_id.toString().trim()) {
+                if (!searchTsId.toString().trim()) {
                     return res.status(200).json({ success: false, message: 'Thiếu mã tài sản!' });
                 }
 
-                const sql = 'SELECT * FROM asset_audit_logs WHERE ts_id = ? ORDER BY id DESC';
-                const [rows] = await connection.execute(sql, [ts_id.toString().trim()]);
+                const targetTsId = searchTsId.toString().trim();
+                const sql = 'SELECT * FROM asset_audit_logs ORDER BY id DESC';
+                const [rows] = await connection.execute(sql);
 
-                const logs = rows.map(item => ({
-                    id: item.id,
-                    ts_id: item.ts_id,
-                    action_type: item.action_type,
-                    performed_by: decryptData(item.performed_by) || item.performed_by || 'Hệ thống',
-                    old_data: item.old_data ? JSON.parse(item.old_data) : null,
-                    new_data: item.new_data ? JSON.parse(item.new_data) : null,
-                    note: decryptData(item.note) || item.note,
-                    created_at: item.created_at
-                }));
+                // Giải mã tất cả các cột của từng dòng log
+                const filteredLogs = [];
+                for (const item of rows) {
+                    const decTsId = decryptData(item.ts_id);
+                    
+                    // So sánh mã tài sản sau khi giải mã
+                    if (decTsId === targetTsId) {
+                        const decOldDataStr = decryptData(item.old_data);
+                        const decNewDataStr = decryptData(item.new_data);
 
-                return res.status(200).json({ success: true, data: logs });
+                        let parsedOldData = null;
+                        let parsedNewData = null;
+
+                        try { parsedOldData = decOldDataStr ? JSON.parse(decOldDataStr) : null; } catch (e) { parsedOldData = decOldDataStr; }
+                        try { parsedNewData = decNewDataStr ? JSON.parse(decNewDataStr) : null; } catch (e) { parsedNewData = decNewDataStr; }
+
+                        filteredLogs.push({
+                            id: item.id, // Giữ nguyên cột id (không mã hóa)
+                            ts_id: decTsId,
+                            action_type: decryptData(item.action_type),
+                            performed_by: decryptData(item.performed_by) || 'Hệ thống',
+                            old_data: parsedOldData,
+                            new_data: parsedNewData,
+                            note: decryptData(item.note),
+                            created_at: decryptData(item.created_at) || item.created_at
+                        });
+                    }
+                }
+
+                return res.status(200).json({ success: true, data: filteredLogs });
             } catch (err) {
                 console.error('Lỗi get_asset_logs:', err);
                 return res.status(500).json({ success: false, error: err.message });
