@@ -34,6 +34,23 @@ function decryptData(cipherText) {
     }
 }
 
+// Helper: Giải mã toàn bộ đối tượng (Object) chứa dữ liệu mã hóa về Dạng Plain-Text
+function decryptObjectFields(obj) {
+    if (!obj || typeof obj !== 'object') return null;
+    const decryptedObj = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            const val = obj[key];
+            if (val !== null && val !== undefined) {
+                decryptedObj[key] = decryptData(val);
+            } else {
+                decryptedObj[key] = val;
+            }
+        }
+    }
+    return decryptedObj;
+}
+
 // Hàm chuẩn hóa giá trị active về dạng số thuần (1 hoặc 0) trước khi mã hóa lại
 function getRawActiveNumber(activeInput) {
     if (activeInput === undefined || activeInput === null || activeInput === '') return 1;
@@ -48,7 +65,7 @@ async function logAssetAction(connection, { ts_id, action_type, performed_by, ol
         const sql = 'INSERT INTO asset_audit_logs (ts_id, action_type, performed_by, old_data, new_data, note) VALUES (?, ?, ?, ?, ?, ?)';
         const encUser = performed_by ? encryptData(performed_by) : '';
         const encNote = note ? encryptData(note) : '';
-        
+
         await connection.execute(sql, [
             ts_id || 'SYSTEM',
             action_type,
@@ -165,7 +182,11 @@ module.exports = async (req, res) => {
                 action_type: 'CREATE',
                 performed_by: currentUser || 'Hệ thống',
                 old_data: null,
-                new_data: { id: result.insertId, name: rawName, active: rawActiveNum },
+                new_data: { 
+                    id: result.insertId, 
+                    name: rawName, 
+                    active: rawActiveNum 
+                },
                 note: 'Tạo mới đợt kiểm kê'
             });
 
@@ -203,8 +224,12 @@ module.exports = async (req, res) => {
                     ts_id: 'DOT_' + cleanId,
                     action_type: 'UPDATE',
                     performed_by: currentUser || 'Hệ thống',
-                    old_data: oldRows[0] ? { name: decryptData(oldRows[0].name), active: decryptData(oldRows[0].active) } : null,
-                    new_data: { id: cleanId, name: rawName, active: rawActiveNum },
+                    old_data: oldRows[0] ? decryptObjectFields(oldRows[0]) : null,
+                    new_data: { 
+                        id: cleanId, 
+                        name: rawName, 
+                        active: rawActiveNum 
+                    },
                     note: 'Cập nhật thông tin đợt kiểm kê'
                 });
 
@@ -225,6 +250,8 @@ module.exports = async (req, res) => {
             const rawActiveNum = getRawActiveNumber(active);
             const encActive = encryptData(rawActiveNum.toString());
 
+            const [oldRows] = await connection.execute('SELECT * FROM dot_kiem_ke WHERE id = ?', [cleanId]);
+
             const [result] = await connection.execute(
                 'UPDATE dot_kiem_ke SET active = ? WHERE id = ?',
                 [encActive, cleanId]
@@ -235,8 +262,12 @@ module.exports = async (req, res) => {
                     ts_id: 'DOT_' + cleanId,
                     action_type: 'UPDATE',
                     performed_by: currentUser || 'Hệ thống',
-                    old_data: null,
-                    new_data: { active: rawActiveNum },
+                    old_data: oldRows[0] ? decryptObjectFields(oldRows[0]) : null,
+                    new_data: { 
+                        id: cleanId, 
+                        name: oldRows[0] ? decryptData(oldRows[0].name) : '', 
+                        active: rawActiveNum 
+                    },
                     note: 'Bật/tắt trạng thái đợt kiểm kê'
                 });
 
@@ -266,7 +297,7 @@ module.exports = async (req, res) => {
                     ts_id: 'DOT_' + cleanId,
                     action_type: 'DELETE',
                     performed_by: currentUser || 'Hệ thống',
-                    old_data: oldRows[0] ? { name: decryptData(oldRows[0].name) } : null,
+                    old_data: oldRows[0] ? decryptObjectFields(oldRows[0]) : null,
                     new_data: null,
                     note: 'Xóa đợt kiểm kê'
                 });
@@ -302,7 +333,7 @@ module.exports = async (req, res) => {
 
             const limitVal = Math.max(1, parseInt(length));
             const offsetVal = Math.max(0, parseInt(start));
-            
+
             const dataQuery = 'SELECT * FROM danh_sach_tai_san' + baseWhereClause + ' ORDER BY ma_tai_san DESC LIMIT ? OFFSET ?';
             const [rows] = await connection.execute(dataQuery, [...searchParams, limitVal, offsetVal]);
 
@@ -360,7 +391,7 @@ module.exports = async (req, res) => {
             });
         }
 
-        // 4. LƯU TỪNG TÀI SẢN LẺ (LOG: CREATE / UPDATE)
+        // 4. LƯU TỪNG TÀI SẢN LẺ (LOG: CREATE / UPDATE ALL FIELDS)
         if (action === 'save_asset' && req.method === 'POST') {
             const { 
                 ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, 
@@ -385,13 +416,23 @@ module.exports = async (req, res) => {
                 }
             }
 
-            const newData = {
-                don_vi: decryptData(don_vi) || don_vi,
-                ten_tai_san: decryptData(ten_tai_san) || ten_tai_san,
-                nhom_tai_san: decryptData(nhom_tai_san) || nhom_tai_san,
-                phong_ban_quan_ly: decryptData(phong_ban_quan_ly) || phong_ban_quan_ly,
-                so_serial: decryptData(so_serial) || so_serial,
-                trang_thai_sd: decryptData(trang_thai_sd) || trang_thai_sd
+            const fullNewDataPlain = {
+                ma_tai_san: decryptedNewMaTS,
+                don_vi: decryptData(don_vi) || don_vi || '',
+                ten_tai_san: decryptData(ten_tai_san) || ten_tai_san || '',
+                nhom_tai_san: decryptData(nhom_tai_san) || nhom_tai_san || '',
+                nguyen_gia: decryptData(nguyen_gia) || nguyen_gia || 0,
+                hao_mon_luy_ke: decryptData(hao_mon_luy_ke) || hao_mon_luy_ke || 0,
+                gia_tri_con_lai: decryptData(gia_tri_con_lai) || gia_tri_con_lai || 0,
+                ngay_dua_vao_sd: decryptData(ngay_dua_vao_sd) || ngay_dua_vao_sd || '',
+                trang_thai_sd: decryptData(trang_thai_sd) || trang_thai_sd || '',
+                trang_thai_qt: decryptData(trang_thai_qt) || trang_thai_qt || '',
+                bo_so: decryptData(bo_so) || bo_so || '',
+                can_bo_su_dung: decryptData(can_bo_su_dung) || can_bo_su_dung || '',
+                phong_ban_quan_ly: decryptData(phong_ban_quan_ly) || phong_ban_quan_ly || '',
+                so_serial: decryptData(so_serial) || so_serial || '',
+                hinh_anh: decryptData(hinh_anh) || hinh_anh || '',
+                import_at: decryptData(import_at) || import_at || ''
             };
 
             if (matchedExistingRow) {
@@ -408,9 +449,9 @@ module.exports = async (req, res) => {
                     ts_id: decryptedNewMaTS,
                     action_type: 'UPDATE',
                     performed_by: currentUser || 'Hệ thống',
-                    old_data: { ten_tai_san: decryptData(matchedExistingRow.ten_tai_san), phong_ban: decryptData(matchedExistingRow.phong_ban_quan_ly) },
-                    new_data: newData,
-                    note: 'Cập nhật thông tin tài sản'
+                    old_data: decryptObjectFields(matchedExistingRow),
+                    new_data: fullNewDataPlain,
+                    note: 'Cập nhật toàn bộ thông tin tài sản'
                 });
 
                 return res.json({ success: true, message: 'Cập nhật thành công!' });
@@ -425,7 +466,7 @@ module.exports = async (req, res) => {
                     action_type: 'CREATE',
                     performed_by: currentUser || 'Hệ thống',
                     old_data: null,
-                    new_data: newData,
+                    new_data: fullNewDataPlain,
                     note: 'Thêm mới tài sản vào hệ thống'
                 });
 
@@ -433,7 +474,7 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 4.1. LƯU TÀI SẢN THEO LÔ (LOG: CREATE / UPDATE BATCH)
+        // 4.1. LƯU TÀI SẢN THEO LÔ (LOG: CREATE / UPDATE BATCH ALL FIELDS)
         if (action === 'save_asset_batch' && req.method === 'POST') {
             const { payloads, duplicateAction, currentUser } = req.body;
 
@@ -445,7 +486,7 @@ module.exports = async (req, res) => {
             let skipCount = 0;
             let batchErrors = [];
 
-            const [allAssets] = await connection.execute('SELECT ma_tai_san FROM danh_sach_tai_san');
+            const [allAssets] = await connection.execute('SELECT * FROM danh_sach_tai_san');
 
             for (let i = 0; i < payloads.length; i++) {
                 const p = payloads[i];
@@ -462,15 +503,34 @@ module.exports = async (req, res) => {
                 }
 
                 const decryptedNewMaTS = decryptData(ma_tai_san);
-                let matchedExistingDbKey = null;
+                let matchedExistingRow = null;
                 for (let row of allAssets) {
                     if (decryptData(row.ma_tai_san) === decryptedNewMaTS) {
-                        matchedExistingDbKey = row.ma_tai_san; 
+                        matchedExistingRow = row; 
                         break;
                     }
                 }
 
-                if (matchedExistingDbKey) {
+                const fullItemNewPlain = {
+                    ma_tai_san: decryptedNewMaTS,
+                    don_vi: decryptData(don_vi) || don_vi || '',
+                    ten_tai_san: decryptData(ten_tai_san) || ten_tai_san || '',
+                    nhom_tai_san: decryptData(nhom_tai_san) || nhom_tai_san || '',
+                    nguyen_gia: decryptData(nguyen_gia) || nguyen_gia || 0,
+                    hao_mon_luy_ke: decryptData(hao_mon_luy_ke) || hao_mon_luy_ke || 0,
+                    gia_tri_con_lai: decryptData(gia_tri_con_lai) || gia_tri_con_lai || 0,
+                    ngay_dua_vao_sd: decryptData(ngay_dua_vao_sd) || ngay_dua_vao_sd || '',
+                    trang_thai_sd: decryptData(trang_thai_sd) || trang_thai_sd || '',
+                    trang_thai_qt: decryptData(trang_thai_qt) || trang_thai_qt || '',
+                    bo_so: decryptData(bo_so) || bo_so || '',
+                    can_bo_su_dung: decryptData(can_bo_su_dung) || can_bo_su_dung || '',
+                    phong_ban_quan_ly: decryptData(phong_ban_quan_ly) || phong_ban_quan_ly || '',
+                    so_serial: decryptData(so_serial) || so_serial || '',
+                    hinh_anh: decryptData(hinh_anh) || hinh_anh || '',
+                    import_at: decryptData(import_at) || import_at || ''
+                };
+
+                if (matchedExistingRow) {
                     if (duplicateAction === 'skip') {
                         skipCount++;
                         continue;
@@ -480,7 +540,7 @@ module.exports = async (req, res) => {
                         try {
                             await connection.execute(
                                 'UPDATE danh_sach_tai_san SET don_vi = ?, ten_tai_san = ?, nhom_tai_san = ?, nguyen_gia = ?, hao_mon_luy_ke = ?, gia_tri_con_lai = ?, ngay_dua_vao_sd = ?, trang_thai_sd = ?, trang_thai_qt = ?, bo_so = ?, can_bo_su_dung = ?, phong_ban_quan_ly = ?, so_serial = ?, hinh_anh = ?, import_at = ? WHERE ma_tai_san = ?',
-                                [don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, trang_thai_qt, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at, matchedExistingDbKey]
+                                [don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, trang_thai_qt, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at, matchedExistingRow.ma_tai_san]
                             );
                             successCount++;
 
@@ -488,8 +548,8 @@ module.exports = async (req, res) => {
                                 ts_id: decryptedNewMaTS,
                                 action_type: 'UPDATE',
                                 performed_by: currentUser || 'Hệ thống (Import)',
-                                old_data: null,
-                                new_data: { ten_tai_san: decryptData(ten_tai_san), phong_ban: decryptData(phong_ban_quan_ly) },
+                                old_data: decryptObjectFields(matchedExistingRow),
+                                new_data: fullItemNewPlain,
                                 note: 'Cập nhật tài sản qua Import Excel theo lô'
                             });
                         } catch (updateErr) {
@@ -503,14 +563,14 @@ module.exports = async (req, res) => {
                             [ma_tai_san, don_vi, ten_tai_san, nhom_tai_san, nguyen_gia, hao_mon_luy_ke, gia_tri_con_lai, ngay_dua_vao_sd, trang_thai_sd, trang_thai_qt, bo_so, can_bo_su_dung, phong_ban_quan_ly, so_serial, hinh_anh, import_at]
                         );
                         successCount++;
-                        allAssets.push({ ma_tai_san });
+                        allAssets.push({ ma_tai_san, ...p });
 
                         await logAssetAction(connection, {
                             ts_id: decryptedNewMaTS,
                             action_type: 'CREATE',
                             performed_by: currentUser || 'Hệ thống (Import)',
                             old_data: null,
-                            new_data: { ten_tai_san: decryptData(ten_tai_san), phong_ban: decryptData(phong_ban_quan_ly) },
+                            new_data: fullItemNewPlain,
                             note: 'Thêm mới tài sản qua Import Excel theo lô'
                         });
                     } catch (insertErr) {
@@ -522,10 +582,10 @@ module.exports = async (req, res) => {
             return res.json({ success: true, successCount, skipCount, errors: batchErrors });
         }
 
-        // 5. XÓA TÀI SẢN (LOG: DELETE)
+        // 5. XÓA TÀI SẢN (LOG: DELETE ALL FIELDS)
         if (action === 'delete_asset' && req.method === 'POST') {
             const { ma_tai_san, currentUser } = req.body;
-            
+
             if (!ma_tai_san) {
                 return res.status(400).json({ success: false, error: 'Thiếu mã tài sản cần xóa!' });
             }
@@ -553,7 +613,7 @@ module.exports = async (req, res) => {
                     ts_id: targetMaTS,
                     action_type: 'DELETE',
                     performed_by: currentUser || 'Hệ thống',
-                    old_data: { ten_tai_san: decryptData(matchedDbRow.ten_tai_san), phong_ban: decryptData(matchedDbRow.phong_ban_quan_ly) },
+                    old_data: decryptObjectFields(matchedDbRow),
                     new_data: null,
                     note: 'Xóa tài sản khỏi danh mục'
                 });
@@ -564,7 +624,7 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 6. GHI NHẬN LỊCH SỬ QR (LOG: AUDIT)
+        // 6. GHI NHẬN LỊCH SỬ QR (LOG: AUDIT ALL FIELDS)
         if (action === 'history' && req.method === 'POST') {
             const { 
                 tsId, phong_ban, so_serial, nguoiKK, ghiChu, 
@@ -598,17 +658,27 @@ module.exports = async (req, res) => {
                 });
             }
 
+            const decPhongBan = decryptData(phong_ban) || '';
+            const decSerial = decryptData(so_serial) || '';
+            const decNguoiKK = decryptData(nguoiKK) || '';
+            const decGhiChu = decryptData(ghiChu) || '';
+            const decKetQua = decryptData(ket_qua_kk || 'Khớp danh mục') || 'Khớp danh mục';
+            const decPhuongAn = decryptData(phuong_an_xl || 'Giữ nguyên') || 'Giữ nguyên';
+            const decTepDinhKem = decryptData(tep_dinh_kem || '') || '';
+            const decThoiGian = decryptData(thoiGian) || '';
+            const decTsName = decryptData(tsName) || '';
+
             const encTsId = encryptData(rawTargetTsId);
-            const encPhongBan = encryptData(decryptData(phong_ban));
-            const encSerial = encryptData(decryptData(so_serial));
-            const encNguoiKK = encryptData(decryptData(nguoiKK));
-            const encGhiChu = encryptData(decryptData(ghiChu));
+            const encPhongBan = encryptData(decPhongBan);
+            const encSerial = encryptData(decSerial);
+            const encNguoiKK = encryptData(decNguoiKK);
+            const encGhiChu = encryptData(decGhiChu);
             const encDotId = encryptData(rawTargetDotId);
-            const encKetQua = encryptData(decryptData(ket_qua_kk || 'Khớp danh mục'));
-            const encPhuongAn = encryptData(decryptData(phuong_an_xl || 'Giữ nguyên'));
-            const encTepDinhKem = encryptData(decryptData(tep_dinh_kem || ''));
-            const encThoiGian = encryptData(decryptData(thoiGian));
-            const encTsName = encryptData(decryptData(tsName));
+            const encKetQua = encryptData(decKetQua);
+            const encPhuongAn = encryptData(decPhuongAn);
+            const encTepDinhKem = encryptData(decTepDinhKem);
+            const encThoiGian = encryptData(decThoiGian);
+            const encTsName = encryptData(decTsName);
 
             await connection.execute(
                 'INSERT INTO lich_su_kk (tsId, phong_ban, so_serial, nguoiKK, ghiChu, dotId, ket_qua_kk, phuong_an_xl, tep_dinh_kem, thoiGian, tsName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -618,12 +688,20 @@ module.exports = async (req, res) => {
             await logAssetAction(connection, {
                 ts_id: rawTargetTsId,
                 action_type: 'AUDIT',
-                performed_by: decryptData(nguoiKK) || 'Cán bộ kiểm kê',
+                performed_by: decNguoiKK || 'Cán bộ kiểm kê',
                 old_data: null,
                 new_data: { 
                     dotId: rawTargetDotId, 
-                    ket_qua_kk: decryptData(ket_qua_kk), 
-                    phuong_an_xl: decryptData(phuong_an_xl) 
+                    tsId: rawTargetTsId,
+                    tsName: decTsName,
+                    phong_ban: decPhongBan,
+                    so_serial: decSerial,
+                    ket_qua_kk: decKetQua, 
+                    phuong_an_xl: decPhuongAn,
+                    nguoiKK: decNguoiKK,
+                    ghiChu: decGhiChu,
+                    tep_dinh_kem: decTepDinhKem,
+                    thoiGian: decThoiGian
                 },
                 note: 'Thực hiện kiểm kê tài sản cho đợt ID [' + rawTargetDotId + ']'
             });
@@ -631,10 +709,10 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: 'Đã ghi nhận lịch sử kiểm kê!' });
         }
 
-        // 7. XÓA LỊCH SỬ KIỂM KÊ (LOG: DELETE)
+        // 7. XÓA LỊCH SỬ KIỂM KÊ (LOG: DELETE ALL FIELDS)
         if (action === 'delete_history' && req.method === 'POST') {
             const { id, currentUser } = req.body;
-            
+
             const [oldRows] = await connection.execute('SELECT * FROM lich_su_kk WHERE id = ?', [id]);
             const targetTsId = oldRows[0] ? (decryptData(oldRows[0].tsId) || oldRows[0].tsId) : 'UNKNOWN';
 
@@ -644,7 +722,7 @@ module.exports = async (req, res) => {
                 ts_id: targetTsId,
                 action_type: 'DELETE',
                 performed_by: currentUser || 'Hệ thống',
-                old_data: oldRows[0] ? { id: id, dotId: decryptData(oldRows[0].dotId) } : null,
+                old_data: oldRows[0] ? decryptObjectFields(oldRows[0]) : null,
                 new_data: null,
                 note: 'Xóa bản ghi lịch sử kiểm kê ID: ' + id
             });
@@ -652,7 +730,7 @@ module.exports = async (req, res) => {
             return res.json({ success: true, message: 'Đã xóa lịch sử!' });
         }
 
-        // 7.1. CẬP NHẬT LỊCH SỬ KIỂM KÊ (LOG: UPDATE)
+        // 7.1. CẬP NHẬT LỊCH SỬ KIỂM KÊ (LOG: UPDATE ALL FIELDS)
         if (action === 'update_history' && req.method === 'POST') {
             const { id, phong_ban, so_serial, nguoiKK, ket_qua_kk, phuong_an_xl, tep_dinh_kem, ghiChu, currentUser } = req.body;
 
@@ -661,15 +739,24 @@ module.exports = async (req, res) => {
             }
 
             const [oldRows] = await connection.execute('SELECT * FROM lich_su_kk WHERE id = ?', [id]);
-            const targetTsId = oldRows[0] ? (decryptData(oldRows[0].tsId) || oldRows[0].tsId) : 'UNKNOWN';
+            const oldRowPlain = oldRows[0] ? decryptObjectFields(oldRows[0]) : {};
+            const targetTsId = oldRowPlain.tsId || 'UNKNOWN';
 
-            const encPhongBan = encryptData(decryptData(phong_ban));
-            const encSerial = encryptData(decryptData(so_serial));
-            const encNguoiKK = encryptData(decryptData(nguoiKK));
-            const encKetQua = encryptData(decryptData(ket_qua_kk));
-            const encPhuongAn = encryptData(decryptData(phuong_an_xl));
-            const encTepDinhKem = encryptData(decryptData(tep_dinh_kem || ''));
-            const encGhiChu = encryptData(decryptData(ghiChu));
+            const decPhongBan = decryptData(phong_ban) || '';
+            const decSerial = decryptData(so_serial) || '';
+            const decNguoiKK = decryptData(nguoiKK) || '';
+            const decKetQua = decryptData(ket_qua_kk) || '';
+            const decPhuongAn = decryptData(phuong_an_xl) || '';
+            const decTepDinhKem = decryptData(tep_dinh_kem || '') || '';
+            const decGhiChu = decryptData(ghiChu) || '';
+
+            const encPhongBan = encryptData(decPhongBan);
+            const encSerial = encryptData(decSerial);
+            const encNguoiKK = encryptData(decNguoiKK);
+            const encKetQua = encryptData(decKetQua);
+            const encPhuongAn = encryptData(decPhuongAn);
+            const encTepDinhKem = encryptData(decTepDinhKem);
+            const encGhiChu = encryptData(decGhiChu);
 
             await connection.execute(
                 'UPDATE lich_su_kk SET phong_ban = ?, so_serial = ?, nguoiKK = ?, ket_qua_kk = ?, phuong_an_xl = ?, tep_dinh_kem = ?, ghiChu = ? WHERE id = ?',
@@ -680,9 +767,18 @@ module.exports = async (req, res) => {
                 ts_id: targetTsId,
                 action_type: 'UPDATE',
                 performed_by: currentUser || 'Hệ thống',
-                old_data: oldRows[0] ? { ket_qua: decryptData(oldRows[0].ket_qua_kk), phuong_an: decryptData(oldRows[0].phuong_an_xl) } : null,
-                new_data: { ket_qua: decryptData(ket_qua_kk), phuong_an: decryptData(phuong_an_xl) },
-                note: 'Cập nhật nội dung bản ghi kiểm kê ID: ' + id
+                old_data: oldRowPlain,
+                new_data: {
+                    ...oldRowPlain,
+                    phong_ban: decPhongBan,
+                    so_serial: decSerial,
+                    nguoiKK: decNguoiKK,
+                    ket_qua_kk: decKetQua,
+                    phuong_an_xl: decPhuongAn,
+                    tep_dinh_kem: decTepDinhKem,
+                    ghiChu: decGhiChu
+                },
+                note: 'Cập nhật toàn bộ nội dung bản ghi kiểm kê ID: ' + id
             });
 
             return res.json({ success: true, message: 'Đã cập nhật lịch sử thành công!' });
@@ -742,50 +838,51 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 10. LOẠI BỎ TỆP DANH MỤC TÀI SẢN KHỎI CSDL (LOG: DELETE)
+        // 10. LOẠI BỎ TỆP DANH MỤC TÀI SẢN KHỎI CSDL (LOG: DELETE ATTACHMENT)
         if (action === 'remove_asset_file' && req.method === 'POST') {
             const { ma_tai_san, removeUrl, currentUser } = req.body;
-            
+
             if (!ma_tai_san || !removeUrl) {
                 return res.status(400).json({ success: false, error: 'Thiếu mã tài sản hoặc URL tệp cần xóa!' });
             }
 
-            const [allAssets] = await connection.execute('SELECT ma_tai_san, hinh_anh FROM danh_sach_tai_san');
+            const [allAssets] = await connection.execute('SELECT * FROM danh_sach_tai_san');
 
-            let matchedDbKey = null;
-            let currentHinhAnhEncrypted = '';
-
+            let matchedDbRow = null;
             for (let row of allAssets) {
                 let decMa = decryptData(row.ma_tai_san);
                 if (decMa === ma_tai_san || row.ma_tai_san === ma_tai_san) {
-                    matchedDbKey = row.ma_tai_san;
-                    currentHinhAnhEncrypted = row.hinh_anh;
+                    matchedDbRow = row;
                     break;
                 }
             }
 
-            if (!matchedDbKey) {
+            if (!matchedDbRow) {
                 return res.status(404).json({ success: false, error: 'Không tìm thấy tài sản trong CSDL!' });
             }
 
-            let decryptedHinhAnh = decryptData(currentHinhAnhEncrypted) || '';
+            const oldAssetPlain = decryptObjectFields(matchedDbRow);
+            let decryptedHinhAnh = oldAssetPlain.hinh_anh || '';
             let urlList = decryptedHinhAnh.split(',').map(s => s.trim()).filter(Boolean);
             let updatedList = urlList.filter(url => url !== removeUrl.trim());
-            
+
             let newHinhAnhEncrypted = encryptData(updatedList.join(','));
 
             await connection.execute(
                 'UPDATE danh_sach_tai_san SET hinh_anh = ? WHERE ma_tai_san = ?', 
-                [newHinhAnhEncrypted, matchedDbKey]
+                [newHinhAnhEncrypted, matchedDbRow.ma_tai_san]
             );
 
             await logAssetAction(connection, {
                 ts_id: ma_tai_san,
                 action_type: 'DELETE',
                 performed_by: currentUser || 'Hệ thống',
-                old_data: { file_xoa: removeUrl },
-                new_data: { con_lai: updatedList.length },
-                note: 'Xóa tệp đính kèm danh mục tài sản'
+                old_data: oldAssetPlain,
+                new_data: { 
+                    ...oldAssetPlain, 
+                    hinh_anh: updatedList.join(',') 
+                },
+                note: 'Xóa tệp đính kèm [' + removeUrl.trim() + '] khỏi danh mục tài sản'
             });
 
             return res.json({ 
@@ -841,12 +938,12 @@ module.exports = async (req, res) => {
             }
         }
 
-        // 12. LOẠI BỎ TỆP LỊCH SỬ KIỂM KÊ KHỎI CSDL (LOG: DELETE)
+        // 12. LOẠI BỎ TỆP LỊCH SỬ KIỂM KÊ KHỎI CSDL (LOG: DELETE ATTACHMENT)
         if (action === 'remove_history_file' && req.method === 'POST') {
             const id = req.body.id || req.body.historyId;
             const removeUrl = req.body.removeUrl;
             const currentUser = req.body.currentUser;
-            
+
             if (!id || id === 'null' || !removeUrl) {
                 return res.status(400).json({ 
                     success: false, 
@@ -857,17 +954,18 @@ module.exports = async (req, res) => {
             const cleanId = Number(id);
             const cleanRemoveUrl = removeUrl.toString().trim();
 
-            const [rows] = await connection.execute('SELECT tsId, tep_dinh_kem FROM lich_su_kk WHERE id = ?', [cleanId]);
+            const [rows] = await connection.execute('SELECT * FROM lich_su_kk WHERE id = ?', [cleanId]);
 
             if (rows.length === 0) {
                 return res.status(404).json({ success: false, error: 'Không tìm thấy dòng lịch sử trong CSDL!' });
             }
 
-            const targetTsId = decryptData(rows[0].tsId) || rows[0].tsId || 'UNKNOWN';
-            let decryptedTep = decryptData(rows[0].tep_dinh_kem) || '';
+            const oldHistoryPlain = decryptObjectFields(rows[0]);
+            const targetTsId = oldHistoryPlain.tsId || 'UNKNOWN';
+            let decryptedTep = oldHistoryPlain.tep_dinh_kem || '';
             let urlList = decryptedTep.split(',').map(s => s.trim()).filter(Boolean);
             let updatedList = urlList.filter(url => url !== cleanRemoveUrl);
-            
+
             let newTepEncrypted = encryptData(updatedList.join(','));
 
             await connection.execute(
@@ -879,9 +977,12 @@ module.exports = async (req, res) => {
                 ts_id: targetTsId,
                 action_type: 'DELETE',
                 performed_by: currentUser || 'Hệ thống',
-                old_data: { historyId: cleanId, file_xoa: cleanRemoveUrl },
-                new_data: { con_lai: updatedList.length },
-                note: 'Xóa tệp đính kèm trong lịch sử kiểm kê'
+                old_data: oldHistoryPlain,
+                new_data: { 
+                    ...oldHistoryPlain, 
+                    tep_dinh_kem: updatedList.join(',') 
+                },
+                note: 'Xóa tệp đính kèm [' + cleanRemoveUrl + '] trong lịch sử kiểm kê ID: ' + cleanId
             });
 
             return res.json({ 
