@@ -1358,7 +1358,93 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                 console.error('Lỗi nạp cache tài sản:', e);
             }
         }
+		function viewAssetAuditLogs(tsId) {
+    if (!tsId) return;
 
+    $('#lblLogTsId').text(tsId);
+    $('#tbodyAssetLogs').html(`
+        <tr>
+            <td colspan="5" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted mb-0">Đang tải nhật ký tác động...</p>
+            </td>
+        </tr>
+    `);
+
+    const modal = new bootstrap.Modal(document.getElementById('modalAssetAuditLogs'));
+    modal.show();
+
+    // Gửi yêu cầu bằng $.post với tham số ts_id trong body
+    $.post(API_URL, { 
+        action: 'get_asset_logs', 
+        ts_id: tsId 
+    }, function(res) {
+        if (!res.success || !res.data || res.data.length === 0) {
+            $('#tbodyAssetLogs').html(`
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        <i class="fa-solid fa-folder-open me-1"></i> Chưa có ghi nhận tác động nào cho tài sản này.
+                    </td>
+                </tr>
+            `);
+            return;
+        }
+
+        let html = '';
+        res.data.forEach((item, idx) => {
+            let actionBadge = '<span class="badge bg-secondary">KHÁC</span>';
+            switch(item.action_type) {
+                case 'CREATE': 
+                    actionBadge = '<span class="badge bg-success"><i class="fa-solid fa-plus me-1"></i>Tạo mới</span>'; 
+                    break;
+                case 'UPDATE': 
+                    actionBadge = '<span class="badge bg-warning text-dark"><i class="fa-solid fa-pen me-1"></i>Cập nhật</span>'; 
+                    break;
+                case 'AUDIT':  
+                    actionBadge = '<span class="badge bg-info text-dark"><i class="fa-solid fa-clipboard-check me-1"></i>Kiểm kê</span>'; 
+                    break;
+                case 'DELETE': 
+                    actionBadge = '<span class="badge bg-danger"><i class="fa-solid fa-trash me-1"></i>Xóa</span>'; 
+                    break;
+            }
+
+            let detailHtml = item.note || 'Không có ghi chú';
+            if (item.old_data || item.new_data) {
+                detailHtml += `<details class="mt-1">
+                    <summary class="text-primary" style="cursor:pointer;"><small>Xem JSON chi tiết</small></summary>`;
+                if (item.old_data) {
+                    detailHtml += `<div class="small text-danger"><b>Cũ:</b> ${JSON.stringify(item.old_data)}</div>`;
+                }
+                if (item.new_data) {
+                    detailHtml += `<div class="small text-success"><b>Mới:</b> ${JSON.stringify(item.new_data)}</div>`;
+                }
+                detailHtml += `</details>`;
+            }
+
+            const formattedTime = item.created_at ? new Date(item.created_at).toLocaleString('vi-VN') : 'N/A';
+
+            html += `
+                <tr>
+                    <td class="text-center">${idx + 1}</td>
+                    <td><small class="fw-semibold">${formattedTime}</small></td>
+                    <td class="text-center">${actionBadge}</td>
+                    <td><span class="fw-bold text-dark">${item.performed_by}</span></td>
+                    <td>${detailHtml}</td>
+                </tr>
+            `;
+        });
+
+        $('#tbodyAssetLogs').html(html);
+    }).fail(function() {
+        $('#tbodyAssetLogs').html(`
+            <tr>
+                <td colspan="5" class="text-center text-danger py-3">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i> Lỗi kết nối tới máy chủ!
+                </td>
+            </tr>
+        `);
+    });
+}
         async function loadHistoryCache() {
             try {
                 const response = await fetch(`${API_URL}?action=data`);
