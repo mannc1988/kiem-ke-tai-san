@@ -730,16 +730,26 @@ async function exportExcelReport() {
             fileNameSpan.title = file.name;
             // Chèn icon chuẩn FontAwesome vào trước tên tệp
             fileNameSpan.innerHTML = '**' + file.name;
+
             var actionDiv = document.createElement("div");
+
             var btnView = document.createElement("button");
-            btnView.type = "button";
-            btnView.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1";
-            btnView.style.fontSize = "0.75rem";
-            btnView.title = "Xem thử";
-            btnView.innerHTML = '**' + btnText;
-            btnView.onclick = function() {
-                toggleInlineMedia('asset_form_inline_viewer_container', url, fileInfo.mediaType, fName);
-            }; 
+btnView.type = "button";
+btnView.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1 shadow-sm";
+btnView.style.fontSize = "0.75rem";
+btnView.title = "Xem thử trực tiếp trên trình duyệt";
+btnView.innerHTML = '**' + btnText;
+
+btnView.onclick = function() {
+    // 1. Ưu tiên truyền đối tượng File trực tiếp (nếu có biến `file`)
+    if (typeof file !== 'undefined' && (file instanceof File || file instanceof Blob)) {
+        viewFileOnBrowserViaBlob(file, file.name, fileInfo.mediaType);
+    } 
+    // 2. Nếu không có biến file thì dùng chuỗi Base64 (`b64`)
+    else if (typeof b64 !== 'undefined' && b64) {
+        viewFileOnBrowserViaBlob(b64, (typeof file !== 'undefined' && file.name) ? file.name : '', fileInfo.mediaType);
+    }
+};
 
             var btnRemove = document.createElement("button");
             btnRemove.type = "button";
