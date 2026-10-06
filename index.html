@@ -1755,26 +1755,26 @@ if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) 
             }
         }
 		/**
- * Hàm xuất báo cáo danh sách tài sản ĐẦY ĐỦ CÁC CỘT CSDL từ DataTables Plugin
+ * Hàm xuất báo cáo danh sách tài sản ĐẦY ĐỦ CÁC CỘT CSDL từ DataTables Plugin (#assetsTable)
  * - Giải mã AES cho toàn bộ trường dữ liệu bị mã hóa
  * - Sử dụng DOMParser thuần JS (KHÔNG dùng <textarea>) để làm sạch tag HTML
  * - Xuất ra file CSV Unicode (UTF-8) hiển thị chuẩn tiếng Việt trên Excel
  */
 function exportAssetReportToExcel() {
     try {
-        var tableSelector = '#tableDanhSachTaiSan';
+        var tableSelector = '#assetsTable';
         if (!$.fn.DataTable.isDataTable(tableSelector)) {
             if (typeof Swal !== 'undefined') {
-                Swal.fire('Thông báo', 'Bảng dữ liệu tài sản chưa sẵn sàng!', 'warning');
+                Swal.fire('Thông báo', 'Bảng dữ liệu tài sản (#assetsTable) chưa sẵn sàng!', 'warning');
             } else {
-                alert('Bảng dữ liệu tài sản chưa sẵn sàng!');
+                alert('Bảng dữ liệu tài sản (#assetsTable) chưa sẵn sàng!');
             }
             return;
         }
 
         var table = $(tableSelector).DataTable();
 
-        // Lấy toàn bộ dữ liệu đang hiển thị theo bộ lọc tìm kiếm trên DataTables
+        // Lấy toàn bộ dữ liệu đang hiển thị theo bộ lọc tìm kiếm trên DataTables assetsTable
         var filteredData = table.rows({ search: 'applied' }).data().toArray();
 
         if (!filteredData || filteredData.length === 0) {
@@ -1786,10 +1786,10 @@ function exportAssetReportToExcel() {
             return;
         }
 
-        // Tạo sẵn instance DOMParser để dùng lại nhiều lần
+        // Tạo sẵn instance DOMParser để xử lý làm sạch HTML
         var parser = new DOMParser();
 
-        // Hàm bổ trợ giải mã AES & làm sạch HTML thuần (Không cần DOM/Textarea)
+        // Hàm bổ trợ giải mã AES & làm sạch HTML thuần (Không dùng DOM/Textarea)
         function decryptAndCleanText(inputVal) {
             if (inputVal === null || inputVal === undefined) return '';
             var strVal = String(inputVal).trim();
