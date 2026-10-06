@@ -200,10 +200,18 @@
                             <div id="imageDetailList" class="mt-2"></div>
                             <input type="hidden" id="hinh_anh_url" value="">
                         </div>
-                        <div class="col-md-6 text-end d-flex align-items-end justify-content-end ms-auto">
-                            <button type="button" class="btn btn-secondary btn-sm px-3 me-2" onclick="resetForm()"><i class="fa-solid fa-rotate-left me-1"></i> Làm mới</button>
-                            <button type="submit" class="btn btn-success btn-sm px-4"><i class="fa-solid fa-floppy-disk me-1"></i> Cập Nhật Dữ Liệu DB</button>
-                        </div>
+                        <!-- Cụm nút chức năng -->
+<div class="col-md-6 text-end d-flex align-items-end justify-content-end ms-auto">
+    <button type="button" class="btn btn-outline-success btn-sm px-3 me-2 fw-semibold" onclick="exportAssetReportToExcel()">
+        <i class="fa-solid fa-file-excel me-1"></i> Xuất Báo Cáo
+    </button>
+    <button type="button" class="btn btn-secondary btn-sm px-3 me-2" onclick="resetForm()">
+        <i class="fa-solid fa-rotate-left me-1"></i> Làm mới
+    </button>
+    <button type="submit" class="btn btn-success btn-sm px-4">
+        <i class="fa-solid fa-floppy-disk me-1"></i> Cập Nhật Dữ Liệu DB
+    </button>
+</div>
 
                         <div class="col-12 d-none" id="asset_form_inline_viewer_container"></div>
                     </div>
@@ -1746,7 +1754,132 @@ if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) 
                 }
             }
         }
+		/**
+ * Hàm xuất báo cáo danh sách tài sản ĐẦY ĐỦ CÁC CỘT CSDL từ DataTables Plugin
+ * - Giải mã AES cho toàn bộ trường dữ liệu bị mã hóa
+ * - Sử dụng  trung gian để làm sạch tag HTML
+ * - Xuất ra file CSV Unicode (UTF-8) hiển thị chuẩn tiếng Việt trên Excel
+ */
+function exportAssetReportToExcel() {
+    try {
+        var tableSelector = '#tableDanhSachTaiSan';
+        if (!$.fn.DataTable.isDataTable(tableSelector)) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire('Thông báo', 'Bảng dữ liệu tài sản chưa sẵn sàng!', 'warning');
+            } else {
+                alert('Bảng dữ liệu tài sản chưa sẵn sàng!');
+            }
+            return;
+        }
 
+        var table = $(tableSelector).DataTable();
+
+        // Lấy toàn bộ dữ liệu đang hiển thị theo bộ lọc tìm kiếm trên DataTables
+        var filteredData = table.rows({ search: 'applied' }).data().toArray();
+
+        if (!filteredData || filteredData.length === 0) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire('Thông báo', 'Không có dữ liệu tài sản để xuất báo cáo!', 'info');
+            } else {
+                alert('Không có dữ liệu tài sản để xuất báo cáo!');
+            }
+            return;
+        }
+
+        // Hàm bổ trợ giải mã AES & làm sạch HTML qua Textarea
+        function decryptAndCleanText(inputVal) {
+            if (inputVal === null || inputVal === undefined) return '';
+            var strVal = String(inputVal).trim();
+            if (!strVal) return '';
+
+            // Bước 1: Giải mã AES nếu bị mã hóa
+            if (typeof decryptData === 'function') {
+                try {
+                    var decrypted = decryptData(strVal);
+                    if (decrypted !== null && decrypted !== undefined) {
+                        strVal = String(decrypted);
+                    }
+                } catch (e) {
+                    console.warn("Không thể giải mã dữ liệu:", strVal, e);
+                }
+            }
+
+            // Bước 2: Bóc tách text qua textarea (không render HTML)
+            var $textarea =$('#rawHtmlDataContainer');
+            if (!$textarea.length) {
+                $textarea =$('<textarea id="rawHtmlDataContainer" class="d-none" readonly>').appendTo('body');
+            }
+            
+            $textarea.html(strVal);
+            var cleanText = \(textarea.text() \vert{}\vert{}\)textarea.val() || '';
+
+            // Bước 3: Escape dấu " và xóa xuống dòng để tránh vỡ cột CSV
+            return cleanText.replace(/"/g, '""').replace(/(\r\n|\n|\r)/gm, " ");
+        }
+
+        // Bổ sung BOM Unicode UTF-8 & Tiêu đề tất cả 16 cột theo Schema DB
+        var csvContent = "\uFEFF";
+        csvContent += "STT,Mã Tài Sản,Đơn Vị,Tên Tài Sản,Nhóm Tài Sản,Nguyên Giá,Hao Mòn Lũy Kế,Giá Trị Còn Lại,Ngày Đưa Vào SD,Trạng Thái SD,Trạng Thái QT,Bổ Sổ,Cán Bộ Sử Dụng,Phòng Ban Quản Lý,Số Serial,Hình Ảnh / Tệp,Thời Gian Import\n";
+
+        // Duyệt từng bản ghi và giải mã đầy đủ các trường
+        filteredData.forEach(function (row, index) {
+            var stt              = index + 1;
+            var maTS             = decryptAndCleanText(row.ma_tai_san || '');
+            var donVi            = decryptAndCleanText(row.don_vi || '');
+            var tenTS            = decryptAndCleanText(row.ten_tai_san || '');
+            var nhomTS           = decryptAndCleanText(row.nhom_tai_san || '');
+            var nguyenGia        = decryptAndCleanText(row.nguyen_gia || 0);
+            var haoMonLuyKe      = decryptAndCleanText(row.hao_mon_luy_ke || 0);
+            var giaTriConLai     = decryptAndCleanText(row.gia_tri_con_lai || 0);
+            var ngayDuaVaoSD     = decryptAndCleanText(row.ngay_dua_vao_sd || '');
+            var trangThaiSD      = decryptAndCleanText(row.trang_thai_sd || '');
+            var trangThaiQT      = decryptAndCleanText(row.trang_thai_qt || '');
+            var boSo             = decryptAndCleanText(row.bo_so || '');
+            var canBoSD          = decryptAndCleanText(row.can_bo_su_dung || '');
+            var phongBanQL       = decryptAndCleanText(row.phong_ban_quan_ly || '');
+            var soSerial         = decryptAndCleanText(row.so_serial || '');
+            var hinhAnh          = decryptAndCleanText(row.hinh_anh || '');
+            var importAt         = decryptAndCleanText(row.import_at || '');
+
+            csvContent += `"\({stt}","\){maTS}","\({donVi}","\){tenTS}","\({nhomTS}","\){nguyenGia}","\({haoMonLuyKe}","\){giaTriConLai}","\({ngayDuaVaoSD}","\){trangThaiSD}","\({trangThaiQT}","\){boSo}","\({canBoSD}","\){phongBanQL}","\({soSerial}","\){hinhAnh}","${importAt}"\n`;
+        });
+
+        // Tải file CSV về máy
+        var now = new Date();
+        var dateStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
+        var fileName = "Bao_Cao_Tai_San_Full_Columns_" + dateStr + ".csv";
+
+        var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        if (navigator.msSaveBlob) {
+            navigator.msSaveBlob(blob, fileName);
+        } else {
+            var link = document.createElement("a");
+            if (link.download !== undefined) {
+                var url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", fileName);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Xuất Báo Cáo Thành Công!',
+                text: 'Đã xuất đầy đủ 16 cột dữ liệu tài sản ra file Excel.',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+
+    } catch (err) {
+        console.error("Lỗi xuất báo cáo DataTables full columns:", err);
+        alert("Có lỗi xảy ra khi xuất báo cáo: " + err.message);
+    }
+}
         async function toggleActiveDotKiemKe() {
             const selectDot = document.getElementById('selectDot');
             const currentDotId = selectDot.value;
