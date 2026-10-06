@@ -803,9 +803,9 @@ async function exportExcelReport() {
     }
 }
 /**
- * Hàm toggle xem trực tiếp tệp (PDF, Hình ảnh)
- * - Nếu là file LƯU ON DRIVE (hoặc link HTTPS công khai): Xem qua Google Drive / Google Docs Viewer.
- * - Nếu là file CHƯA LƯU (File chọn dưới local, Blob URL, Base64): Tự tạo Blob URL xem trực tiếp trên trình duyệt.
+ * Hàm Toggle Inline Viewer
+ * - File đã lưu trên Drive / URL Web: Xem qua Google Docs / Drive Viewer
+ * - File tạm local (Blob / Base64 / File từ Máy tính): Xem bằng trình xem mặc định của Trình duyệt
  */
 function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     if (fileName === undefined) fileName = "";
@@ -823,7 +823,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     }
     if (!targetContainer) return;
 
-    // 1. Xử lý Toggle (Đóng nếu bấm lại vào đúng file đang mở)
+    // 1. Toggle đóng/mở nếu bấm lại đúng file đang xem
     if (!targetContainer.classList.contains("d-none") && targetContainer.dataset.activeSrc === urlOrBase64) {
         targetContainer.classList.add("d-none");
         targetContainer.innerHTML = "";
@@ -846,7 +846,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     var displayFileName = fileName;
     if (!displayFileName || displayFileName.trim() === "") {
         if (urlOrBase64.indexOf("data:") === 0 || urlOrBase64.indexOf("blob:") === 0) {
-            displayFileName = mediaType === "pdf" ? "Tài liệu inline.pdf" : "Hình ảnh inline.png";
+            displayFileName = mediaType === "pdf" ? "Tài liệu tạm.pdf" : "Hình ảnh tạm.png";
         } else {
             var rawName = urlOrBase64.split("/").pop().split("?")[0];
             try { displayFileName = decodeURIComponent(rawName); } catch (e) { displayFileName = rawName; }
@@ -855,11 +855,11 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
 
     var embedSrc = urlOrBase64;
 
-    // 3. Phân loại đường dẫn hiển thị (Drive/Google Docs vs Local/Blob Browser Viewer)
+    // 3. Phân loại xem Google Docs (File trên Drive) hay Trình duyệt (File tạm)
     if (mediaType === "pdf") {
         var fileId = "";
 
-        // Trích xuất File ID Google Drive từ nhiều định dạng URL khác nhau
+        // Trích xuất File ID Google Drive từ các dạng URL khác nhau
         if (urlOrBase64.indexOf("googleusercontent.com/d/") !== -1) {
             fileId = urlOrBase64.split("googleusercontent.com/d/")[1].split("?")[0].split("/")[0];
         } else if (urlOrBase64.indexOf("/d/") !== -1) {
@@ -869,13 +869,13 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
         }
 
         if (fileId) {
-            // Trường hợp 1: File đã lưu trên Google Drive -> Dùng Google Drive/Docs Preview
+            // [CÁCH 1]: FILE LƯU TRÊN DRIVE -> XEM BẰNG GOOGLE DOCS / DRIVE PREVIEW
             embedSrc = "https://drive.google.com/file/d/" + fileId + "/preview";
         } else if (urlOrBase64.indexOf("http://") === 0 || urlOrBase64.indexOf("https://") === 0) {
-            // Trường hợp 2: Link HTTPS công khai ngoài Drive -> Dùng Google Docs Viewer nhúng
-            embedSrc = "https://docs.google.com/viewer?url=" + encodeURIComponent(urlOrBase64) + "&embedded=true";
+            // [CÁCH 2]: LINK URL ONLINE NGOÀI DRIVE -> XEM QUA GOOGLE DOCS VIEWER
+            embedSrc = "https://docs.google.com/gview?embedded=true&url=" + encodeURIComponent(urlOrBase64);
         } else if (urlOrBase64.indexOf("data:application/pdf;base64,") === 0) {
-            // Trường hợp 3: Chuỗi Base64 PDF chưa lưu -> Chuyển thành Blob URL để xem bằng trình xem mặc định
+            // [CÁCH 3]: FILE TẠM DẠNG BASE64 -> CHUYỂN BLOB XEM TRỰC TIẾP TRÊN TRÌNH DUYỆT
             try {
                 var base64Data = urlOrBase64.split(",")[1];
                 var binaryStr = atob(base64Data);
@@ -887,17 +887,17 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                 var blob = new Blob([bytes], { type: "application/pdf" });
                 embedSrc = URL.createObjectURL(blob);
             } catch (e) {
-                console.error("Lỗi chuyển đổi Base64 sang Blob URL:", e);
+                console.error("Lỗi tạo Blob URL cho PDF tạm:", e);
             }
         } else if (urlOrBase64.indexOf("blob:") === 0) {
-            // Trường hợp 4: Blob URL tạo từ  dưới local
+            // [CÁCH 4]: FILE TẠM DẠNG BLOB LOCAL -> XEM TRỰC TIẾP TRÊN TRÌNH DUYỆT
             embedSrc = urlOrBase64;
         }
     }
 
     targetContainer.dataset.embedSrc = embedSrc;
 
-    // 4. Dựng giao diện Header Viewer
+    // 4. Tạo Header điều khiển
     var headerDiv = document.createElement("div");
     headerDiv.className = "d-flex align-items-center justify-content-between bg-white px-3 py-2 border border-bottom-0 rounded-top shadow-sm";
 
@@ -934,7 +934,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     mainWrapper.style.width = "100%";
     mainWrapper.appendChild(headerDiv);
 
-    // 5. Render nội dung hiển thị (Iframe PDF hoặc Thẻ Img)
+    // 5. Tạo Khung Iframe / Img chứa nội dung
     if (mediaType === "pdf") {
         var iframe = document.createElement("iframe");
         iframe.src = embedSrc;
@@ -955,13 +955,13 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
         mainWrapper.appendChild(imgContainer);
     }
 
-    // 6. Đưa giao diện vào container và cuộn tới vị trí xem
+    // 6. Đưa khung xem vào giao diện và cuộn tới vị trí xem
     targetContainer.innerHTML = "";
     targetContainer.appendChild(mainWrapper);
     targetContainer.classList.remove("d-none");
     targetContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
-    // 7. Gọi hàm callback cập nhật danh sách tệp đính kèm (nếu có)
+    // 7. Render lại danh sách đính kèm (nếu có các hàm callback)
     if (elementPrefixId === "asset_form_inline_viewer_container" && typeof renderImageDetailList === "function") {
         renderImageDetailList();
     }
