@@ -2375,15 +2375,12 @@ if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) 
                     div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
 
                     var inlineBtnHtml = '';
-                    if (isPdf || isImage) {
                         var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
                         var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
                         var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
 
                         inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'swal_file_inline_viewer_container\', \'' + safeUrl + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
-                    } else {
                         inlineBtnHtml = '<a href="' + url + '" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>';
-                    }
 
                     div.innerHTML = 
                         '<div class="d-flex align-items-center justify-content-between">' +
