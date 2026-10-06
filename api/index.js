@@ -641,6 +641,85 @@ module.exports = async (req, res) => {
                 remainingUrls: updatedList.join(',')
             });
         }
+        // Helper: Ghi log tác động tài sản
+async function logAssetAction(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
+    try {
+        const sql = `
+            INSERT INTO asset_audit_logs (ts_id, action_type, performed_by, old_data, new_data, note)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        const encUser = performed_by ? (typeof encryptData === 'function' ? encryptData(performed_by) : performed_by) : '';
+        const encNote = note ? (typeof encryptData === 'function' ? encryptData(note) : note) : '';
+        
+        await connection.execute(sql, [
+            ts_id,
+            action_type,
+            encUser,
+            old_data ? JSON.stringify(old_data) : null,
+            new_data ? JSON.stringify(new_data) : null,
+            encNote
+        ]);
+    } catch (err) {
+        console.error('Lỗi khi ghi Audit Log:', err);
+    }
+}
+
+// Route API: Lấy danh sách & Lịch sử kiểm kê (Xử lý Tất cả các đợt khi dot_id = "")
+if (action === 'data') {
+    const dot_id = req.query && req.query.dot_id ? String(req.query.dot_id).trim() : '';
+
+    const [danh_sach] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
+    const [dotRows] = await connection.execute('SELECT * FROM dot_kiem_ke ORDER BY id DESC');
+
+    // Nếu dot_id rỗng ("") -> Lấy TẤT CẢ các đợt kiểm kê
+    let sqlLichSu = 'SELECT * FROM lich_su_kk';
+    let paramsLichSu = [];
+
+    if (dot_id !== '') {
+        sqlLichSu += ' WHERE dot_id = ? ORDER BY id DESC';
+        paramsLichSu.push(dot_id);
+    } else {
+        sqlLichSu += ' ORDER BY id DESC';
+    }
+
+    const [lich_su] = await connection.execute(sqlLichSu, paramsLichSu);
+
+    const dot_kiem_ke = dotRows.map(d => {
+        const decActive = decryptData(d.active);
+        const rawActiveNum = !isNaN(decActive) && decActive !== '' ? Number(decActive) : Number(d.active);
+        return {
+            ...d,
+            name: decryptData(d.name),
+            active: isNaN(rawActiveNum) ? 1 : rawActiveNum
+        };
+    });
+
+    return res.json({ success: true, danh_sach, dot_kiem_ke, lich_su });
+}
+
+// Route API: Lấy nhật ký tác động Audit Log
+if (action === 'get_asset_logs') {
+    const ts_id = req.query.ts_id;
+    if (!ts_id) {
+        return res.json({ success: false, message: 'Thiếu mã tài sản!' });
+    }
+
+    const sql = `SELECT * FROM asset_audit_logs WHERE ts_id = ? ORDER BY id DESC`;
+    const [rows] = await connection.execute(sql, [ts_id.trim()]);
+
+    const logs = rows.map(item => ({
+        id: item.id,
+        ts_id: item.ts_id,
+        action_type: item.action_type,
+        performed_by: decryptData(item.performed_by) || item.performed_by || 'Hệ thống',
+        old_data: item.old_data ? JSON.parse(item.old_data) : null,
+        new_data: item.new_data ? JSON.parse(item.new_data) : null,
+        note: decryptData(item.note) || item.note,
+        created_at: item.created_at
+    }));
+
+    return res.json({ success: true, data: logs });
+}
          // 11. XUẤT BÁO CÁO
         if (action === 'export_excel') {
     try {
