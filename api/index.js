@@ -60,7 +60,7 @@ function getRawActiveNumber(activeInput) {
 }
 
 // Helper: Ghi nhật ký tác động (Audit Log)
-async function logAssetAction(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
+async function logAssetAction1(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
     try {
         const sql = 'INSERT INTO asset_audit_logs (ts_id, action_type, performed_by, old_data, new_data, note) VALUES (?, ?, ?, ?, ?, ?)';
         const encUser = performed_by ? encryptData(performed_by) : '';
@@ -73,6 +73,43 @@ async function logAssetAction(connection, { ts_id, action_type, performed_by, ol
             old_data ? JSON.stringify(old_data) : null,
             new_data ? JSON.stringify(new_data) : null,
             encNote
+        ]);
+    } catch (err) {
+        console.error('Lỗi khi ghi Audit Log:', err);
+    }
+}
+// Helper: Ghi nhật ký tác động (Audit Log - Mã hóa tất cả các cột trừ id)
+async function logAssetAction(connection, { ts_id, action_type, performed_by, old_data, new_data, note }) {
+    try {
+        const sql = 'INSERT INTO asset_audit_logs (ts_id, action_type, performed_by, old_data, new_data, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
+        
+        // 1. Chuẩn hóa dữ liệu về dạng chuỗi/object Plain-Text trước khi mã hóa
+        const rawTsId = (decryptData(ts_id) || ts_id || 'SYSTEM').toString().trim();
+        const rawActionType = (action_type || '').toString().trim();
+        const rawUser = (decryptData(performed_by) || performed_by || 'Hệ thống').toString().trim();
+        const rawNote = (note || '').toString().trim();
+
+        // 2. Giải mã đệ quy old_data & new_data nếu chúng chứa trường bị mã hóa sẵn
+        const plainOldData = old_data ? decryptObjectFields(old_data) : null;
+        const plainNewData = new_data ? decryptObjectFields(new_data) : null;
+
+        // 3. Mã hóa toàn bộ các cột trước khi ghi vào MySQL
+        const encTsId = encryptData(rawTsId);
+        const encActionType = encryptData(rawActionType);
+        const encUser = encryptData(rawUser);
+        const encOldData = encryptData(plainOldData ? JSON.stringify(plainOldData) : '');
+        const encNewData = encryptData(plainNewData ? JSON.stringify(plainNewData) : '');
+        const encNote = encryptData(rawNote);
+        const encCreatedAt = encryptData(new Date().toISOString());
+
+        await connection.execute(sql, [
+            encTsId,
+            encActionType,
+            encUser,
+            encOldData,
+            encNewData,
+            encNote,
+            encCreatedAt
         ]);
     } catch (err) {
         console.error('Lỗi khi ghi Audit Log:', err);
@@ -100,6 +137,76 @@ module.exports = async (req, res) => {
 
         // ACTION: GET_ASSET_LOGS (LẤY LỊCH SỬ LOG TÁC ĐỘNG)
         if (action === 'get_asset_logs') {
+    try {
+        const searchTsId = (req.body && req.body.ts_id) || req.query.ts_id || '';
+
+        if (!searchTsId.toString().trim()) {
+            return res.status(200).json({ success: false, message: 'Thiếu mã tài sản!' });
+        }
+
+        // Chuẩn hóa và giải mã mã tài sản cần tìm từ client (tránh trường hợp client gửi dạng mã hóa)
+        const targetTsId = decryptData(searchTsId).toString().trim().toLowerCase();
+        
+        // Vì cột ts_id trong CSDL đã bị mã hóa mã hóa AES nên phải lấy danh sách ra giải mã để so sánh
+        const sql = 'SELECT * FROM asset_audit_logs ORDER BY id DESC';
+        const [rows] = await connection.execute(sql);
+
+        const logs = [];
+        for (const item of rows) {
+            try {
+                // 1. Giải mã cột ts_id
+                const decTsId = decryptData(item.ts_id).toString().trim();
+
+                // 2. So sánh mã tài sản sau khi giải mã
+                if (decTsId.toLowerCase() === targetTsId) {
+                    // 3. Giải mã các cột còn lại
+                    const decActionType = decryptData(item.action_type) || item.action_type;
+                    const decPerformedBy = decryptData(item.performed_by) || item.performed_by || 'Hệ thống';
+                    const decNote = decryptData(item.note) || item.note;
+                    const decCreatedAt = decryptData(item.created_at) || item.created_at;
+
+                    // 4. Giải mã chuỗi JSON old_data và new_data
+                    const decOldDataStr = decryptData(item.old_data);
+                    const decNewDataStr = decryptData(item.new_data);
+
+                    let parsedOldData = null;
+                    let parsedNewData = null;
+
+                    try { 
+                        parsedOldData = decOldDataStr ? JSON.parse(decOldDataStr) : null; 
+                    } catch (e) { 
+                        parsedOldData = decOldDataStr; 
+                    }
+
+                    try { 
+                        parsedNewData = decNewDataStr ? JSON.parse(decNewDataStr) : null; 
+                    } catch (e) { 
+                        parsedNewData = decNewDataStr; 
+                    }
+
+                    logs.push({
+                        id: item.id, // Cột id giữ nguyên không mã hóa
+                        ts_id: decTsId,
+                        action_type: decActionType,
+                        performed_by: decPerformedBy,
+                        old_data: parsedOldData,
+                        new_data: parsedNewData,
+                        note: decNote,
+                        created_at: decCreatedAt
+                    });
+                }
+            } catch (lineErr) {
+                console.error(`Lỗi giải mã dòng log ID ${item.id}:`, lineErr);
+            }
+        }
+
+        return res.status(200).json({ success: true, data: logs });
+    } catch (err) {
+        console.error('Lỗi get_asset_logs:', err);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+}
+        if (action === 'get_asset_logs1') {
             try {
                 const ts_id = (req.body && req.body.ts_id) || req.query.ts_id || '';
 
