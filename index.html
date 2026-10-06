@@ -833,33 +833,41 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
 
             var embedSrc = urlOrBase64;
 
-            if (mediaType === 'pdf') {
-                if (urlOrBase64.indexOf('data:application/pdf;base64,') === 0) {
-                    try {
-                        var base64Data = urlOrBase64.split(',')[1];
-                        var binaryStr = atob(base64Data);
-                        var len = binaryStr.length;
-                        var bytes = new Uint8Array(len);
-                        for (var i = 0; i < len; i++) {
-                            bytes[i] = binaryStr.charCodeAt(i);
-                        }
-                        var blob = new Blob([bytes], { type: 'application/pdf' });
-                        embedSrc = URL.createObjectURL(blob);
-                    } catch (e) {
-                        console.error('Lỗi tạo Blob URL cho PDF Inline:', e);
-                    }
-                } else if (urlOrBase64.indexOf('drive.google.com') !== -1) {
-                    var fileId = '';
-                    if (urlOrBase64.indexOf('/d/') !== -1) {
-                        fileId = urlOrBase64.split('/d/')[1].split('/')[0];
-                    } else if (urlOrBase64.indexOf('id=') !== -1) {
-                        fileId = urlOrBase64.split('id=')[1].split('&')[0];
-                    }
-                    if (fileId) {
-                        embedSrc = 'https://drive.google.com/file/d/' + fileId + '/preview';
-                    }
+            if (mediaType === "pdf") {
+        var fileId = "";
+        
+        // 1. Tách từ lh3.googleusercontent.com/d/{fileId}
+        if (urlOrBase64.indexOf("googleusercontent.com/d/") !== -1) {
+            fileId = urlOrBase64.split("googleusercontent.com/d/")[1].split("?")[0].split("/")[0];
+        } 
+        // 2. Tách từ drive.google.com/file/d/{fileId}
+        else if (urlOrBase64.indexOf("/d/") !== -1) {
+            fileId = urlOrBase64.split("/d/")[1].split("/")[0];
+        } 
+        // 3. Tách từ drive.google.com/open?id={fileId} hoặc uc?id={fileId}
+        else if (urlOrBase64.indexOf("id=") !== -1) {
+            fileId = urlOrBase64.split("id=")[1].split("&")[0];
+        }
+
+        if (fileId) {
+            // Định dạng preview này không bị chặn bởi chính sách Content Security Policy và cuộn xem FULL các trang
+            embedSrc = "https://drive.google.com/file/d/" + fileId + "/preview";
+        } else if (urlOrBase64.indexOf("data:application/pdf;base64,") === 0) {
+            try {
+                var base64Data = urlOrBase64.split(",")[1];
+                var binaryStr = atob(base64Data);
+                var len = binaryStr.length;
+                var bytes = new Uint8Array(len);
+                for (var i = 0; i < len; i++) {
+                    bytes[i] = binaryStr.charCodeAt(i);
                 }
+                var blob = new Blob([bytes], { type: "application/pdf" });
+                embedSrc = URL.createObjectURL(blob);
+            } catch (e) {
+                console.error("Lỗi tạo Blob URL cho PDF Inline:", e);
             }
+        }
+    }
 
             targetContainer.dataset.embedSrc = embedSrc;
 
