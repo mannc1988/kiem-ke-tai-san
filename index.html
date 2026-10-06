@@ -620,6 +620,42 @@ async function exportExcelReport() {
         container.appendChild(emptySpan);
         return;
     }
+
+    // 1. Hàm nhận diện cấu hình Icon & Loại Media chuẩn FontAwesome
+    function getFileInfo(fileNameOrUrl) {
+        if (!fileNameOrUrl) {
+            return { mediaType: "pdf", iconClass: "fa-solid fa-file-pdf text-danger" };
+        }
+        var str = fileNameOrUrl.toLowerCase();
+        
+        // Hình ảnh
+        if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(str) || str.indexOf("data:image/") === 0 || str.indexOf("googleusercontent.com") !== -1) {
+            return { mediaType: "image", iconClass: "fa-solid fa-file-image text-success" };
+        }
+        // Word
+        if (/\.(doc|docx)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-solid fa-file-word text-primary" };
+        }
+        // Excel
+        if (/\.(xls|xlsx|csv)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-solid fa-file-excel text-success" };
+        }
+        // PowerPoint
+        if (/\.(ppt|pptx)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-solid fa-file-powerpoint text-warning" };
+        }
+        // Zip / Nén
+        if (/\.(zip|rar|7z|tar|gz)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-solid fa-file-zipper text-secondary" };
+        }
+        // Code / Văn bản
+        if (/\.(txt|json|html|css|js|php|py)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-solid fa-file-code text-info" };
+        }
+        // PDF (Mặc định)
+        return { mediaType: "pdf", iconClass: "fa-solid fa-file-pdf text-danger" };
+    }
+
     // 2. HIỂN THỊ DANH SÁCH TỆP ĐÃ CÓ TRÊN GOOGLE DRIVE
     if (existingDriveUrls.length > 0) {
         var headerDrive = document.createElement("div");
@@ -734,22 +770,14 @@ async function exportExcelReport() {
             var actionDiv = document.createElement("div");
 
             var btnView = document.createElement("button");
-btnView.type = "button";
-btnView.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1 shadow-sm";
-btnView.style.fontSize = "0.75rem";
-btnView.title = "Xem thử trực tiếp trên trình duyệt";
-btnView.innerHTML = '**' + btnText;
-
-btnView.onclick = function() {
-    // 1. Ưu tiên truyền đối tượng File trực tiếp (nếu có biến `file`)
-    if (typeof file !== 'undefined' && (file instanceof File || file instanceof Blob)) {
-        viewFileOnBrowserViaBlob(file, file.name, fileInfo.mediaType);
-    } 
-    // 2. Nếu không có biến file thì dùng chuỗi Base64 (`b64`)
-    else if (typeof b64 !== 'undefined' && b64) {
-        viewFileOnBrowserViaBlob(b64, (typeof file !== 'undefined' && file.name) ? file.name : '', fileInfo.mediaType);
-    }
-};
+            btnView.type = "button";
+            btnView.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1";
+            btnView.style.fontSize = "0.75rem";
+            btnView.title = "Xem thử";
+            btnView.innerHTML = '**' + btnText;
+            btnView.onclick = function() {
+                toggleInlineMedia('asset_form_inline_viewer_container', b64, fileInfo.mediaType, file.name);
+            };
 
             var btnRemove = document.createElement("button");
             btnRemove.type = "button";
@@ -772,58 +800,6 @@ btnView.onclick = function() {
 
             container.appendChild(div);
         });
-    }
-}
-		async function viewFileOnBrowserViaBlob(fileOrUrl, fileName, mediaType) {
-    var elementPrefixId = 'asset_form_inline_viewer_container';
-    var targetContainer = document.getElementById(elementPrefixId);
-    if (!targetContainer) return;
-
-    var blobUrl = '';
-    var nameToDisplay = fileName || 'Tài liệu xem trực tiếp';
-
-    try {
-        // 1. Nếu tham số là một đối tượng File/Blob (từ )
-        if (fileOrUrl instanceof File || fileOrUrl instanceof Blob) {
-            blobUrl = URL.createObjectURL(fileOrUrl);
-            if (!fileName) nameToDisplay = fileOrUrl.name;
-        } 
-        // 2. Nếu là chuỗi Base64
-        else if (typeof fileOrUrl === 'string' && fileOrUrl.indexOf('data:') === 0) {
-            var parts = fileOrUrl.split(',');
-            var mimeMatch = parts[0].match(/:(.*?);/);
-            var mime = mimeMatch ? mimeMatch[1] : (mediaType === 'image' ? 'image/png' : 'application/pdf');
-            var base64Data = parts[1];
-            var binaryStr = atob(base64Data);
-            var len = binaryStr.length;
-            var bytes = new Uint8Array(len);
-            for (var i = 0; i < len; i++) {
-                bytes[i] = binaryStr.charCodeAt(i);
-            }
-            var blob = new Blob([bytes], { type: mime });
-            blobUrl = URL.createObjectURL(blob);
-        }
-        // 3. Nếu là Blob URL sẵn có
-        else if (typeof fileOrUrl === 'string' && fileOrUrl.indexOf('blob:') === 0) {
-            blobUrl = fileOrUrl;
-        }
-        // 4. Nếu là đường dẫn URL thông thường -> Fetch về chuyển sang Blob URL
-        else if (typeof fileOrUrl === 'string' && (fileOrUrl.indexOf('http://') === 0 || fileOrUrl.indexOf('https://') === 0)) {
-            var response = await fetch(fileOrUrl);
-            var responseBlob = await response.blob();
-            blobUrl = URL.createObjectURL(responseBlob);
-        }
-
-        if (blobUrl) {
-            // Gọi hàm render toggleInlineMedia với Blob URL đã chuẩn hóa
-            toggleInlineMedia(elementPrefixId, blobUrl, mediaType, nameToDisplay);
-        } else {
-            console.error('Không thể tạo Blob URL cho tệp:', fileOrUrl);
-        }
-    } catch (error) {
-        console.error('Lỗi khi tải và chuyển đổi tệp sang Blob URL:', error);
-        // Fallback gọi hàm cơ bản nếu fetch bị lỗi CORS
-        toggleInlineMedia(elementPrefixId, fileOrUrl, mediaType, nameToDisplay);
     }
 }
 /**
