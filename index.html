@@ -739,12 +739,12 @@ async function exportExcelReport() {
         var headerTemp = document.createElement("div");
         headerTemp.className = "d-flex justify-content-between align-items-center mt-2 mb-1";
         headerTemp.innerHTML = 
-            '**Tệp mới chọn (' + tempFilesList.length + '):' +
-            '' +
-                '**Xóa hết' +
-            '';
+		'<span class="text-success fw-semibold small"><i class="fa-solid fa-circle-plus me-1"></i> Tệp mới chọn (' + tempFilesList.length + '):</span>' +
+                    '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllEditHistoryTempFiles(' + historyId + ')" title="Xóa tất cả tệp mới vừa chọn">' +
+                        '<i class="fa-solid fa-trash-can me-1"></i> Xóa hết' +
+                    '</button>';
         container.appendChild(headerTemp);
-
+		
         tempFilesList.forEach(function(file, index) {
             var b64 = tempBase64List[index];
             var isCurrentlyViewing = (currentActiveSrc === b64);
