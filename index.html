@@ -738,8 +738,7 @@ async function exportExcelReport() {
             btnView.title = "Xem thử";
             btnView.innerHTML = '**' + btnText;
             btnView.onclick = function() {
-                viewFileOnBrowserViaBlob(file, file.name, fileInfo.mediaType);
-
+                toggleInlineMedia('asset_form_inline_viewer_container', url, fileInfo.mediaType, fName);
             }; 
 
             var btnRemove = document.createElement("button");
