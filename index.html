@@ -2353,7 +2353,39 @@ if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) 
                 container.innerHTML = '<span class="text-muted small fst-italic">Chưa có tệp đính kèm nào.</span>';
                 return;
             }
-
+			function getFileInfo(fileNameOrUrl) {
+        if (!fileNameOrUrl) {
+            return { mediaType: "pdf", iconClass: "fa-solid fa-file-pdf text-danger" };
+        }
+        var str = fileNameOrUrl.toLowerCase();
+        
+        // Hình ảnh
+        if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(str) || str.indexOf("data:image/") === 0 || str.indexOf("googleusercontent.com") !== -1) {
+            return { mediaType: "image", iconClass: "fa-solid fa-file-image text-success" };
+        }
+        // Word
+        if (/\.(doc|docx)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-solid fa-file-word text-primary" };
+        }
+        // Excel
+        if (/\.(xls|xlsx|csv)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-solid fa-file-excel text-success" };
+        }
+        // PowerPoint
+        if (/\.(ppt|pptx)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-solid fa-file-powerpoint text-warning" };
+        }
+        // Zip / Nén
+        if (/\.(zip|rar|7z|tar|gz)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-solid fa-file-zipper text-secondary" };
+        }
+        // Code / Văn bản
+        if (/\.(txt|json|html|css|js|php|py)$/i.test(str)) {
+            return { mediaType: "pdf", iconClass: "fa-solid fa-file-code text-info" };
+        }
+        // PDF (Mặc định)
+        return { mediaType: "pdf", iconClass: "fa-solid fa-file-pdf text-danger" };
+    }
             if (editHistoryExistingDriveUrls.length > 0) {
                 var headerDrive = document.createElement('div');
                 headerDrive.className = 'text-primary fw-semibold small mb-1';
@@ -2414,7 +2446,7 @@ if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) 
             btnDelete.innerHTML = '**Xóa Drive';
             btnDelete.onclick = function() {
                 if (typeof deleteDriveFileDirectly === "function") {
-                    deleteDriveFileDirectly(url, index, 'asset', null);
+                    deleteDriveFileDirectly(url, idx, 'asset', null);
                 }
             };
 
