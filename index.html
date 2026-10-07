@@ -434,7 +434,11 @@ async function exportAuditLogsToExcel() {
         alert("Lỗi xuất Excel Audit Log: " + err.message);
     }
 }
-		async function viewAllAuditLogs(assetId) {
+		/**
+ * Hàm gọi API lấy danh sách Audit Logs bằng biến API_URL
+ * Format cột THỜI GIAN chuẩn: HH:mm:ss dd/MM/yyyy
+ */
+async function viewAllAuditLogs(assetId) {
     try {
         // 1. Cập nhật Tiêu đề Mã tài sản trên Header Modal
         const $titleElem =$('#modalAssetCodeTitle');
@@ -465,12 +469,12 @@ async function exportAuditLogsToExcel() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ 
-                action: 'get_asset_logs', // Đưa thêm action vào body làm dự phòng
+                action: 'get_asset_logs',
                 ts_id: payloadTsId 
             })
         });
 
-        // 5. Kiểm tra an toàn: Tránh văng lỗi SyntaxError nếu Server trả về trang HTML Error
+        // 5. Kiểm tra Content-Type tránh lỗi HTML Error
         const contentType = response.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
             const htmlText = await response.text();
@@ -496,11 +500,40 @@ async function exportAuditLogsToExcel() {
             delete $viewer[0].dataset.activeSrc;
         }
 
-        // 7. Hủy Instance DataTable cũ nếu đã tồn tại trước đó
+        // 7. Hủy Instance DataTable cũ nếu đã tồn tại
         if ($.fn.DataTable.isDataTable('#auditLogDataTable')) {
             $('#auditLogDataTable').DataTable().destroy();
             $('#auditLogDataTable tbody').empty();
         }
+
+        // Helper Format Thời Gian: hh:mm:ss dd/MM/yyyy
+        const formatDateTime = (dateVal) => {
+            if (!dateVal) return '-';
+            
+            let dateObj = new Date(dateVal);
+            // Trường hợp chuỗi dạng "19:01:26 6/10/2026" hoặc không khớp chuẩn ISO
+            if (isNaN(dateObj.getTime())) {
+                const parts = String(dateVal).split(' ');
+                if (parts.length === 2) {
+                    const timePart = parts[0];
+                    const datePart = parts[1].split('/');
+                    if (datePart.length === 3) {
+                        dateObj = new Date(`${datePart[2]}-${datePart[1].padStart(2, '0')}-${datePart[0].padStart(2, '0')}T${timePart}`);
+                    }
+                }
+            }
+
+            if (isNaN(dateObj.getTime())) return String(dateVal); // Trả về chuỗi gốc nếu không parse được
+
+            const hh = String(dateObj.getHours()).padStart(2, '0');
+            const mm = String(dateObj.getMinutes()).padStart(2, '0');
+            const ss = String(dateObj.getSeconds()).padStart(2, '0');
+            const DD = String(dateObj.getDate()).padStart(2, '0');
+            const MM = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const YYYY = dateObj.getFullYear();
+
+            return `${hh}:${mm}:${ss} ${DD}/${MM}/${YYYY}`;
+        };
 
         // 8. Khởi tạo DataTables Plugin cho bảng Log trong Modal
         const auditLogTable = $('#auditLogDataTable').DataTable({
@@ -520,8 +553,8 @@ async function exportAuditLogsToExcel() {
                 },
                 { 
                     data: 'created_at',
-                    className: 'text-center text-nowrap',
-                    render: (d, t, r) => d || r.timestamp || r.thoi_gian || '-' 
+                    className: 'text-center text-nowrap font-monospace',
+                    render: (d, t, r) => formatDateTime(d || r.timestamp || r.thoi_gian)
                 },
                 { 
                     data: 'action_type',
@@ -552,7 +585,6 @@ async function exportAuditLogsToExcel() {
 
                         let html = `<div class="mb-1">${noteText}</div>`;
 
-                        // Hiển thị Cũ (màu đỏ) và Mới (màu xanh lá) chuẩn giao diện mẫu
                         if (oldStr) {
                             html += `<div style="color: #dc3545; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Cũ:</b> ${oldStr}</div>`;
                         }
@@ -560,7 +592,6 @@ async function exportAuditLogsToExcel() {
                             html += `<div style="color: #198754; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Mới:</b> ${newStr}</div>`;
                         }
 
-                        // Hiển thị nút xem tệp đính kèm nếu có
                         const fileUrl = r.file_url || r.tep_dinh_kem || (r.new_data && r.new_data.tep_dinh_kem) || '';
                         if (fileUrl) {
                             html += `
