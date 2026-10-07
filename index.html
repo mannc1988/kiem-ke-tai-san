@@ -351,6 +351,89 @@
             if (plainText === undefined || plainText === null || plainText === '') return '';
             return CryptoJS.AES.encrypt(plainText.toString(), SECRET_KEY).toString();
         }
+		/**
+ * Hàm xuất danh sách Log ra file Excel
+ */
+async function exportAuditLogsToExcel() {
+    try {
+        const table = $('#allAuditLogsTable').DataTable();
+        if (!table) return;
+
+        const logData = table.rows({ search: 'applied' }).data().toArray();
+        if (!logData || logData.length === 0) {
+            Swal.fire('Thông báo', 'Không có dữ liệu log để xuất!', 'warning');
+            return;
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('LichSuThaoTac');
+
+        worksheet.columns = [
+            { header: 'STT', key: 'stt', width: 8 },
+            { header: 'Thời Gian', key: 'time', width: 22 },
+            { header: 'Hành Động', key: 'action', width: 18 },
+            { header: 'Mã Tài Sản', key: 'assetId', width: 18 },
+            { header: 'Người Thực Hiện', key: 'user', width: 20 },
+            { header: 'Chi Tiết Thao Tác', key: 'details', width: 45 },
+            { header: 'Tệp Đính Kèm', key: 'file', width: 35 }
+        ];
+
+        const parser = new DOMParser();
+        const safeDecrypt = (val) => {
+            if (!val) return '';
+            let str = String(val).trim();
+            if (typeof decryptData === 'function') {
+                try { str = decryptData(str) || str; } catch (e) {}
+            }
+            return parser.parseFromString(str, 'text/html').body.textContent || '';
+        };
+
+        logData.forEach((row, idx) => {
+            worksheet.addRow({
+                stt: idx + 1,
+                time: safeDecrypt(row.timestamp || row.created_at || row.thoi_gian),
+                action: safeDecrypt(row.action || row.hanh_dong),
+                assetId: safeDecrypt(row.asset_id || row.ma_tai_san || row.ts_id),
+                user: safeDecrypt(row.user || row.nguoi_thuc_hien || row.user_id),
+                details: safeDecrypt(row.details || row.noi_dung || row.description),
+                file: safeDecrypt(row.file_url || row.file || row.hinh_anh)
+            });
+        });
+
+        // Styling Header
+        const headerRow = worksheet.getRow(1);
+        headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '212529' } };
+        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+        worksheet.eachRow((row, rNum) => {
+            row.eachCell((cell) => {
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                if (rNum > 1) cell.alignment = { vertical: 'middle', wrapText: true };
+            });
+        });
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        
+        const now = new Date();
+        const dateStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
+        const fileName = `Audit_Logs_Report_${dateStr}.xlsx`;
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+    } catch (err) {
+        console.error("Lỗi xuất Excel Audit Log:", err);
+        alert("Lỗi xuất Excel Audit Log: " + err.message);
+    }
+}
 		async function viewAllAuditLogs(assetId) {
     try {
         // 1. Cập nhật Tiêu đề Mã tài sản trên Header Modal
