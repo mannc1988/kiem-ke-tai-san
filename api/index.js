@@ -459,12 +459,58 @@ if (action === 'get_asset_logs') {
             }
         }
         // 2. PHÂN TRANG DATATABLE DANH MỤC TÀI SẢN (CÓ GIẢI MÃ SERVER-SIDE)
+// 2. PHÂN TRANG DATATABLE DANH MỤC TÀI SẢN (XỬ LÝ ĐẦY ĐỦ SEARCH & SORT)
 if (action === 'server_assets') {
     try {
         const draw = parseInt(req.query.draw) || 1;
         const start = parseInt(req.query.start) || 0;
         const length = parseInt(req.query.length) || 10;
-        const searchValue = req.query.search && req.query.search.value ? req.query.search.value.trim() : '';
+
+        // A. Lấy từ khóa tìm kiếm (Search)
+        let rawSearch = '';
+        if (req.query.search) {
+            if (typeof req.query.search === 'object') {
+                rawSearch = req.query.search.value || '';
+            } else if (typeof req.query.search === 'string') {
+                rawSearch = req.query.search;
+            }
+        }
+        if (!rawSearch && req.query['search[value]']) {
+            rawSearch = req.query['search[value]'];
+        }
+        const searchValue = String(rawSearch).trim().toLowerCase();
+
+        // B. Lấy thông tin Cột sắp xếp (Order/Sort)
+        let orderColumnIndex = 2; // Mặc định xếp theo cột ma_tai_san
+        let orderDir = 'desc';    // Mặc định giảm dần
+
+        if (req.query.order && req.query.order[0]) {
+            orderColumnIndex = parseInt(req.query.order[0].column) || 2;
+            orderDir = (req.query.order[0].dir || 'asc').toLowerCase();
+        }
+
+        // Danh sách ánh số cột từ Client -> Tên trường CSDL
+        const columnMap = {
+            0: 'stt',
+            1: 'hinh_anh',
+            2: 'ma_tai_san',
+            3: 'don_vi',
+            4: 'ten_tai_san',
+            5: 'nhom_tai_san',
+            6: 'nguyen_gia',
+            7: 'hao_mon_luy_ke',
+            8: 'gia_tri_con_lai',
+            9: 'ngay_dua_vao_sd',
+            10: 'trang_thai_sd',
+            11: 'trang_thai_qt',
+            12: 'bo_so',
+            13: 'can_bo_su_dung',
+            14: 'phong_ban_quan_ly',
+            15: 'so_serial',
+            16: 'import_at'
+        };
+
+        const sortField = columnMap[orderColumnIndex] || 'ma_tai_san';
 
         // Helper giải mã an toàn ở Server-side
         const safeServerDecrypt = (val) => {
@@ -478,70 +524,75 @@ if (action === 'server_assets') {
                     if (decrypted !== null && decrypted !== undefined) {
                         str = String(decrypted);
                     }
-                } catch (e) {
-                    // Nếu không giải mã được thì giữ nguyên chuỗi
-                }
+                } catch (e) {}
             }
             return str;
         };
 
-        // 1. Lấy tổng số bản ghi trong bảng
+        // 1. Lấy tổng số bản ghi
         const [totalResult] = await connection.execute('SELECT COUNT(*) as total FROM danh_sach_tai_san');
         const totalRecords = totalResult[0].total;
 
-        // 2. Lấy toàn bộ bản ghi để giải mã và xử lý lọc/phân trang chuẩn xác
-        // (Do nhiều trường dữ liệu bị mã hóa AES nên lọc trực tiếp bằng SQL LIKE trên chuỗi mã hóa có thể không chính xác)
-        const [allRows] = await connection.execute('SELECT * FROM danh_sach_tai_san ORDER BY ma_tai_san DESC');
+        // 2. Lấy toàn bộ dữ liệu từ DB
+        const [allRows] = await connection.execute('SELECT * FROM danh_sach_tai_san');
 
-        // 3. Giải mã toàn bộ các cột cho từng dòng dữ liệu
-        const decryptedRows = allRows.map(item => {
-            return {
-                ma_tai_san: safeServerDecrypt(item.ma_tai_san),
-                don_vi: safeServerDecrypt(item.don_vi),
-                ten_tai_san: safeServerDecrypt(item.ten_tai_san),
-                nhom_tai_san: safeServerDecrypt(item.nhom_tai_san),
-                nguyen_gia: safeServerDecrypt(item.nguyen_gia),
-                hao_mon_luy_ke: safeServerDecrypt(item.hao_mon_luy_ke),
-                gia_tri_con_lai: safeServerDecrypt(item.gia_tri_con_lai),
-                ngay_dua_vao_sd: safeServerDecrypt(item.ngay_dua_vao_sd),
-                trang_thai_sd: safeServerDecrypt(item.trang_thai_sd),
-                trang_thai_qt: safeServerDecrypt(item.trang_thai_qt),
-                bo_so: safeServerDecrypt(item.bo_so),
-                can_bo_su_dung: safeServerDecrypt(item.can_bo_su_dung),
-                phong_ban_quan_ly: safeServerDecrypt(item.phong_ban_quan_ly),
-                so_serial: safeServerDecrypt(item.so_serial),
-                hinh_anh: safeServerDecrypt(item.hinh_anh),
-                import_at: safeServerDecrypt(item.import_at)
-            };
-        });
+        // 3. Giải mã toàn bộ bản ghi
+        const decryptedRows = allRows.map(item => ({
+            ma_tai_san: safeServerDecrypt(item.ma_tai_san),
+            don_vi: safeServerDecrypt(item.don_vi),
+            ten_tai_san: safeServerDecrypt(item.ten_tai_san),
+            nhom_tai_san: safeServerDecrypt(item.nhom_tai_san),
+            nguyen_gia: safeServerDecrypt(item.nguyen_gia),
+            hao_mon_luy_ke: safeServerDecrypt(item.hao_mon_luy_ke),
+            gia_tri_con_lai: safeServerDecrypt(item.gia_tri_con_lai),
+            ngay_dua_vao_sd: safeServerDecrypt(item.ngay_dua_vao_sd),
+            trang_thai_sd: safeServerDecrypt(item.trang_thai_sd),
+            trang_thai_qt: safeServerDecrypt(item.trang_thai_qt),
+            bo_so: safeServerDecrypt(item.bo_so),
+            can_bo_su_dung: safeServerDecrypt(item.can_bo_su_dung),
+            phong_ban_quan_ly: safeServerDecrypt(item.phong_ban_quan_ly),
+            so_serial: safeServerDecrypt(item.so_serial),
+            hinh_anh: safeServerDecrypt(item.hinh_anh),
+            import_at: safeServerDecrypt(item.import_at)
+        }));
 
-        // 4. Lọc dữ liệu theo từ khóa tìm kiếm trên dữ liệu ĐÃ GIẢI MÃ
+        // 4. THỰC HIỆN LỌC / TÌM KIẾM (SEARCH)
         let filteredData = decryptedRows;
-        if (searchValue) {
-            const searchLower = searchValue.toLowerCase();
+        if (searchValue !== '') {
             filteredData = decryptedRows.filter(row => {
-                const maTS = (row.ma_tai_san || '').toLowerCase();
-                const tenTS = (row.ten_tai_san || '').toLowerCase();
-                const phongBan = (row.phong_ban_quan_ly || '').toLowerCase();
-                const canBo = (row.can_bo_su_dung || '').toLowerCase();
-                const serial = (row.so_serial || '').toLowerCase();
-
-                return maTS.includes(searchLower) || 
-                       tenTS.includes(searchLower) || 
-                       phongBan.includes(searchLower) ||
-                       canBo.includes(searchLower) ||
-                       serial.includes(searchLower);
+                return Object.values(row).some(val => 
+                    String(val || '').toLowerCase().includes(searchValue)
+                );
             });
         }
 
+        // 5. THỰC HIỆN SẮP XẾP (SORT/ORDER)
+        filteredData.sort((a, b) => {
+            let valA = a[sortField] || '';
+            let valB = b[sortField] || '';
+
+            // Nếu là cột tiền tệ/số thì ép kiểu Number để sort chuẩn
+            if (['nguyen_gia', 'hao_mon_luy_ke', 'gia_tri_con_lai'].includes(sortField)) {
+                valA = Number(valA) || 0;
+                valB = Number(valB) || 0;
+            } else {
+                valA = String(valA).toLowerCase();
+                valB = String(valB).toLowerCase();
+            }
+
+            if (valA < valB) return orderDir === 'asc' ? -1 : 1;
+            if (valA > valB) return orderDir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
         const recordsFiltered = filteredData.length;
 
-        // 5. Cắt trang (Pagination) theo start và length của DataTables
+        // 6. PHÂN TRANG (PAGINATION)
         const limitVal = Math.max(1, parseInt(length));
         const offsetVal = Math.max(0, parseInt(start));
         const pagedData = filteredData.slice(offsetVal, offsetVal + limitVal);
 
-        // 6. Trả về cấu trúc JSON đúng chuẩn Server-side DataTables
+        // 7. Trả kết quả JSON về cho DataTables Client
         return res.json({
             draw: draw,
             recordsTotal: totalRecords,
@@ -553,7 +604,7 @@ if (action === 'server_assets') {
         console.error('Lỗi server_assets:', err);
         return res.status(500).json({ 
             success: false, 
-            error: err.message || 'Lỗi xử lý danh mục tài sản Server-side!' 
+            error: err.message || 'Lỗi xử lý server_assets!' 
         });
     }
 }
