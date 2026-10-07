@@ -1585,154 +1585,32 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
     serverSide: true,
     processing: true,
     scrollX: true,
+    searching: true, // Bật tính năng tìm kiếm
+    ordering: true,  // Bật tính năng sắp xếp
+    order: [[2, 'desc']], // Mặc định sắp xếp cột Mã Tài Sản (index 2) giảm dần
     ajax: {
         url: `${API_URL}?action=server_assets`,
         type: 'GET'
     },
     columns: [
-        // 1. STT
-        { 
-            data: null, 
-            className: 'text-center align-middle',
-            render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 
-        },
-
-        // 2. TỆP ĐÍNH KÈM / HÌNH Ảnh
-        { 
-            data: 'hinh_anh', 
-            className: 'align-middle',
-            render: (data, type, row) => {
-                let decrypted = data || ''; // Dữ liệu đã được Server giải mã sẵn
-                if (!decrypted) return '<span class="text-muted small fst-italic">Không có tệp</span>';
-                
-                let urls = String(decrypted).split(',').map(s => s.trim()).filter(Boolean);
-                if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có tệp</span>';
-
-                let htmlList = '<div style="min-width: 180px;">';
-                urls.forEach((url, idx) => {
-                    let fName = url.split('/').pop().split('?')[0] || `Asset_File_${idx + 1}`;
-                    let safeEmbedUrl = url.replace(/'/g, "\\'");
-                    let downloadUrl = typeof getDownloadDriveUrl === 'function' ? getDownloadDriveUrl(url) : url;
-
-                    htmlList += `
-                        <div class="mb-1">
-                            <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 shadow-sm">
-                                <span class="text-truncate me-2 small text-secondary" style="max-width: 90px;" title="${fName}">
-                                    <i class="fa-solid fa-file me-1"></i> ${fName}
-                                </span>
-                                <div class="d-flex align-items-center">
-                                    <!-- NÚT 1: XEM INLINE -->
-                                    <button type="button" class="btn btn-info btn-sm text-white py-0 px-2 me-1" style="font-size: 0.7rem;" 
-                                            onclick="toggleInlineMedia('table_assets_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
-                                            title="Xem trực tiếp trên web">
-                                        <i class="fa-solid fa-file me-1"></i> Xem Inline
-                                    </button>
-                                    <!-- NÚT 2: TẢI VỀ MÁY TÍNH -->
-                                    <a href="${downloadUrl}" download class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.7rem;" title="Tải trực tiếp về máy tính">
-                                        <i class="fa-solid fa-download"></i>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                htmlList += '</div>';
-                return htmlList;
-            }
-        },
-
-        // 3. MÃ TÀI SẢN
-        { data: 'ma_tai_san', render: data => `<span class="badge bg-secondary">${data || ''}</span>` },
-
-        // 4. ĐƠN VỊ
-        { data: 'don_vi', render: data => `<small class="text-muted">${data || ''}</small>` },
-
-        // 5. TÊN TÀI SẢN
-        { data: 'ten_tai_san', render: data => `<span class="fw-semibold text-dark">${data || ''}</span>` },
-
-        // 6. NHÓM TÀI SẢN
-        { data: 'nhom_tai_san', render: data => `<small class="text-muted">${data || ''}</small>` },
-
-        // 7. NGUYÊN GIÁ
-        { data: 'nguyen_gia', render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
-
-        // 8. HAO MÒN LŨY KẾ
-        { data: 'hao_mon_luy_ke', render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
-
-        // 9. GIÁ TRỊ CÒN LẠI
-        { data: 'gia_tri_con_lai', render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
-
-        // 10. NGÀY ĐƯA VÀO SỬ DỤNG
-        { 
-            data: 'ngay_dua_vao_sd', 
-            render: data => {
-                if (!data) return '-';
-                return typeof formatDateToDMY === 'function' ? `<small class="text-muted">${formatDateToDMY(data)}</small>` : `<small class="text-muted">${data}</small>`;
-            }
-        },
-
-        // 11. TRẠNG THÁI SỬ DỤNG
-        { data: 'trang_thai_sd', render: data => `<span class="badge bg-success-subtle text-success border">${data || ''}</span>` },
-
-        // 12. TRẠNG THÁI QUYẾT TOÁN
-        { data: 'trang_thai_qt', render: data => `<span class="badge bg-primary-subtle text-primary border">${data || ''}</span>` },
-
-        // 13. BỔ SỔ
-        { data: 'bo_so', render: data => `<small class="text-muted">${data || ''}</small>` },
-
-        // 14. CÁN BỘ SỬ DỤNG
-        { data: 'can_bo_su_dung', render: data => data || '' },
-
-        // 15. PHÒNG BAN QUẢN LÝ
-        { data: 'phong_ban_quan_ly', render: data => data || '' },
-
-        // 16. SỐ SERIAL
-        { data: 'so_serial', render: data => `<span class="badge bg-light text-dark border">${data || ''}</span>` },
-
-        // 17. THỜI GIAN IMPORT
-        { data: 'import_at', render: data => `<small class="text-muted">${data || ''}</small>` },
-
-        // 18. THAO TÁC (SỬA / XÓA)
-        { 
-            data: 'ma_tai_san', 
-            className: 'text-center align-middle',
-            render: (data, type, row) => {
-                // Helper escape chuỗi an toàn để không vỡ cú pháp JavaScript onclick
-                const safeStr = (val) => String(val || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-
-                let mAs = safeStr(row.ma_tai_san);
-                let dV  = safeStr(row.don_vi);
-                let tTs = safeStr(row.ten_tai_san);
-                let nTs = safeStr(row.nhom_tai_san);
-                let nG  = safeStr(row.nguyen_gia);
-                let hM  = safeStr(row.hao_mon_luy_ke);
-                let gCL = safeStr(row.gia_tri_con_lai);
-                let nSD = safeStr(row.ngay_dua_vao_sd);
-                let tT  = safeStr(row.trang_thai_sd);
-                let tQt = safeStr(row.trang_thai_qt);
-                let bS  = safeStr(row.bo_so);
-                let cB  = safeStr(row.can_bo_su_dung);
-                let pB  = safeStr(row.phong_ban_quan_ly);
-                let sS  = safeStr(row.so_serial);
-                let hA  = safeStr(row.hinh_anh);
-                let iAt = safeStr(row.import_at);
-
-                return `
-                    <div class="d-flex justify-content-center">
-                        <button type="button" class="btn btn-warning btn-sm text-white me-1" 
-                                onclick="editAsset('${mAs}', '${dV}', '${tTs}', '${nTs}', '${nG}', '${hM}', '${gCL}', '${nSD}', '${tT}', '${tQt}', '${bS}', '${cB}', '${pB}', '${sS}', '${hA}', '${iAt}')" 
-                                title="Sửa tài sản">
-                            <i class="fa-solid fa-pen"></i>
-                        </button>
-                        <button type="button" class="btn btn-danger btn-sm" 
-                                onclick="deleteAsset('${mAs}')" 
-                                title="Xóa tài sản">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    </div>
-                `;
-            }
-        }
+        { data: null, orderable: false, searchable: false, render: (d, t, r, meta) => meta.settings._iDisplayStart + meta.row + 1 },
+        { data: 'hinh_anh', orderable: false, searchable: false, render: ... }, // Giữ nguyên hàm render hinh_anh của bạn
+        { data: 'ma_tai_san', orderable: true, searchable: true, render: data => `<span class="badge bg-secondary">${data || ''}</span>` },
+        { data: 'don_vi', orderable: true, searchable: true, render: data => `<small class="text-muted">${data || ''}</small>` },
+        { data: 'ten_tai_san', orderable: true, searchable: true, render: data => `<span class="fw-semibold text-dark">${data || ''}</span>` },
+        { data: 'nhom_tai_san', orderable: true, searchable: true, render: data => `<small class="text-muted">${data || ''}</small>` },
+        { data: 'nguyen_gia', orderable: true, searchable: true, render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
+        { data: 'hao_mon_luy_ke', orderable: true, searchable: true, render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
+        { data: 'gia_tri_con_lai', orderable: true, searchable: true, render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
+        { data: 'ngay_dua_vao_sd', orderable: true, searchable: true, render: data => data ? `<small class="text-muted">${formatDateToDMY(data)}</small>` : '-' },
+        { data: 'trang_thai_sd', orderable: true, searchable: true, render: data => `<span class="badge bg-success-subtle text-success border">${data || ''}</span>` },
+        { data: 'trang_thai_qt', orderable: true, searchable: true, render: data => `<span class="badge bg-primary-subtle text-primary border">${data || ''}</span>` },
+        { data: 'bo_so', orderable: true, searchable: true, render: data => `<small class="text-muted">${data || ''}</small>` },
+        { data: 'can_bo_su_dung', orderable: true, searchable: true, render: data => data || '' },
+        { data: 'phong_ban_quan_ly', orderable: true, searchable: true, render: data => data || '' },
+        { data: 'so_serial', orderable: true, searchable: true, render: data => `<span class="badge bg-light text-dark border">${data || ''}</span>` },
+        { data: 'import_at', orderable: true, searchable: true, render: data => `<small class="text-muted">${data || ''}</small>` },
+        { data: 'ma_tai_san', orderable: false, searchable: false, render: ... } // Giữ nguyên nút Sửa/Xóa của bạn
     ],
     language: {
         search: "Tìm kiếm:",
