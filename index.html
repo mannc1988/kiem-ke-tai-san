@@ -342,7 +342,7 @@
         let tempFilesList = []; 
         let tempBase64List = []; 
         let existingDriveUrls = []; 
-
+		let auditLogDataTableInstance = null;
         let editHistoryFilesList = [];
         let editHistoryBase64List = [];
         let editHistoryExistingDriveUrls = [];
@@ -351,7 +351,147 @@
             if (plainText === undefined || plainText === null || plainText === '') return '';
             return CryptoJS.AES.encrypt(plainText.toString(), SECRET_KEY).toString();
         }
+		async function viewAllAuditLogs(assetId) {
+    try {
+        // 1. Cập nhật Tiêu đề Mã tài sản trên Header Modal
+        const $titleElem =$('#modalAssetCodeTitle');
+        $titleElem.text(assetId ? assetId : 'Tất Cả');
 
+        // 2. Lấy dữ liệu logs
+        let rawLogs = [];
+        if (typeof window.auditLogsData !== 'undefined' && Array.isArray(window.auditLogsData)) {
+            rawLogs = window.auditLogsData;
+        } else if (typeof fetchAuditLogsFromServer === 'function') {
+            rawLogs = await fetchAuditLogsFromServer(assetId);
+        } else {
+            const cached = localStorage.getItem('app_audit_logs');
+            if (cached) try { rawLogs = JSON.parse(cached); } catch (e) {}
+        }
+
+        // Helper giải mã AES an toàn
+        const safeDecrypt = (val) => {
+            if (!val) return '';
+            let str = String(val).trim();
+            if (typeof decryptData === 'function') {
+                try {
+                    const dec = decryptData(str);
+                    if (dec) str = String(dec);
+                } catch (e) {}
+            }
+            return str;
+        };
+
+        // Lọc log theo Mã tài sản nếu có truyền tham số assetId
+        if (assetId) {
+            rawLogs = rawLogs.filter(item => {
+                const itemAssetId = safeDecrypt(item.asset_id || item.ma_tai_san || item.tsId || '');
+                return itemAssetId.toString().toLowerCase() === assetId.toString().toLowerCase();
+            });
+        }
+
+        // 3. Reset lại container xem file đính kèm inline
+        const $viewer =$('#swal_file_inline_viewer_container');
+        if ($viewer.length) {$viewer.addClass('d-none').html('');
+            delete $viewer[0].dataset.activeSrc;
+        }
+
+        // 4. Hủy Instance DataTable cũ nếu đã tồn tại trước đó
+        if ($.fn.DataTable.isDataTable('#auditLogDataTable')) {
+            $('#auditLogDataTable').DataTable().destroy();
+            $('#auditLogDataTable tbody').empty();
+        }
+
+        // 5. Khởi tạo DataTables Plugin cho bảng Log trong Modal
+        auditLogDataTableInstance = $('#auditLogDataTable').DataTable({
+            data: rawLogs,
+            pageLength: 10,
+            lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Tất cả"]],
+            order: [[1, 'desc']], // Thời gian mới nhất xếp trên cùng
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/vi.json',
+                search: "Tìm kiếm nhật ký:"
+            },
+            columns: [
+                { 
+                    data: null, 
+                    className: 'text-center text-secondary',
+                    render: (d, t, r, meta) => meta.row + 1 
+                },
+                { 
+                    data: 'timestamp',
+                    className: 'text-center text-nowrap',
+                    render: (d, t, r) => safeDecrypt(d || r.created_at || r.thoi_gian || '') 
+                },
+                { 
+                    data: 'action',
+                    className: 'text-center',
+                    render: (d, t, r) => {
+                        const act = safeDecrypt(d || r.hanh_dong || 'Cập nhật').trim();
+                        // Badge màu vàng chuẩn theo thiết kế
+                        return `<span class="badge bg-warning text-dark px-2 py-1" style="font-size: 0.75rem; font-weight: 600;">${act}</span>`;
+                    }
+                },
+                { 
+                    data: 'user',
+                    className: 'text-center fw-bold text-dark',
+                    render: (d, t, r) => safeDecrypt(d || r.nguoi_thuc_hien || r.user_id || 'Hệ thống') 
+                },
+                { 
+                    data: 'details',
+                    render: (d, t, r) => {
+                        const title = safeDecrypt(d || r.noi_dung || r.ghiChu || 'Cập nhật nội dung bản ghi');
+                        const rawOld = safeDecrypt(r.old_data || r.data_cu || '');
+                        const rawNew = safeDecrypt(r.new_data || r.data_moi || '');
+
+                        let html = `<div class="mb-1">${title}</div>`;
+
+                        // Dòng Cũ màu đỏ, Mới màu xanh trùng khớp giao diện ảnh
+                        if (rawOld) {
+                            html += `<div style="color: #dc3545; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Cũ:</b> ${rawOld}</div>`;
+                        }
+                        if (rawNew) {
+                            html += `<div style="color: #198754; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Mới:</b> ${rawNew}</div>`;
+                        }
+
+                        // Nếu có tệp đính kèm -> Nút xem inline
+                        const fileUrl = safeDecrypt(r.file_url || r.tep_dinh_kem || '');
+                        if (fileUrl) {
+                            html += `
+                                <div class="mt-1">
+                                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.72rem;"
+                                            onclick="toggleInlineMedia('swal_file_inline_viewer_container', '${fileUrl}', 'pdf', 'File_Log')">
+                                        <i class="fa-solid fa-paperclip me-1"></i>Xem tệp đính kèm
+                                    </button>
+                                </div>`;
+                        }
+
+                        return html;
+                    }
+                }
+            ]
+        });
+
+        // 6. Trình chiếu Bootstrap Modal
+        const modalElem = document.getElementById('auditLogModal');
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalElem);
+        bsModal.show();
+
+        // Tự động điều chỉnh lại kích thước cột DataTables sau khi Modal hoàn tất hiệu ứng mở
+        $(modalElem).off('shown.bs.modal').on('shown.bs.modal', function () {
+            if (auditLogDataTableInstance) {
+                auditLogDataTableInstance.columns.adjust().draw();
+            }
+        });
+
+    } catch (err) {
+        console.error("Lỗi mở Modal Audit Log:", err);
+        if (typeof Swal !== 'undefined') {
+            Swal.fire('Lỗi', 'Không thể hiển thị nhật ký: ' + err.message, 'error');
+        } else {
+            alert('Không thể hiển thị nhật ký: ' + err.message);
+        }
+    }
+}
         function decryptData(cipherText) {
             if (!cipherText) return '';
             try {
