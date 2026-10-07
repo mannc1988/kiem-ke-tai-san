@@ -1585,6 +1585,9 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
     serverSide: true,
     processing: true,
     scrollX: true,
+    searching: true,
+    ordering: true,
+    order: [[2, 'desc']], // Mặc định sắp xếp theo Mã tài sản (cột index 2) giảm dần
     ajax: {
         url: `${API_URL}?action=server_assets`,
         type: 'GET'
@@ -1593,16 +1596,22 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
         // 1. STT
         { 
             data: null, 
+            name: 'stt',
+            orderable: false, 
+            searchable: false, 
             className: 'text-center align-middle',
             render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 
         },
 
-        // 2. TỆP ĐÍNH KÈM / HÌNH Ảnh
+        // 2. TỆP ĐÍNH KÈM / HÌNH ẢNH
         { 
             data: 'hinh_anh', 
+            name: 'hinh_anh',
+            orderable: false, 
+            searchable: false, 
             className: 'align-middle',
             render: (data, type, row) => {
-                let decrypted = data || ''; // Dữ liệu đã được Server giải mã sẵn
+                let decrypted = data || '';
                 if (!decrypted) return '<span class="text-muted small fst-italic">Không có tệp</span>';
                 
                 let urls = String(decrypted).split(',').map(s => s.trim()).filter(Boolean);
@@ -1621,13 +1630,11 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
                                     <i class="fa-solid fa-file me-1"></i> ${fName}
                                 </span>
                                 <div class="d-flex align-items-center">
-                                    <!-- NÚT 1: XEM INLINE -->
                                     <button type="button" class="btn btn-info btn-sm text-white py-0 px-2 me-1" style="font-size: 0.7rem;" 
                                             onclick="toggleInlineMedia('table_assets_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
                                             title="Xem trực tiếp trên web">
                                         <i class="fa-solid fa-file me-1"></i> Xem Inline
                                     </button>
-                                    <!-- NÚT 2: TẢI VỀ MÁY TÍNH -->
                                     <a href="${downloadUrl}" download class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.7rem;" title="Tải trực tiếp về máy tính">
                                         <i class="fa-solid fa-download"></i>
                                     </a>
@@ -1642,29 +1649,32 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
         },
 
         // 3. MÃ TÀI SẢN
-        { data: 'ma_tai_san', render: data => `<span class="badge bg-secondary">${data || ''}</span>` },
+        { data: 'ma_tai_san', name: 'ma_tai_san', orderable: true, searchable: true, render: data => `<span class="badge bg-secondary">${data || ''}</span>` },
 
         // 4. ĐƠN VỊ
-        { data: 'don_vi', render: data => `<small class="text-muted">${data || ''}</small>` },
+        { data: 'don_vi', name: 'don_vi', orderable: true, searchable: true, render: data => `<small class="text-muted">${data || ''}</small>` },
 
         // 5. TÊN TÀI SẢN
-        { data: 'ten_tai_san', render: data => `<span class="fw-semibold text-dark">${data || ''}</span>` },
+        { data: 'ten_tai_san', name: 'ten_tai_san', orderable: true, searchable: true, render: data => `<span class="fw-semibold text-dark">${data || ''}</span>` },
 
         // 6. NHÓM TÀI SẢN
-        { data: 'nhom_tai_san', render: data => `<small class="text-muted">${data || ''}</small>` },
+        { data: 'nhom_tai_san', name: 'nhom_tai_san', orderable: true, searchable: true, render: data => `<small class="text-muted">${data || ''}</small>` },
 
         // 7. NGUYÊN GIÁ
-        { data: 'nguyen_gia', render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
+        { data: 'nguyen_gia', name: 'nguyen_gia', orderable: true, searchable: true, render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
 
         // 8. HAO MÒN LŨY KẾ
-        { data: 'hao_mon_luy_ke', render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
+        { data: 'hao_mon_luy_ke', name: 'hao_mon_luy_ke', orderable: true, searchable: true, render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
 
         // 9. GIÁ TRỊ CÒN LẠI
-        { data: 'gia_tri_con_lai', render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
+        { data: 'gia_tri_con_lai', name: 'gia_tri_con_lai', orderable: true, searchable: true, render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
 
         // 10. NGÀY ĐƯA VÀO SỬ DỤNG
         { 
             data: 'ngay_dua_vao_sd', 
+            name: 'ngay_dua_vao_sd',
+            orderable: true, 
+            searchable: true, 
             render: data => {
                 if (!data) return '-';
                 return typeof formatDateToDMY === 'function' ? `<small class="text-muted">${formatDateToDMY(data)}</small>` : `<small class="text-muted">${data}</small>`;
@@ -1672,32 +1682,34 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
         },
 
         // 11. TRẠNG THÁI SỬ DỤNG
-        { data: 'trang_thai_sd', render: data => `<span class="badge bg-success-subtle text-success border">${data || ''}</span>` },
+        { data: 'trang_thai_sd', name: 'trang_thai_sd', orderable: true, searchable: true, render: data => `<span class="badge bg-success-subtle text-success border">${data || ''}</span>` },
 
         // 12. TRẠNG THÁI QUYẾT TOÁN
-        { data: 'trang_thai_qt', render: data => `<span class="badge bg-primary-subtle text-primary border">${data || ''}</span>` },
+        { data: 'trang_thai_qt', name: 'trang_thai_qt', orderable: true, searchable: true, render: data => `<span class="badge bg-primary-subtle text-primary border">${data || ''}</span>` },
 
         // 13. BỔ SỔ
-        { data: 'bo_so', render: data => `<small class="text-muted">${data || ''}</small>` },
+        { data: 'bo_so', name: 'bo_so', orderable: true, searchable: true, render: data => `<small class="text-muted">${data || ''}</small>` },
 
         // 14. CÁN BỘ SỬ DỤNG
-        { data: 'can_bo_su_dung', render: data => data || '' },
+        { data: 'can_bo_su_dung', name: 'can_bo_su_dung', orderable: true, searchable: true, render: data => data || '' },
 
         // 15. PHÒNG BAN QUẢN LÝ
-        { data: 'phong_ban_quan_ly', render: data => data || '' },
+        { data: 'phong_ban_quan_ly', name: 'phong_ban_quan_ly', orderable: true, searchable: true, render: data => data || '' },
 
         // 16. SỐ SERIAL
-        { data: 'so_serial', render: data => `<span class="badge bg-light text-dark border">${data || ''}</span>` },
+        { data: 'so_serial', name: 'so_serial', orderable: true, searchable: true, render: data => `<span class="badge bg-light text-dark border">${data || ''}</span>` },
 
         // 17. THỜI GIAN IMPORT
-        { data: 'import_at', render: data => `<small class="text-muted">${data || ''}</small>` },
+        { data: 'import_at', name: 'import_at', orderable: true, searchable: true, render: data => `<small class="text-muted">${data || ''}</small>` },
 
-        // 18. THAO TÁC (SỬA / XÓA)
+        // 18. THAO TÁC (LOG / SỬA / XÓA)
         { 
             data: 'ma_tai_san', 
+            name: 'action_btn',
+            orderable: false, 
+            searchable: false, 
             className: 'text-center align-middle',
             render: (data, type, row) => {
-                // Helper escape chuỗi an toàn để không vỡ cú pháp JavaScript onclick
                 const safeStr = (val) => String(val || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
                 let mAs = safeStr(row.ma_tai_san);
@@ -1718,7 +1730,12 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
                 let iAt = safeStr(row.import_at);
 
                 return `
-                    <div class="d-flex justify-content-center">
+                    <div class="d-flex justify-content-center align-items-center">
+                        <button type="button" class="btn btn-outline-info btn-sm me-1" 
+                                onclick="viewAllAuditLogs('${mAs}')" 
+                                title="Xem nhật ký tài sản">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </button>
                         <button type="button" class="btn btn-warning btn-sm text-white me-1" 
                                 onclick="editAsset('${mAs}', '${dV}', '${tTs}', '${nTs}', '${nG}', '${hM}', '${gCL}', '${nSD}', '${tT}', '${tQt}', '${bS}', '${cB}', '${pB}', '${sS}', '${hA}', '${iAt}')" 
                                 title="Sửa tài sản">
