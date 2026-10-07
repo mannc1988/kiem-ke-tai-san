@@ -649,7 +649,6 @@ if (action === 'server_assets') {
             });
         }
         // PHÂN TRANG DATATABLE LỊCH SỬ KIỂM KÊ (SỬA CHUẨN GIỐNG SERVER_ASSETS)
-// PHÂN TRANG DATATABLE LỊCH SỬ KIỂM KÊ (SỬA GIẢI MÃ DOT_ID VÀ ÁNH XẠ ĐỢT KK)
 if (action === 'server_history') {
     try {
         const draw = parseInt(req.query.draw) || 1;
@@ -688,7 +687,6 @@ if (action === 'server_history') {
             'so_serial', 'nguoiKK', 'ket_qua_kk', 'phuong_an_xl', 
             'tep_dinh_kem', 'thoiGian', 'ghiChu'
         ];
-
         const sortField = fieldMap[orderColIdx] || 'id';
 
         // Helper giải mã an toàn ở Server-side
@@ -708,15 +706,17 @@ if (action === 'server_history') {
             return str;
         };
 
-        // 1. Lấy dữ liệu Lịch sử và Đợt kiểm kê từ DB
+        // 1. Lấy dữ liệu từ DB
         const [allRows] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
         const [allDots] = await connection.execute('SELECT id, name, active FROM dot_kiem_ke');
 
-        // Tạo Map lưu danh sách Đợt kiểm kê (Key là ID đợt dạng String)
+        // 2. Tạo Map đợt kiểm kê - GIẢI MÃ CỘT d.name TẠI ĐÂY
         const dotMap = new Map();
         allDots.forEach(d => {
+            // Giải mã tên đợt kiểm kê
             const decDotName = safeServerDecrypt(d.name) || d.name || '';
             const cleanId = String(d.id).trim();
+            
             dotMap.set(cleanId, { 
                 id: cleanId,
                 name: decDotName, 
@@ -724,13 +724,16 @@ if (action === 'server_history') {
             });
         });
 
-        // 2. Giải mã toàn bộ dữ liệu dòng lịch sử
+        // 3. Giải mã toàn bộ bản ghi lịch sử
         const decryptedRows = allRows.map(row => {
-            // Giải mã cột dotId bị mã hóa trong bảng lich_su_kk
+            // Giải mã dotId bị mã hóa trong bảng lich_su_kk
             const decDotId = safeServerDecrypt(row.dotId).toString().trim();
             
-            // Tìm trong Map theo ID đã giải mã hoặc ID thô
+            // Lấy thông tin đợt kiểm kê từ Map
             const dotInfo = dotMap.get(decDotId) || dotMap.get(String(row.dotId).trim());
+
+            // Tên đợt đã giải mã hoàn chỉnh
+            const finalDotName = dotInfo ? dotInfo.name : (decDotId ? `Đợt ${decDotId}` : 'Chưa xác định');
 
             return {
                 id: row.id,
@@ -747,14 +750,14 @@ if (action === 'server_history') {
                 created_at: safeServerDecrypt(row.created_at),
                 dotId: decDotId,
                 realDotId: decDotId,
-                dotName: dotInfo ? dotInfo.name : (decDotId ? `Đợt ${decDotId}` : 'Chưa xác định'),
+                dotName: finalDotName, // <-- Hiển thị tên đợt tiếng Việt đã giải mã
                 dotActive: dotInfo ? dotInfo.active : null
             };
         });
 
         const totalRecords = decryptedRows.length;
 
-        // 3. LỌC DỮ LIỆU (Filter theo dot_id & Search)
+        // 4. LỌC DỮ LIỆU (Filter theo dot_id & Search)
         let filteredRows = decryptedRows;
 
         if (selectedDotId) {
@@ -771,7 +774,7 @@ if (action === 'server_history') {
             });
         }
 
-        // 4. SẮP XẾP DỮ LIỆU (SORTING)
+        // 5. SẮP XẾP DỮ LIỆU
         filteredRows.sort((a, b) => {
             let valA = a[sortField] !== undefined ? a[sortField] : '';
             let valB = b[sortField] !== undefined ? b[sortField] : '';
@@ -791,12 +794,12 @@ if (action === 'server_history') {
 
         const recordsFiltered = filteredRows.length;
 
-        // 5. PHÂN TRANG (PAGINATION)
+        // 6. PHÂN TRANG (PAGINATION)
         const limitVal = Math.max(1, parseInt(length));
         const offsetVal = Math.max(0, parseInt(start));
         const pagedData = filteredRows.slice(offsetVal, offsetVal + limitVal);
 
-        // 6. TRẢ KẾT QUẢ
+        // 7. TRẢ KẾT QUẢ DATATABLES
         return res.json({
             draw: draw,
             recordsTotal: totalRecords,
