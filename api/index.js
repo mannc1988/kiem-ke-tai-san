@@ -656,56 +656,84 @@ if (action === 'server_history') {
         const length = parseInt(req.query.length) || 10;
         const selectedDotId = req.query.dot_id ? String(req.query.dot_id).trim() : '';
 
-        // Bóc tách từ khóa tìm kiếm
+        // A. Lấy từ khóa tìm kiếm (Search)
         let rawSearch = '';
         if (req.query.search) {
-            rawSearch = typeof req.query.search === 'object' ? (req.query.search.value || '') : req.query.search;
+            if (typeof req.query.search === 'object') {
+                rawSearch = req.query.search.value || '';
+            } else if (typeof req.query.search === 'string') {
+                rawSearch = req.query.search;
+            }
         }
         if (!rawSearch && req.query['search[value]']) {
             rawSearch = req.query['search[value]'];
         }
         const searchValue = String(rawSearch).trim().toLowerCase();
 
-        // Bóc tách cột sắp xếp
+        // B. Lấy thông tin Cột và Hướng sắp xếp (Order / Sort)
         let orderColIdx = 0;
         let orderDir = 'desc';
+
         if (req.query.order && req.query.order[0]) {
             orderColIdx = parseInt(req.query.order[0].column) || 0;
             orderDir = (req.query.order[0].dir || 'desc').toLowerCase();
+        } else if (req.query['order[0][column]'] !== undefined) {
+            orderColIdx = parseInt(req.query['order[0][column]']) || 0;
+            orderDir = (req.query['order[0][dir]'] || 'desc').toLowerCase();
         }
 
-        const fieldMap = ['id', 'dotName', 'tsId', 'tsName', 'phong_ban', 'so_serial', 'nguoiKK', 'ket_qua_kk', 'phuong_an_xl', 'tep_dinh_kem', 'thoiGian', 'ghiChu'];
+        const fieldMap = [
+            'id', 'dotName', 'tsId', 'tsName', 'phong_ban', 
+            'so_serial', 'nguoiKK', 'ket_qua_kk', 'phuong_an_xl', 
+            'tep_dinh_kem', 'thoiGian', 'ghiChu'
+        ];
         const sortField = fieldMap[orderColIdx] || 'id';
 
-        // Helper giải mã an toàn
+        // Helper giải mã an toàn ở Server-side
         const safeServerDecrypt = (val) => {
-            if (!val) return '';
+            if (val === null || val === undefined) return '';
             let str = String(val).trim();
+            if (!str) return '';
+
             if (typeof decryptData === 'function') {
                 try {
                     const decrypted = decryptData(str);
-                    if (decrypted !== null && decrypted !== undefined) str = String(decrypted);
+                    if (decrypted !== null && decrypted !== undefined) {
+                        str = String(decrypted);
+                    }
                 } catch (e) {}
             }
             return str;
         };
 
-        // 1. QUERY JOIN LẤY TRỰC TIẾP TÊN ĐỢT VÀ TRẠNG THÁI ACTIVE
-        const sqlQuery = `
-            SELECT 
-                h.*, 
-                d.name AS raw_dot_name, 
-                d.active AS dotActive 
-            FROM lich_su_kk h
-            LEFT JOIN dot_kiem_ke d ON d.id = h.dotId OR CAST(d.id AS CHAR) = h.dotId
-            ORDER BY h.id DESC
-        `;
-        const [allRows] = await connection.execute(sqlQuery);
+        // 1. Lấy dữ liệu từ DB
+        const [allRows] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
+        const [allDots] = await connection.execute('SELECT id, name, active FROM dot_kiem_ke');
 
-        // 2. GIẢI MÃ TẤT CẢ CÁC CỘT (BAO GỒM CẢ TÊN ĐỢT TỪ BẢNG JOIN)
+        // 2. Tạo Map đợt kiểm kê - GIẢI MÃ CỘT d.name TẠI ĐÂY
+        const dotMap = new Map();
+        allDots.forEach(d => {
+            // Giải mã tên đợt kiểm kê
+            const decDotName = safeServerDecrypt(d.name) || d.name || '';
+            const cleanId = String(d.id).trim();
+            
+            dotMap.set(cleanId, { 
+                id: cleanId,
+                name: decDotName, 
+                active: d.active 
+            });
+        });
+
+        // 3. Giải mã toàn bộ bản ghi lịch sử
         const decryptedRows = allRows.map(row => {
-            const decDotId = safeServerDecrypt(row.dotId) || String(row.dotId || '').trim();
-            const decDotName = safeServerDecrypt(row.raw_dot_name) || row.raw_dot_name || (decDotId ? `Đợt ${decDotId}` : 'Chưa xác định');
+            // Giải mã dotId bị mã hóa trong bảng lich_su_kk
+            const decDotId = safeServerDecrypt(row.dotId).toString().trim();
+            
+            // Lấy thông tin đợt kiểm kê từ Map
+            const dotInfo = dotMap.get(decDotId) || dotMap.get(String(row.dotId).trim());
+
+            // Tên đợt đã giải mã hoàn chỉnh
+            const finalDotName = dotInfo ? dotInfo.name : (decDotId ? `Đợt ${decDotId}` : 'Chưa xác định');
 
             return {
                 id: row.id,
@@ -722,29 +750,35 @@ if (action === 'server_history') {
                 created_at: safeServerDecrypt(row.created_at),
                 dotId: decDotId,
                 realDotId: decDotId,
-                dotName: decDotName, // Tên đợt kiểm kê đã được giải mã 100%
-                dotActive: row.dotActive
+                dotName: finalDotName, // <-- Hiển thị tên đợt tiếng Việt đã giải mã
+                dotActive: dotInfo ? dotInfo.active : null
             };
         });
 
         const totalRecords = decryptedRows.length;
 
-        // 3. LỌC DỮ LIỆU (Dot ID Filter & Search Box)
+        // 4. LỌC DỮ LIỆU (Filter theo dot_id & Search)
         let filteredRows = decryptedRows;
-        if (selectedDotId) {
-            filteredRows = filteredRows.filter(row => String(row.realDotId) === selectedDotId || String(row.dotId) === selectedDotId);
-        }
 
-        if (searchValue !== '') {
+        if (selectedDotId) {
             filteredRows = filteredRows.filter(row => 
-                Object.values(row).some(val => String(val || '').toLowerCase().includes(searchValue))
+                String(row.realDotId) === selectedDotId || String(row.dotId) === selectedDotId
             );
         }
 
-        // 4. SẮP XẾP DỮ LIỆU
+        if (searchValue !== '') {
+            filteredRows = filteredRows.filter(row => {
+                return Object.values(row).some(val => 
+                    String(val || '').toLowerCase().includes(searchValue)
+                );
+            });
+        }
+
+        // 5. SẮP XẾP DỮ LIỆU
         filteredRows.sort((a, b) => {
             let valA = a[sortField] !== undefined ? a[sortField] : '';
             let valB = b[sortField] !== undefined ? b[sortField] : '';
+
             if (sortField === 'id') {
                 valA = Number(valA) || 0;
                 valB = Number(valB) || 0;
@@ -752,6 +786,7 @@ if (action === 'server_history') {
                 valA = String(valA).toLowerCase();
                 valB = String(valB).toLowerCase();
             }
+
             if (valA < valB) return orderDir === 'asc' ? -1 : 1;
             if (valA > valB) return orderDir === 'asc' ? 1 : -1;
             return 0;
@@ -759,11 +794,12 @@ if (action === 'server_history') {
 
         const recordsFiltered = filteredRows.length;
 
-        // 5. PHÂN TRANG (PAGINATION)
+        // 6. PHÂN TRANG (PAGINATION)
         const limitVal = Math.max(1, parseInt(length));
         const offsetVal = Math.max(0, parseInt(start));
         const pagedData = filteredRows.slice(offsetVal, offsetVal + limitVal);
 
+        // 7. TRẢ KẾT QUẢ DATATABLES
         return res.json({
             draw: draw,
             recordsTotal: totalRecords,
@@ -773,7 +809,10 @@ if (action === 'server_history') {
 
     } catch (err) {
         console.error('Lỗi server_history:', err);
-        return res.status(500).json({ success: false, error: err.message || 'Lỗi xử lý server_history!' });
+        return res.status(500).json({ 
+            success: false, 
+            error: err.message || 'Lỗi xử lý server_history!' 
+        });
     }
 }
         // 3. PHÂN TRANG DATATABLE LỊCH SỬ KIỂM KÊ
