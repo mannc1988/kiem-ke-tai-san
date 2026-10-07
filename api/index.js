@@ -458,8 +458,8 @@ if (action === 'get_asset_logs') {
                 return res.status(404).json({ success: false, error: 'Không tìm thấy đợt kiểm kê cần xóa!' });
             }
         }
-        // 2. PHÂN TRANG DATATABLE DANH MỤC TÀI SẢN (CÓ GIẢI MÃ SERVER-SIDE)
 // 2. PHÂN TRANG DATATABLE DANH MỤC TÀI SẢN (XỬ LÝ ĐẦY ĐỦ SEARCH & SORT)
+// 2. PHÂN TRANG DATATABLE DANH MỤC TÀI SẢN (SỬA LỖI SẮP XẾP / SORTING)
 if (action === 'server_assets') {
     try {
         const draw = parseInt(req.query.draw) || 1;
@@ -480,37 +480,41 @@ if (action === 'server_assets') {
         }
         const searchValue = String(rawSearch).trim().toLowerCase();
 
-        // B. Lấy thông tin Cột sắp xếp (Order/Sort)
-        let orderColumnIndex = 2; // Mặc định xếp theo cột ma_tai_san
-        let orderDir = 'desc';    // Mặc định giảm dần
+        // B. Lấy vị trí cột và hướng sắp xếp (Order / Sort)
+        let orderColIdx = 2; // Mặc định cột ma_tai_san
+        let orderDir = 'desc';
 
+        // Bóc tách linh hoạt các dạng query parameter mà Express parse
         if (req.query.order && req.query.order[0]) {
-            orderColumnIndex = parseInt(req.query.order[0].column) || 2;
+            orderColIdx = parseInt(req.query.order[0].column) || 0;
             orderDir = (req.query.order[0].dir || 'asc').toLowerCase();
+        } else if (req.query['order[0][column]'] !== undefined) {
+            orderColIdx = parseInt(req.query['order[0][column]']) || 0;
+            orderDir = (req.query['order[0][dir]'] || 'asc').toLowerCase();
         }
 
-        // Danh sách ánh số cột từ Client -> Tên trường CSDL
-        const columnMap = {
-            0: 'stt',
-            1: 'hinh_anh',
-            2: 'ma_tai_san',
-            3: 'don_vi',
-            4: 'ten_tai_san',
-            5: 'nhom_tai_san',
-            6: 'nguyen_gia',
-            7: 'hao_mon_luy_ke',
-            8: 'gia_tri_con_lai',
-            9: 'ngay_dua_vao_sd',
-            10: 'trang_thai_sd',
-            11: 'trang_thai_qt',
-            12: 'bo_so',
-            13: 'can_bo_su_dung',
-            14: 'phong_ban_quan_ly',
-            15: 'so_serial',
-            16: 'import_at'
-        };
+        // Bản đồ ánh xạ Index cột sang tên trường Dữ liệu
+        const fieldMap = [
+            'stt',              // 0
+            'hinh_anh',         // 1
+            'ma_tai_san',       // 2
+            'don_vi',           // 3
+            'ten_tai_san',      // 4
+            'nhom_tai_san',     // 5
+            'nguyen_gia',       // 6
+            'hao_mon_luy_ke',   // 7
+            'gia_tri_con_lai',  // 8
+            'ngay_dua_vao_sd',  // 9
+            'trang_thai_sd',    // 10
+            'trang_thai_qt',    // 11
+            'bo_so',            // 12
+            'can_bo_su_dung',   // 13
+            'phong_ban_quan_ly',// 14
+            'so_serial',        // 15
+            'import_at'         // 16
+        ];
 
-        const sortField = columnMap[orderColumnIndex] || 'ma_tai_san';
+        const sortField = fieldMap[orderColIdx] || 'ma_tai_san';
 
         // Helper giải mã an toàn ở Server-side
         const safeServerDecrypt = (val) => {
@@ -529,11 +533,11 @@ if (action === 'server_assets') {
             return str;
         };
 
-        // 1. Lấy tổng số bản ghi
+        // 1. Lấy tổng số bản ghi từ CSDL
         const [totalResult] = await connection.execute('SELECT COUNT(*) as total FROM danh_sach_tai_san');
         const totalRecords = totalResult[0].total;
 
-        // 2. Lấy toàn bộ dữ liệu từ DB
+        // 2. Lấy toàn bộ dữ liệu từ DB để giải mã
         const [allRows] = await connection.execute('SELECT * FROM danh_sach_tai_san');
 
         // 3. Giải mã toàn bộ bản ghi
@@ -556,7 +560,7 @@ if (action === 'server_assets') {
             import_at: safeServerDecrypt(item.import_at)
         }));
 
-        // 4. THỰC HIỆN LỌC / TÌM KIẾM (SEARCH)
+        // 4. LỌC DỮ LIỆU (SEARCH)
         let filteredData = decryptedRows;
         if (searchValue !== '') {
             filteredData = decryptedRows.filter(row => {
@@ -566,12 +570,12 @@ if (action === 'server_assets') {
             });
         }
 
-        // 5. THỰC HIỆN SẮP XẾP (SORT/ORDER)
+        // 5. SẮP XẾP DỮ LIỆU (SORT)
         filteredData.sort((a, b) => {
-            let valA = a[sortField] || '';
-            let valB = b[sortField] || '';
+            let valA = a[sortField] !== undefined ? a[sortField] : '';
+            let valB = b[sortField] !== undefined ? b[sortField] : '';
 
-            // Nếu là cột tiền tệ/số thì ép kiểu Number để sort chuẩn
+            // Sắp xếp số cho các trường giá trị tiền
             if (['nguyen_gia', 'hao_mon_luy_ke', 'gia_tri_con_lai'].includes(sortField)) {
                 valA = Number(valA) || 0;
                 valB = Number(valB) || 0;
@@ -592,7 +596,7 @@ if (action === 'server_assets') {
         const offsetVal = Math.max(0, parseInt(start));
         const pagedData = filteredData.slice(offsetVal, offsetVal + limitVal);
 
-        // 7. Trả kết quả JSON về cho DataTables Client
+        // 7. Trả kết quả JSON về cho Client
         return res.json({
             draw: draw,
             recordsTotal: totalRecords,
