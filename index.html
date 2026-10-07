@@ -1633,7 +1633,7 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
         return htmlList;
     }
 },
-                    { data: 'ma_tai_san', render: data => `<span class="badge bg-secondary">${decryptData(data)}</span>` },
+                    { data: 'ma_tai_san', render: data => `<span class="badge bg-secondary">${data}</span>` },
                     { data: 'don_vi', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
                     { data: 'ten_tai_san', render: data => `<span class="fw-semibold text-dark">${decryptData(data)}</span>` },
                     { data: 'nhom_tai_san', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
