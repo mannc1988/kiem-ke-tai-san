@@ -438,54 +438,60 @@ async function exportAuditLogsToExcel() {
     try {
         // 1. Cập nhật Tiêu đề Mã tài sản trên Header Modal
         const $titleElem =$('#modalAssetCodeTitle');
-        $titleElem.text(assetId ? assetId : 'Tất Cả');
-
-        // 2. Lấy dữ liệu logs
-        let rawLogs = [];
-        if (typeof window.auditLogsData !== 'undefined' && Array.isArray(window.auditLogsData)) {
-            rawLogs = window.auditLogsData;
-        } else if (typeof fetchAuditLogsFromServer === 'function') {
-            rawLogs = await fetchAuditLogsFromServer(assetId);
-        } else {
-            const cached = localStorage.getItem('app_audit_logs');
-            if (cached) try { rawLogs = JSON.parse(cached); } catch (e) {}
+        if ($titleElem.length) {$titleElem.text(assetId ? assetId : 'Tất Cả');
         }
 
-        // Helper giải mã AES an toàn
-        const safeDecrypt = (val) => {
-            if (!val) return '';
-            let str = String(val).trim();
-            if (typeof decryptData === 'function') {
-                try {
-                    const dec = decryptData(str);
-                    if (dec) str = String(dec);
-                } catch (e) {}
-            }
-            return str;
-        };
-
-        // Lọc log theo Mã tài sản nếu có truyền tham số assetId
-        if (assetId) {
-            rawLogs = rawLogs.filter(item => {
-                const itemAssetId = safeDecrypt(item.asset_id || item.ma_tai_san || item.tsId || '');
-                return itemAssetId.toString().toLowerCase() === assetId.toString().toLowerCase();
+        // 2. Hiển thị Loading SweetAlert2 trong khi gọi API
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Đang tải nhật ký tác động...',
+                html: '<div class="spinner-border text-primary" role="status"></div>',
+                allowOutsideClick: false,
+                showConfirmButton: false
             });
         }
 
-        // 3. Reset lại container xem file đính kèm inline
+        // 3. Chuẩn bị dữ liệu gửi lên API (Encrypt mã tài sản nếu client có dùng mã hóa)
+        let payloadTsId = '';
+        if (assetId) {
+            payloadTsId = typeof encryptData === 'function' ? encryptData(assetId) : assetId;
+        }
+
+        // 4. Gọi API backend get_asset_logs
+        const response = await fetch('/api?action=get_asset_logs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ts_id: payloadTsId })
+        });
+
+        const result = await response.json();
+
+        if (typeof Swal !== 'undefined') {
+            Swal.close();
+        }
+
+        if (!result.success) {
+            throw new Error(result.error || result.message || 'Không thể lấy dữ liệu nhật ký tác động!');
+        }
+
+        const rawLogs = result.data || [];
+
+        // 5. Reset khung xem file inline nếu đang mở
         const $viewer =$('#swal_file_inline_viewer_container');
         if ($viewer.length) {$viewer.addClass('d-none').html('');
             delete $viewer[0].dataset.activeSrc;
         }
 
-        // 4. Hủy Instance DataTable cũ nếu đã tồn tại trước đó
+        // 6. Hủy Instance DataTable cũ nếu đã tồn tại trước đó
         if ($.fn.DataTable.isDataTable('#auditLogDataTable')) {
             $('#auditLogDataTable').DataTable().destroy();
             $('#auditLogDataTable tbody').empty();
         }
 
-        // 5. Khởi tạo DataTables Plugin cho bảng Log trong Modal
-        auditLogDataTableInstance = $('#auditLogDataTable').DataTable({
+        // 7. Khởi tạo DataTables Plugin cho bảng Log trong Modal
+        const auditLogTable = $('#auditLogDataTable').DataTable({
             data: rawLogs,
             pageLength: 10,
             lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Tất cả"]],
@@ -501,43 +507,51 @@ async function exportAuditLogsToExcel() {
                     render: (d, t, r, meta) => meta.row + 1 
                 },
                 { 
-                    data: 'timestamp',
+                    data: 'created_at',
                     className: 'text-center text-nowrap',
-                    render: (d, t, r) => safeDecrypt(d || r.created_at || r.thoi_gian || '') 
+                    render: (d, t, r) => d || r.timestamp || r.thoi_gian || '-' 
                 },
                 { 
-                    data: 'action',
+                    data: 'action_type',
                     className: 'text-center',
                     render: (d, t, r) => {
-                        const act = safeDecrypt(d || r.hanh_dong || 'Cập nhật').trim();
-                        // Badge màu vàng chuẩn theo thiết kế
+                        const act = (d || r.action || 'Cập nhật').toString().trim();
+                        // Badge màu vàng chuẩn giao diện
                         return `<span class="badge bg-warning text-dark px-2 py-1" style="font-size: 0.75rem; font-weight: 600;">${act}</span>`;
                     }
                 },
                 { 
-                    data: 'user',
+                    data: 'performed_by',
                     className: 'text-center fw-bold text-dark',
-                    render: (d, t, r) => safeDecrypt(d || r.nguoi_thuc_hien || r.user_id || 'Hệ thống') 
+                    render: (d, t, r) => d || r.user || r.nguoi_thuc_hien || 'Hệ thống' 
                 },
                 { 
-                    data: 'details',
+                    data: 'note',
                     render: (d, t, r) => {
-                        const title = safeDecrypt(d || r.noi_dung || r.ghiChu || 'Cập nhật nội dung bản ghi');
-                        const rawOld = safeDecrypt(r.old_data || r.data_cu || '');
-                        const rawNew = safeDecrypt(r.new_data || r.data_moi || '');
+                        const noteText = d || r.details || r.noi_dung || 'Cập nhật nội dung bản ghi';
+                        
+                        // Xử lý chuỗi/JSON old_data và new_data trả về từ API
+                        const formatData = (dataObj) => {
+                            if (!dataObj) return '';
+                            if (typeof dataObj === 'object') return JSON.stringify(dataObj);
+                            return String(dataObj);
+                        };
 
-                        let html = `<div class="mb-1">${title}</div>`;
+                        const oldStr = formatData(r.old_data);
+                        const newStr = formatData(r.new_data);
 
-                        // Dòng Cũ màu đỏ, Mới màu xanh trùng khớp giao diện ảnh
-                        if (rawOld) {
-                            html += `<div style="color: #dc3545; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Cũ:</b> ${rawOld}</div>`;
+                        let html = `<div class="mb-1">${noteText}</div>`;
+
+                        // Dòng Cũ màu đỏ, Mới màu xanh lá
+                        if (oldStr) {
+                            html += `<div style="color: #dc3545; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Cũ:</b> ${oldStr}</div>`;
                         }
-                        if (rawNew) {
-                            html += `<div style="color: #198754; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Mới:</b> ${rawNew}</div>`;
+                        if (newStr) {
+                            html += `<div style="color: #198754; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Mới:</b> ${newStr}</div>`;
                         }
 
-                        // Nếu có tệp đính kèm -> Nút xem inline
-                        const fileUrl = safeDecrypt(r.file_url || r.tep_dinh_kem || '');
+                        // Kiểm tra nếu có tệp đính kèm trong log
+                        const fileUrl = r.file_url || r.tep_dinh_kem || (r.new_data && r.new_data.tep_dinh_kem) || '';
                         if (fileUrl) {
                             html += `
                                 <div class="mt-1">
@@ -554,24 +568,24 @@ async function exportAuditLogsToExcel() {
             ]
         });
 
-        // 6. Trình chiếu Bootstrap Modal
+        // 8. Trình chiếu Bootstrap Modal
         const modalElem = document.getElementById('auditLogModal');
-        const bsModal = bootstrap.Modal.getOrCreateInstance(modalElem);
-        bsModal.show();
+        if (modalElem) {
+            const bsModal = bootstrap.Modal.getOrCreateInstance(modalElem);
+            bsModal.show();
 
-        // Tự động điều chỉnh lại kích thước cột DataTables sau khi Modal hoàn tất hiệu ứng mở
-        $(modalElem).off('shown.bs.modal').on('shown.bs.modal', function () {
-            if (auditLogDataTableInstance) {
-                auditLogDataTableInstance.columns.adjust().draw();
-            }
-        });
+            // Căn chỉnh lại độ rộng cột của DataTables sau khi Modal hiển thị hoàn tất
+            $(modalElem).off('shown.bs.modal').on('shown.bs.modal', function () {
+                auditLogTable.columns.adjust().draw();
+            });
+        }
 
     } catch (err) {
-        console.error("Lỗi mở Modal Audit Log:", err);
+        console.error("Lỗi khi tải nhật ký tác động từ API:", err);
         if (typeof Swal !== 'undefined') {
-            Swal.fire('Lỗi', 'Không thể hiển thị nhật ký: ' + err.message, 'error');
+            Swal.fire('Lỗi', 'Không thể kết nối lấy lịch sử thao tác: ' + err.message, 'error');
         } else {
-            alert('Không thể hiển thị nhật ký: ' + err.message);
+            alert('Không thể kết nối lấy lịch sử thao tác: ' + err.message);
         }
     }
 }
