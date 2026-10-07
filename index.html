@@ -1984,13 +1984,9 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
         processing: "Đang tải dữ liệu..."
     }
 });
+loadInitialCache();
+        });
 
-// Sự kiện đổi đợt kiểm kê ở Dropdown -> Reload lại DataTables
-$('#selectDot').on('change', function() {
-    if (historyTable) {
-        historyTable.ajax.reload();
-    }
-});
         async function loadAssetsCache() {
             try {
                 const response = await fetch(`${API_URL}?action=data`);
