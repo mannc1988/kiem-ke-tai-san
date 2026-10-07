@@ -38,6 +38,7 @@
             object-fit: cover;
             border-radius: 6px;
         }
+        
         .table thead th {
             background-color: #f1f5f9;
             color: #334155;
@@ -76,6 +77,7 @@
             background: #525659;
             box-shadow: 0 6px 20px rgba(0,0,0,0.2);
         }
+
         .inline-img-container {
             max-width: 100%;
             max-height: 80vh;
@@ -1982,9 +1984,13 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
         processing: "Đang tải dữ liệu..."
     }
 });
-loadInitialCache();
-        });
 
+// Sự kiện đổi đợt kiểm kê ở Dropdown -> Reload lại DataTables
+$('#selectDot').on('change', function() {
+    if (historyTable) {
+        historyTable.ajax.reload();
+    }
+});
         async function loadAssetsCache() {
             try {
                 const response = await fetch(`${API_URL}?action=data`);
@@ -3665,6 +3671,7 @@ html5QrcodeScanner.render(onScanSuccess, (err) => {});
                             import_at: encryptData(import_at)
                         });
                     }
+
                     Swal.update({
                         title: 'Đang đồng bộ dữ liệu theo lô...',
                         text: 'Phát hiện ' + errorDetails.length + ' dòng lỗi. Đang gửi ' + validPayloads.length + ' dòng hợp lệ lên server...'
