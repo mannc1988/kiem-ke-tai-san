@@ -119,9 +119,97 @@ module.exports = async (req, res) => {
         }
 
         connection = await mysql.createConnection(dbConfig);
+        // ACTION: GET_ASSET_LOGS (LẤY VÀ GIẢI MÃ CÁC BẢN GHI LOG TÁC ĐỘNG)
+if (action === 'get_asset_logs') {
+    try {
+        const rawTsId = (req.body && req.body.ts_id) || req.query.ts_id || '';
+        
+        // 1. Tháo mã hóa / Chuẩn hóa mã tài sản nếu người dùng truyền lên
+        let targetTsId = '';
+        if (rawTsId && rawTsId.toString().trim() !== '') {
+            const decSearch = typeof decryptData === 'function' ? decryptData(rawTsId) : rawTsId;
+            targetTsId = (decSearch || rawTsId).toString().trim().toLowerCase();
+        }
 
+        // 2. Lấy toàn bộ nhật ký tác động từ bảng asset_audit_logs (Mới nhất lên đầu)
+        const sql = 'SELECT * FROM asset_audit_logs ORDER BY id DESC';
+        const [rows] = await connection.execute(sql);
+
+        const logs = [];
+        for (const item of rows) {
+            try {
+                // Giải mã cột ts_id
+                const decTsId = (typeof decryptData === 'function' ? decryptData(item.ts_id) : item.ts_id) || item.ts_id || '';
+                const cleanTsId = decTsId.toString().trim();
+
+                // Nếu có filter targetTsId mà không khớp mã -> Bỏ qua dòng này
+                if (targetTsId && cleanTsId.toLowerCase() !== targetTsId) {
+                    continue;
+                }
+
+                // 解码 các trường thông tin TEXT
+                const decActionType = (typeof decryptData === 'function' ? decryptData(item.action_type) : item.action_type) || item.action_type || '';
+                const decPerformedBy = (typeof decryptData === 'function' ? decryptData(item.performed_by) : item.performed_by) || item.performed_by || 'Hệ thống';
+                const decNote = (typeof decryptData === 'function' ? decryptData(item.note) : item.note) || item.note || '';
+                const decCreatedAt = (typeof decryptData === 'function' ? decryptData(item.created_at) : item.created_at) || item.created_at || '';
+
+                // 解码 chuỗi JSON dữ liệu Cũ (old_data) và Mới (new_data)
+                const decOldDataStr = typeof decryptData === 'function' ? decryptData(item.old_data) : item.old_data;
+                const decNewDataStr = typeof decryptData === 'function' ? decryptData(item.new_data) : item.new_data;
+
+                let parsedOldData = null;
+                let parsedNewData = null;
+
+                // Parse JSON an toàn cho old_data
+                if (decOldDataStr) {
+                    try {
+                        parsedOldData = typeof decOldDataStr === 'object' ? decOldDataStr : JSON.parse(decOldDataStr);
+                    } catch (e) {
+                        parsedOldData = decOldDataStr;
+                    }
+                }
+
+                // Parse JSON an toàn cho new_data
+                if (decNewDataStr) {
+                    try {
+                        parsedNewData = typeof decNewDataStr === 'object' ? decNewDataStr : JSON.parse(decNewDataStr);
+                    } catch (e) {
+                        parsedNewData = decNewDataStr;
+                    }
+                }
+
+                logs.push({
+                    id: item.id, // INT Khóa chính giữ nguyên
+                    ts_id: cleanTsId,
+                    action_type: decActionType,
+                    performed_by: decPerformedBy,
+                    old_data: parsedOldData,
+                    new_data: parsedNewData,
+                    note: decNote,
+                    created_at: decCreatedAt
+                });
+
+            } catch (lineErr) {
+                console.error(`Lỗi giải mã dòng log ID ${item.id}:`, lineErr);
+            }
+        }
+
+        return res.status(200).json({ 
+            success: true, 
+            total: logs.length,
+            data: logs 
+        });
+
+    } catch (err) {
+        console.error('Lỗi API get_asset_logs:', err);
+        return res.status(500).json({ 
+            success: false, 
+            error: err.message || 'Lỗi máy chủ khi lấy nhật ký tác động!' 
+        });
+    }
+}
         // ACTION: GET_ASSET_LOGS (LẤY VÀ GIẢI MÃ TOÀN BỘ CỘT LOG TÁC ĐỘNG)
-        if (action === 'get_asset_logs') {
+        if (action === 'get_asset_logs1') {
             try {
                 const searchTsId = (req.body && req.body.ts_id) || req.query.ts_id || '';
 
