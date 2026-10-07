@@ -441,7 +441,7 @@ async function exportAuditLogsToExcel() {
         if ($titleElem.length) {$titleElem.text(assetId ? assetId : 'Tất Cả');
         }
 
-        // 2. Hiển thị Loading SweetAlert2 trong khi gọi API
+        // 2. Hiển thị Loading trong khi gọi API
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 title: 'Đang tải nhật ký tác động...',
@@ -451,20 +451,32 @@ async function exportAuditLogsToExcel() {
             });
         }
 
-        // 3. Chuẩn bị dữ liệu gửi lên API (Encrypt mã tài sản nếu client có dùng mã hóa)
+        // 3. Chuẩn bị payload (mã hóa nếu client dùng hàm encryptData)
         let payloadTsId = '';
         if (assetId) {
             payloadTsId = typeof encryptData === 'function' ? encryptData(assetId) : assetId;
         }
 
-        // 4. Gọi API backend get_asset_logs
-        const response = await fetch('/api?action=get_asset_logs', {
+        // 4. Gọi API Backend bằng biến API_URL đã khai báo
+        const endpoint = `${API_URL}?action=get_asset_logs`;
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ ts_id: payloadTsId })
+            body: JSON.stringify({ 
+                action: 'get_asset_logs', // Đưa thêm action vào body làm dự phòng
+                ts_id: payloadTsId 
+            })
         });
+
+        // 5. Kiểm tra an toàn: Tránh văng lỗi SyntaxError nếu Server trả về trang HTML Error
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            const htmlText = await response.text();
+            console.error("Server trả về HTML thay vì JSON:", htmlText);
+            throw new Error(`Server Vercel phản hồi lỗi HTML (HTTP ${response.status}). Vui lòng kiểm tra lại action API!`);
+        }
 
         const result = await response.json();
 
@@ -478,24 +490,24 @@ async function exportAuditLogsToExcel() {
 
         const rawLogs = result.data || [];
 
-        // 5. Reset khung xem file inline nếu đang mở
+        // 6. Reset khung xem file inline nếu đang mở
         const $viewer =$('#swal_file_inline_viewer_container');
         if ($viewer.length) {$viewer.addClass('d-none').html('');
             delete $viewer[0].dataset.activeSrc;
         }
 
-        // 6. Hủy Instance DataTable cũ nếu đã tồn tại trước đó
+        // 7. Hủy Instance DataTable cũ nếu đã tồn tại trước đó
         if ($.fn.DataTable.isDataTable('#auditLogDataTable')) {
             $('#auditLogDataTable').DataTable().destroy();
             $('#auditLogDataTable tbody').empty();
         }
 
-        // 7. Khởi tạo DataTables Plugin cho bảng Log trong Modal
+        // 8. Khởi tạo DataTables Plugin cho bảng Log trong Modal
         const auditLogTable = $('#auditLogDataTable').DataTable({
             data: rawLogs,
             pageLength: 10,
             lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Tất cả"]],
-            order: [[1, 'desc']], // Thời gian mới nhất xếp trên cùng
+            order: [[1, 'desc']], // Sắp xếp thời gian mới nhất lên đầu
             language: {
                 url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/vi.json',
                 search: "Tìm kiếm nhật ký:"
@@ -516,7 +528,6 @@ async function exportAuditLogsToExcel() {
                     className: 'text-center',
                     render: (d, t, r) => {
                         const act = (d || r.action || 'Cập nhật').toString().trim();
-                        // Badge màu vàng chuẩn giao diện
                         return `<span class="badge bg-warning text-dark px-2 py-1" style="font-size: 0.75rem; font-weight: 600;">${act}</span>`;
                     }
                 },
@@ -530,7 +541,6 @@ async function exportAuditLogsToExcel() {
                     render: (d, t, r) => {
                         const noteText = d || r.details || r.noi_dung || 'Cập nhật nội dung bản ghi';
                         
-                        // Xử lý chuỗi/JSON old_data và new_data trả về từ API
                         const formatData = (dataObj) => {
                             if (!dataObj) return '';
                             if (typeof dataObj === 'object') return JSON.stringify(dataObj);
@@ -542,7 +552,7 @@ async function exportAuditLogsToExcel() {
 
                         let html = `<div class="mb-1">${noteText}</div>`;
 
-                        // Dòng Cũ màu đỏ, Mới màu xanh lá
+                        // Hiển thị Cũ (màu đỏ) và Mới (màu xanh lá) chuẩn giao diện mẫu
                         if (oldStr) {
                             html += `<div style="color: #dc3545; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Cũ:</b> ${oldStr}</div>`;
                         }
@@ -550,7 +560,7 @@ async function exportAuditLogsToExcel() {
                             html += `<div style="color: #198754; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Mới:</b> ${newStr}</div>`;
                         }
 
-                        // Kiểm tra nếu có tệp đính kèm trong log
+                        // Hiển thị nút xem tệp đính kèm nếu có
                         const fileUrl = r.file_url || r.tep_dinh_kem || (r.new_data && r.new_data.tep_dinh_kem) || '';
                         if (fileUrl) {
                             html += `
@@ -568,13 +578,12 @@ async function exportAuditLogsToExcel() {
             ]
         });
 
-        // 8. Trình chiếu Bootstrap Modal
+        // 9. Mở Bootstrap Modal
         const modalElem = document.getElementById('auditLogModal');
         if (modalElem) {
             const bsModal = bootstrap.Modal.getOrCreateInstance(modalElem);
             bsModal.show();
 
-            // Căn chỉnh lại độ rộng cột của DataTables sau khi Modal hiển thị hoàn tất
             $(modalElem).off('shown.bs.modal').on('shown.bs.modal', function () {
                 auditLogTable.columns.adjust().draw();
             });
@@ -583,9 +592,9 @@ async function exportAuditLogsToExcel() {
     } catch (err) {
         console.error("Lỗi khi tải nhật ký tác động từ API:", err);
         if (typeof Swal !== 'undefined') {
-            Swal.fire('Lỗi', 'Không thể kết nối lấy lịch sử thao tác: ' + err.message, 'error');
+            Swal.fire('Lỗi API', err.message, 'error');
         } else {
-            alert('Không thể kết nối lấy lịch sử thao tác: ' + err.message);
+            alert('Lỗi API: ' + err.message);
         }
     }
 }
