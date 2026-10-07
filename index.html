@@ -1756,127 +1756,167 @@ if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) 
         }
 		/**
  * Hàm xuất báo cáo danh sách tài sản ĐẦY ĐỦ CÁC CỘT CSDL từ DataTables Plugin (#assetsTable)
- * - Giải mã AES cho toàn bộ trường dữ liệu bị mã hóa
- * - Sử dụng DOMParser thuần JS (KHÔNG dùng <textarea>) để làm sạch tag HTML
- * - Xuất ra file CSV Unicode (UTF-8) hiển thị chuẩn tiếng Việt trên Excel
+ * - Sử dụng thư viện ExcelJS sinh file .xlsx chuẩn
+ * - Giải mã AES toàn bộ các trường dữ liệu bằng decryptData()
+ * - Bóc tách HTML thô bằng DOMParser (không bị vỡ ô/render lỗi)
  */
-function exportAssetReportToExcel() {
-    try {
-        var tableSelector = '#assetsTable';
-        if (!$.fn.DataTable.isDataTable(tableSelector)) {
-            if (typeof Swal !== 'undefined') {
-                Swal.fire('Thông báo', 'Bảng dữ liệu tài sản (#assetsTable) chưa sẵn sàng!', 'warning');
-            } else {
-                alert('Bảng dữ liệu tài sản (#assetsTable) chưa sẵn sàng!');
-            }
-            return;
-        }
-
-        var table = $(tableSelector).DataTable();
-
-        // Lấy toàn bộ dữ liệu đang hiển thị theo bộ lọc tìm kiếm trên DataTables assetsTable
-        var filteredData = table.rows({ search: 'applied' }).data().toArray();
-
-        if (!filteredData || filteredData.length === 0) {
-            if (typeof Swal !== 'undefined') {
-                Swal.fire('Thông báo', 'Không có dữ liệu tài sản để xuất báo cáo!', 'info');
-            } else {
-                alert('Không có dữ liệu tài sản để xuất báo cáo!');
-            }
-            return;
-        }
-
-        // Tạo sẵn instance DOMParser để xử lý làm sạch HTML
-        var parser = new DOMParser();
-
-        // Hàm bổ trợ giải mã AES & làm sạch HTML thuần (Không dùng DOM/Textarea)
-        function decryptAndCleanText(inputVal) {
-            if (inputVal === null || inputVal === undefined) return '';
-            var strVal = String(inputVal).trim();
-            if (!strVal) return '';
-
-            // Bước 1: Giải mã AES nếu bị mã hóa
-            if (typeof decryptData === 'function') {
-                try {
-                    var decrypted = decryptData(strVal);
-                    if (decrypted !== null && decrypted !== undefined) {
-                        strVal = String(decrypted);
-                    }
-                } catch (e) {
-                    console.warn("Không thể giải mã dữ liệu:", strVal, e);
-                }
-            }
-
-            // Bước 2: Dùng DOMParser để bóc tách text thuần từ chuỗi HTML
-            var doc = parser.parseFromString(strVal, 'text/html');
-            var cleanText = doc.body.textContent || '';
-
-            // Bước 3: Escape dấu " và xóa xuống dòng để tránh vỡ cột CSV
-            return cleanText.replace(/"/g, '""').replace(/(\r\n|\n|\r)/gm, " ");
-        }
-
-        // Bổ sung BOM Unicode UTF-8 & Tiêu đề tất cả 16 cột theo Schema DB
-        var csvContent = "\uFEFF";
-        csvContent += "STT,Mã Tài Sản,Đơn Vị,Tên Tài Sản,Nhóm Tài Sản,Nguyên Giá,Hao Mòn Lũy Kế,Giá Trị Còn Lại,Ngày Đưa Vào SD,Trạng Thái SD,Trạng Thái QT,Bổ Sổ,Cán Bộ Sử Dụng,Phòng Ban Quản Lý,Số Serial,Hình Ảnh / Tệp,Thời Gian Import\n";
-
-        // Duyệt từng bản ghi và giải mã đầy đủ các trường
-        filteredData.forEach(function (row, index) {
-            var stt              = index + 1;
-            var maTS             = decryptAndCleanText(row.ma_tai_san || '');
-            var donVi            = decryptAndCleanText(row.don_vi || '');
-            var tenTS            = decryptAndCleanText(row.ten_tai_san || '');
-            var nhomTS           = decryptAndCleanText(row.nhom_tai_san || '');
-            var nguyenGia        = decryptAndCleanText(row.nguyen_gia || 0);
-            var haoMonLuyKe      = decryptAndCleanText(row.hao_mon_luy_ke || 0);
-            var giaTriConLai     = decryptAndCleanText(row.gia_tri_con_lai || 0);
-            var ngayDuaVaoSD     = decryptAndCleanText(row.ngay_dua_vao_sd || '');
-            var trangThaiSD      = decryptAndCleanText(row.trang_thai_sd || '');
-            var trangThaiQT      = decryptAndCleanText(row.trang_thai_qt || '');
-            var boSo             = decryptAndCleanText(row.bo_so || '');
-            var canBoSD          = decryptAndCleanText(row.can_bo_su_dung || '');
-            var phongBanQL       = decryptAndCleanText(row.phong_ban_quan_ly || '');
-            var soSerial         = decryptAndCleanText(row.so_serial || '');
-            var hinhAnh          = decryptAndCleanText(row.hinh_anh || '');
-            var importAt         = decryptAndCleanText(row.import_at || '');
-
-            csvContent += `"\({stt}","\){maTS}","\({donVi}","\){tenTS}","\({nhomTS}","\){nguyenGia}","\({haoMonLuyKe}","\){giaTriConLai}","\({ngayDuaVaoSD}","\){trangThaiSD}","\({trangThaiQT}","\){boSo}","\({canBoSD}","\){phongBanQL}","\({soSerial}","\){hinhAnh}","${importAt}"\n`;
-        });
-
-        // Tải file CSV về máy
-        var now = new Date();
-        var dateStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
-        var fileName = "Bao_Cao_Tai_San_Full_Columns_" + dateStr + ".csv";
-
-        var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        if (navigator.msSaveBlob) {
-            navigator.msSaveBlob(blob, fileName);
-        } else {
-            var link = document.createElement("a");
-            if (link.download !== undefined) {
-                var url = URL.createObjectURL(blob);
-                link.setAttribute("href", url);
-                link.setAttribute("download", fileName);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-        }
-
+async function exportAssetReportToExcel() {
+    var tableSelector = '#assetsTable';
+    if (!$.fn.DataTable.isDataTable(tableSelector)) {
         if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                icon: 'success',
-                title: 'Xuất Báo Cáo Thành Công!',
-                text: 'Đã xuất đầy đủ 16 cột dữ liệu tài sản ra file Excel.',
-                timer: 2000,
-                showConfirmButton: false
-            });
+            Swal.fire('Thông báo', 'Bảng dữ liệu tài sản chưa sẵn sàng!', 'warning');
+        } else {
+            alert('Bảng dữ liệu tài sản chưa sẵn sàng!');
         }
-
-    } catch (err) {
-        console.error("Lỗi xuất báo cáo DataTables full columns:", err);
-        alert("Có lỗi xảy ra khi xuất báo cáo: " + err.message);
+        return;
     }
+
+    var table = $(tableSelector).DataTable();
+
+    // 1. Lấy dữ liệu đang hiển thị theo bộ lọc tìm kiếm trên DataTables
+    const tableData = table.rows({ search: 'applied' }).data().toArray();
+    if (!tableData || tableData.length === 0) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire('Thông báo', 'Không có dữ liệu tài sản trong bảng để xuất báo cáo!', 'warning');
+        } else {
+            alert('Không có dữ liệu tài sản trong bảng để xuất báo cáo!');
+        }
+        return;
+    }
+
+    // 2. Hỏi xác nhận qua SweetAlert2 trước khi xuất
+    Swal.fire({
+        title: 'Xuất Báo Cáo Danh Sách Tài Sản?',
+        text: `Hệ thống sẽ tạo file Excel chứa ${tableData.length} bản ghi tài sản hiện có trên bảng.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-file-excel me-1"></i> Tải Báo Cáo',
+        cancelButtonText: 'Hủy',
+        confirmButtonColor: '#198754'
+    }).then(async (result) => {
+        if (!result.isConfirmed) return;
+
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('DanhSachTaiSan');
+
+            // Cấu hình đầy đủ 16 cột tài sản theo đúng Schema CSDL
+            worksheet.columns = [
+                { header: 'STT', key: 'stt', width: 8 },
+                { header: 'Mã Tài Sản', key: 'maTS', width: 18 },
+                { header: 'Đơn Vị', key: 'donVi', width: 20 },
+                { header: 'Tên Tài Sản', key: 'tenTS', width: 30 },
+                { header: 'Nhóm Tài Sản', key: 'nhomTS', width: 22 },
+                { header: 'Nguyên Giá', key: 'nguyenGia', width: 18 },
+                { header: 'Hao Mòn Lũy Kế', key: 'haoMonLuyKe', width: 18 },
+                { header: 'Giá Trị Còn Lại', key: 'giaTriConLai', width: 18 },
+                { header: 'Ngày Đưa Vào SD', key: 'ngayDuaVaoSD', width: 18 },
+                { header: 'Trạng Thái SD', key: 'trangThaiSD', width: 18 },
+                { header: 'Trạng Thái QT', key: 'trangThaiQT', width: 18 },
+                { header: 'Bổ Sổ', key: 'boSo', width: 15 },
+                { header: 'Cán Bộ Sử Dụng', key: 'canBoSD', width: 22 },
+                { header: 'Phòng Ban Quản Lý', key: 'phongBanQL', width: 22 },
+                { header: 'Số Serial', key: 'soSerial', width: 18 },
+                { header: 'Hình Ảnh / Tệp', key: 'hinhAnh', width: 35 },
+                { header: 'Thời Gian Import', key: 'importAt', width: 22 }
+            ];
+
+            // Instance DOMParser làm sạch HTML thô
+            const parser = new DOMParser();
+
+            // Helper giải mã dữ liệu an toàn & bóc tách text
+            const safeDecrypt = (val) => {
+                if (val === null || val === undefined) return '';
+                let str = String(val).trim();
+                if (!str) return '';
+
+                // Bóc tách decrypt nếu có
+                if (typeof decryptData === 'function') {
+                    try {
+                        const decrypted = decryptData(str);
+                        if (decrypted !== null && decrypted !== undefined) {
+                            str = String(decrypted);
+                        }
+                    } catch (e) {}
+                }
+
+                // Dùng DOMParser bóc tách text thuần từ HTML (không dùng DOM/textarea)
+                const doc = parser.parseFromString(str, 'text/html');
+                return doc.body.textContent || '';
+            };
+
+            // 3. Đổ dữ liệu từ DataTable vào từng dòng Excel (có giải mã & bóc tách HTML)
+            tableData.forEach((row, idx) => {
+                worksheet.addRow({
+                    stt: idx + 1,
+                    maTS: safeDecrypt(row.ma_tai_san) || row.ma_tai_san || '',
+                    donVi: safeDecrypt(row.don_vi),
+                    tenTS: safeDecrypt(row.ten_tai_san),
+                    nhomTS: safeDecrypt(row.nhom_tai_san),
+                    nguyenGia: safeDecrypt(row.nguyen_gia) || 0,
+                    haoMonLuyKe: safeDecrypt(row.hao_mon_luy_ke) || 0,
+                    giaTriConLai: safeDecrypt(row.gia_tri_con_lai) || 0,
+                    ngayDuaVaoSD: safeDecrypt(row.ngay_dua_vao_sd),
+                    trangThaiSD: safeDecrypt(row.trang_thai_sd),
+                    trangThaiQT: safeDecrypt(row.trang_thai_qt),
+                    boSo: safeDecrypt(row.bo_so),
+                    canBoSD: safeDecrypt(row.can_bo_su_dung),
+                    phongBanQL: safeDecrypt(row.phong_ban_quan_ly),
+                    soSerial: safeDecrypt(row.so_serial),
+                    hinhAnh: safeDecrypt(row.hinh_anh),
+                    importAt: safeDecrypt(row.import_at)
+                });
+            });
+
+            // 4. Định dạng Header (Màu xanh Primary, chữ trắng đậm, căn giữa)
+            const headerRow = worksheet.getRow(1);
+            headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+            headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0D6EFD' } };
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+            // 5. Kẻ ô Border và thiết lập căn chỉnh ô
+            worksheet.eachRow((row, rNum) => {
+                row.eachCell((cell) => {
+                    cell.border = {
+                        top: { style: 'thin' }, left: { style: 'thin' },
+                        bottom: { style: 'thin' }, right: { style: 'thin' }
+                    };
+                    if (rNum > 1) cell.alignment = { vertical: 'middle', wrapText: true };
+                });
+            });
+
+            // 6. Tạo file .xlsx và tải xuống trực tiếp bằng HTML5 Blob URL
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+            const now = new Date();
+            const dateStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
+            const fileName = `Bao_Cao_Tai_San_Full_${dateStr}.xlsx`;
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Xuất Báo Cáo Thành Công!',
+                    text: `Đã tải về file Excel ${fileName}.`,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+
+        } catch (err) {
+            console.error("Lỗi khi tạo file ExcelJS:", err);
+            Swal.fire('Lỗi', 'Không thể tạo file Excel: ' + err.message, 'error');
+        }
+    });
 }
         async function toggleActiveDotKiemKe() {
             const selectDot = document.getElementById('selectDot');
