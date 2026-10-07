@@ -649,7 +649,7 @@ if (action === 'server_assets') {
             });
         }
         // PHÂN TRANG DATATABLE LỊCH SỬ KIỂM KÊ (SỬA CHUẨN GIỐNG SERVER_ASSETS)
-if (action === 'server_history') {
+if (action === 'server_history2') {
     try {
         const draw = parseInt(req.query.draw) || 1;
         const start = parseInt(req.query.start) || 0;
