@@ -649,7 +649,7 @@ if (action === 'server_assets') {
             });
         }
         // PHÂN TRANG DATATABLE LỊCH SỬ KIỂM KÊ (SỬA CHUẨN GIỐNG SERVER_ASSETS)
-// PHÂN TRANG DATATABLE LỊCH SỬ KIỂM KÊ (SỬA GIẢI MÃ TÊN ĐỢT KK)
+// PHÂN TRANG DATATABLE LỊCH SỬ KIỂM KÊ (SỬA GIẢI MÃ DOT_ID VÀ ÁNH XẠ ĐỢT KK)
 if (action === 'server_history') {
     try {
         const draw = parseInt(req.query.draw) || 1;
@@ -712,17 +712,25 @@ if (action === 'server_history') {
         const [allRows] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
         const [allDots] = await connection.execute('SELECT id, name, active FROM dot_kiem_ke');
 
-        // Map danh sách đợt kiểm kê (Có giải mã cột name)
+        // Tạo Map lưu danh sách Đợt kiểm kê (Key là ID đợt dạng String)
         const dotMap = new Map();
         allDots.forEach(d => {
-            const decDotName = safeServerDecrypt(d.name) || d.name || 'Đợt không tên';
-            dotMap.set(String(d.id), { name: decDotName, active: d.active });
+            const decDotName = safeServerDecrypt(d.name) || d.name || '';
+            const cleanId = String(d.id).trim();
+            dotMap.set(cleanId, { 
+                id: cleanId,
+                name: decDotName, 
+                active: d.active 
+            });
         });
 
         // 2. Giải mã toàn bộ dữ liệu dòng lịch sử
         const decryptedRows = allRows.map(row => {
-            const decDotId = safeServerDecrypt(row.dotId) || String(row.dotId || '').trim();
-            const dotInfo = dotMap.get(decDotId) || dotMap.get(String(row.dotId || '').trim());
+            // Giải mã cột dotId bị mã hóa trong bảng lich_su_kk
+            const decDotId = safeServerDecrypt(row.dotId).toString().trim();
+            
+            // Tìm trong Map theo ID đã giải mã hoặc ID thô
+            const dotInfo = dotMap.get(decDotId) || dotMap.get(String(row.dotId).trim());
 
             return {
                 id: row.id,
@@ -739,7 +747,7 @@ if (action === 'server_history') {
                 created_at: safeServerDecrypt(row.created_at),
                 dotId: decDotId,
                 realDotId: decDotId,
-                dotName: dotInfo ? dotInfo.name : 'Đợt ' + decDotId, // Hiển thị tên đợt đã giải mã
+                dotName: dotInfo ? dotInfo.name : (decDotId ? `Đợt ${decDotId}` : 'Chưa xác định'),
                 dotActive: dotInfo ? dotInfo.active : null
             };
         });
@@ -763,7 +771,7 @@ if (action === 'server_history') {
             });
         }
 
-        // 4. SẮP XẾP DỮ LIỆU
+        // 4. SẮP XẾP DỮ LIỆU (SORTING)
         filteredRows.sort((a, b) => {
             let valA = a[sortField] !== undefined ? a[sortField] : '';
             let valB = b[sortField] !== undefined ? b[sortField] : '';
@@ -783,12 +791,12 @@ if (action === 'server_history') {
 
         const recordsFiltered = filteredRows.length;
 
-        // 5. PHÂN TRANG
+        // 5. PHÂN TRANG (PAGINATION)
         const limitVal = Math.max(1, parseInt(length));
         const offsetVal = Math.max(0, parseInt(start));
         const pagedData = filteredRows.slice(offsetVal, offsetVal + limitVal);
 
-        // 6. TRẢ KẾT QUẢ DATATABLES
+        // 6. TRẢ KẾT QUẢ
         return res.json({
             draw: draw,
             recordsTotal: totalRecords,
