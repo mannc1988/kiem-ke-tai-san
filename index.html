@@ -1102,47 +1102,38 @@ async function exportExcelReport() {
 
     // 3. HIỂN THỊ DANH SÁCH TỆP MỚI CHỌN TỪ MÁY TÍNH
     if (tempFilesList.length > 0) {
-                var headerTemp = document.createElement('div');
-                headerTemp.className = 'd-flex justify-content-between align-items-center mt-2 mb-1';
-                headerTemp.innerHTML = 
-                    '<span class="text-success fw-semibold small"><i class="fa-solid fa-circle-plus me-1"></i> Tệp mới chọn (' + tempFilesList.length + '):</span>' +
-                    '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllTempImages()" title="Xóa hết tệp mới">' +
-                        '<i class="fa-solid fa-trash-can me-1"></i> Xóa hết' +
-                    '</button>';
-                container.appendChild(headerTemp);
+                var fileNameLower = file.name.toLowerCase();
+                    var isPdf = file.type === 'application/pdf' || fileNameLower.indexOf('.pdf') !== -1;
+                    var isImage = file.type.indexOf('image/') === 0 || /\.(png|jpg|jpeg|gif|webp)$/i.test(fileNameLower);
+                    var isWord = fileNameLower.indexOf('.doc') !== -1 || fileNameLower.indexOf('.docx') !== -1;
+                    var isExcel = fileNameLower.indexOf('.xls') !== -1 || fileNameLower.indexOf('.xlsx') !== -1 || fileNameLower.indexOf('.csv') !== -1;
 
-                tempFilesList.forEach(function(file, index) {
+                    var fileIconClass = 'fa-file text-secondary';
+                    if (isPdf) fileIconClass = 'fa-file-pdf text-danger';
+                    else if (isImage) fileIconClass = 'fa-file-image text-success';
+                    else if (isWord) fileIconClass = 'fa-file-word text-primary';
+                    else if (isExcel) fileIconClass = 'fa-file-excel text-success';
+
                     var b64 = tempBase64List[index];
-            var isCurrentlyViewing = (currentActiveSrc === b64);
-            var fileInfo = getFileInfo(file.name || b64);
+                    var isCurrentlyViewing = (currentActiveSrc === b64);
+					var fileInfo = getFileInfo(file.name || b64);
+                    var safeName = file.name.replace(/'/g, "\\'");
+                    var safeB64 = b64 ? b64.replace(/'/g, "\\'") : '';
 
-                    var div = document.createElement("div");
-            div.className = "file-detail-item mb-1 p-1 border rounded " + (isCurrentlyViewing ? "bg-light border-success" : "");
+                    var div = document.createElement('div');
+                    div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
 
-            var btnClass = isCurrentlyViewing ? "btn-dark" : "btn-info text-white";
-            var btnIcon = isCurrentlyViewing ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
-            var btnText = isCurrentlyViewing ? "Đang xem..." : "Xem thử";
-
-            var row = document.createElement("div");
-            row.className = "d-flex align-items-center justify-content-between";
-
-            var fileNameSpan = document.createElement("span");
-            fileNameSpan.className = "text-truncate me-2 " + (isCurrentlyViewing ? "fw-bold text-success" : "");
-            fileNameSpan.style.maxWidth = "220px";
-            fileNameSpan.title = file.name;
-            // Chèn icon chuẩn FontAwesome vào trước tên tệp
-            fileNameSpan.innerHTML = '**' + file.name;
-
-            var actionDiv = document.createElement("div");
-
-            var btnView = document.createElement("button");
-btnView.type = "button";
-btnView.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1 shadow-sm";
-btnView.style.fontSize = "0.75rem";
-btnView.title = "Xem thử trực tiếp trên trình duyệt";
-btnView.innerHTML = '**' + btnText;
-
-btnView.onclick = function() {
+                    var inlineBtnHtml = document.createElement("button");
+                    if (isPdf || isImage) {
+                        var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
+                        var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
+                        var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
+						inlineBtnHtml.type = "button";
+inlineBtnHtml.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1 shadow-sm";
+inlineBtnHtml.style.fontSize = "0.75rem";
+inlineBtnHtml.title = "Xem thử trực tiếp trên trình duyệt";
+inlineBtnHtml.innerHTML = <i class="fa-solid ' + btnIcon + ' me-1"></i> + btnText;
+inlineBtnHtml.onclick = function() {
     // 1. Ưu tiên truyền đối tượng File trực tiếp (nếu có biến `file`)
     if (typeof file !== 'undefined' && (file instanceof File || file instanceof Blob)) {
         viewFileOnBrowserViaBlob(file, file.name, fileInfo.mediaType);
@@ -1152,29 +1143,21 @@ btnView.onclick = function() {
         viewFileOnBrowserViaBlob(b64, (typeof file !== 'undefined' && file.name) ? file.name : '', fileInfo.mediaType);
     }
 };
+                    }
 
-            var btnRemove = document.createElement("button");
-            btnRemove.type = "button";
-            btnRemove.className = "btn btn-outline-danger btn-sm py-0 px-1";
-            btnRemove.style.fontSize = "0.7rem";
-            btnRemove.title = "Bỏ chọn tệp";
-            btnRemove.innerHTML = '**';
-            btnRemove.onclick = function() {
-                if (typeof removeTempFile === "function") {
-                    removeTempFile(index);
-                }
-            };
-
-            actionDiv.appendChild(btnView);
-            actionDiv.appendChild(btnRemove);
-
-            row.appendChild(fileNameSpan);
-            row.appendChild(actionDiv);
-            div.appendChild(row);
-
-            container.appendChild(div);
-        });
-    }
+                    div.innerHTML = 
+                        '<div class="d-flex align-items-center justify-content-between">' +
+                            '<span class="text-truncate me-2 ' + (isCurrentlyViewing ? 'fw-bold text-success' : '') + '" style="max-width: 220px;" title="' + file.name + '">' +
+                                '<i class="fa-solid ' + fileIconClass + ' me-1"></i> ' + file.name +
+                            '</span>' +
+                            '<div>' +
+                                inlineBtnHtml +
+                                '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.7rem;" onclick="removeTempFile(' + index + ')" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark"></i></button>' +
+                            '</div>' +
+                        '</div>';
+                    container.appendChild(div);
+                });
+            }
 }
 		async function viewFileOnBrowserViaBlob(fileOrUrl, fileName, mediaType) {
     var elementPrefixId = 'asset_form_inline_viewer_container';
