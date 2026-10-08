@@ -1138,12 +1138,8 @@ async function exportExcelReport() {
                         var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
                         var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
                         var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
-						inlineBtnHtml.type = "button";
-inlineBtnHtml.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1 shadow-sm";
-inlineBtnHtml.style.fontSize = "0.75rem";
-inlineBtnHtml.title = "Xem thử trực tiếp trên trình duyệt";
-inlineBtnHtml.innerHTML = '<i class="fa-solid ' + btnIcon + ' me-1"></i>' + btnText;
-inlineBtnHtml.onclick = function() {
+
+                        inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="function() {
     // 1. Ưu tiên truyền đối tượng File trực tiếp (nếu có biến `file`)
     if (typeof file !== 'undefined' && (file instanceof File || file instanceof Blob)) {
         viewFileOnBrowserViaBlob(file, file.name, fileInfo.mediaType);
@@ -1152,8 +1148,8 @@ inlineBtnHtml.onclick = function() {
     else if (typeof b64 !== 'undefined' && b64) {
         viewFileOnBrowserViaBlob(b64, (typeof file !== 'undefined' && file.name) ? file.name : '', fileInfo.mediaType);
     }
-};
-}
+};" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
+                    }
 
                     div.innerHTML = 
                         '<div class="d-flex align-items-center justify-content-between">' +
@@ -1166,7 +1162,7 @@ inlineBtnHtml.onclick = function() {
                             '</div>' +
                         '</div>';
                     container.appendChild(div);
-					}
+                });
             }
 }
 		async function viewFileOnBrowserViaBlob(fileOrUrl, fileName, mediaType) {
