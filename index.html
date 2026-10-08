@@ -1231,8 +1231,7 @@ inlineBtnHtml = `
         toggleInlineMedia(elementPrefixId, fileOrUrl, mediaType, nameToDisplay);
     }
 }
-		
-function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
+function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
             if (mediaType === undefined) mediaType = 'pdf';
             if (fileName === undefined) fileName = '';
 
@@ -1360,7 +1359,7 @@ function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
                 renderEditHistoryFileList(hId);
             }
         }
-function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
+function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
     if (fileName === undefined) fileName = "";
 
     var checkStr = (fileName || urlOrBase64).toLowerCase();
