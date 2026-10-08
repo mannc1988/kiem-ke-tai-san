@@ -200,21 +200,10 @@
                             <div id="imageDetailList" class="mt-2"></div>
                             <input type="hidden" id="hinh_anh_url" value="">
                         </div>
-                        <!-- Cụm nút chức năng -->
-<div class="col-md-6 text-end d-flex align-items-end justify-content-end ms-auto">
-    <button type="button" class="btn btn-outline-info btn-sm px-3 me-2 fw-semibold" onclick="viewAllAuditLogs()">
-        <i class="fa-solid fa-clock-rotate-left me-1"></i> Xem Tất Cả Log
-    </button>
-    <button type="button" class="btn btn-outline-success btn-sm px-3 me-2 fw-semibold" onclick="exportAssetReportToExcel()">
-        <i class="fa-solid fa-file-excel me-1"></i> Xuất Báo Cáo
-    </button>
-    <button type="button" class="btn btn-secondary btn-sm px-3 me-2" onclick="resetForm()">
-        <i class="fa-solid fa-rotate-left me-1"></i> Làm mới
-    </button>
-    <button type="submit" class="btn btn-success btn-sm px-4">
-        <i class="fa-solid fa-floppy-disk me-1"></i> Cập Nhật Dữ Liệu DB
-    </button>
-</div>
+                        <div class="col-md-6 text-end d-flex align-items-end justify-content-end ms-auto">
+                            <button type="button" class="btn btn-secondary btn-sm px-3 me-2" onclick="resetForm()"><i class="fa-solid fa-rotate-left me-1"></i> Làm mới</button>
+                            <button type="submit" class="btn btn-success btn-sm px-4"><i class="fa-solid fa-floppy-disk me-1"></i> Cập Nhật Dữ Liệu DB</button>
+                        </div>
 
                         <div class="col-12 d-none" id="asset_form_inline_viewer_container"></div>
                     </div>
@@ -342,7 +331,7 @@
         let tempFilesList = []; 
         let tempBase64List = []; 
         let existingDriveUrls = []; 
-		let auditLogDataTableInstance = null;
+
         let editHistoryFilesList = [];
         let editHistoryBase64List = [];
         let editHistoryExistingDriveUrls = [];
@@ -351,364 +340,7 @@
             if (plainText === undefined || plainText === null || plainText === '') return '';
             return CryptoJS.AES.encrypt(plainText.toString(), SECRET_KEY).toString();
         }
-		/**
- * Hàm xuất danh sách Nhật Ký Tác Động (Audit Logs) ra file Excel từ DataTables hiện có
- */
-async function exportAuditLogsToExcel() {
-    try {
-        const tableSelector = '#auditLogDataTable';
-        
-        // 1. Kiểm tra bảng DataTables đã khởi tạo chưa
-        if (!$.fn.DataTable.isDataTable(tableSelector)) {
-            Swal.fire('Thông báo', 'Bảng nhật ký tác động chưa sẵn sàng!', 'warning');
-            return;
-        }
 
-        const table = $(tableSelector).DataTable();
-
-        // 2. Lấy toàn bộ dữ liệu đang có/hiển thị trên DataTables (bao gồm dữ liệu đã lọc qua ô search)
-        const logData = table.rows({ search: 'applied' }).data().toArray();
-
-        if (!logData || logData.length === 0) {
-            Swal.fire('Thông báo', 'Không có dữ liệu log để xuất!', 'warning');
-            return;
-        }
-
-        // 3. Khởi tạo Workbook ExcelJS
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('NhatKyTacDong');
-
-        // Cấu hình danh sách cột theo đúng giao diện Modal Log
-        worksheet.columns = [
-            { header: 'STT', key: 'stt', width: 8 },
-            { header: 'Thời Gian', key: 'time', width: 22 },
-            { header: 'Hành Động', key: 'action', width: 15 },
-            { header: 'Người Thực Hiện', key: 'user', width: 22 },
-            { header: 'Nội Dung / Ghi Chú', key: 'note', width: 35 },
-            { header: 'Dữ Liệu Cũ', key: 'oldData', width: 45 },
-            { header: 'Dữ Liệu Mới', key: 'newData', width: 45 },
-            { header: 'Tệp Đính Kèm', key: 'fileUrl', width: 35 }
-        ];
-
-        // Helper làm sạch HTML & giải mã
-        const parser = new DOMParser();
-        const cleanText = (val) => {
-            if (val === null || val === undefined) return '';
-            let str = String(val).trim();
-            if (!str) return '';
-            
-            if (typeof decryptData === 'function') {
-                try {
-                    const dec = decryptData(str);
-                    if (dec) str = String(dec);
-                } catch (e) {}
-            }
-
-            if (typeof str === 'object') return JSON.stringify(str);
-            const doc = parser.parseFromString(str, 'text/html');
-            return doc.body.textContent || str;
-        };
-
-        // Helper format thời gian HH:mm:ss dd/MM/yyyy
-        const formatDateTime = (dateVal) => {
-            if (!dateVal) return '-';
-            let dateObj = new Date(dateVal);
-            if (isNaN(dateObj.getTime())) return String(dateVal);
-
-            const hh = String(dateObj.getHours()).padStart(2, '0');
-            const mm = String(dateObj.getMinutes()).padStart(2, '0');
-            const ss = String(dateObj.getSeconds()).padStart(2, '0');
-            const DD = String(dateObj.getDate()).padStart(2, '0');
-            const MM = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const YYYY = dateObj.getFullYear();
-
-            return `${hh}:${mm}:${ss} ${DD}/${MM}/${YYYY}`;
-        };
-
-        // 4. Đổ dữ liệu từ DataTable vào từng dòng Excel
-        logData.forEach((row, idx) => {
-            const rawTime = row.created_at || row.timestamp || row.thoi_gian || '';
-            const rawAction = row.action_type || row.action || row.hanh_dong || 'Cập nhật';
-            const rawUser = row.performed_by || row.user || row.nguoi_thuc_hien || 'Hệ thống';
-            const rawNote = row.note || row.details || row.noi_dung || '';
-            
-            const oldStr = row.old_data ? (typeof row.old_data === 'object' ? JSON.stringify(row.old_data) : String(row.old_data)) : '';
-            const newStr = row.new_data ? (typeof row.new_data === 'object' ? JSON.stringify(row.new_data) : String(row.new_data)) : '';
-            const fileStr = row.file_url || row.tep_dinh_kem || (row.new_data && row.new_data.tep_dinh_kem) || '';
-
-            worksheet.addRow({
-                stt: idx + 1,
-                time: formatDateTime(rawTime),
-                action: cleanText(rawAction),
-                user: cleanText(rawUser),
-                note: cleanText(rawNote),
-                oldData: cleanText(oldStr),
-                newData: cleanText(newStr),
-                fileUrl: cleanText(fileStr)
-            });
-        });
-
-        // 5. Định dạng Header màu tối (dark header) giống giao diện
-        const headerRow = worksheet.getRow(1);
-        headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
-        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '212529' } };
-        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-
-        // 6. Kẻ khung và thiết lập căn chỉnh
-        worksheet.eachRow((row, rNum) => {
-            row.eachCell((cell) => {
-                cell.border = {
-                    top: { style: 'thin' }, left: { style: 'thin' },
-                    bottom: { style: 'thin' }, right: { style: 'thin' }
-                };
-                if (rNum > 1) cell.alignment = { vertical: 'middle', wrapText: true };
-            });
-        });
-
-        // 7. Tạo file và kích hoạt tải về
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
-        const now = new Date();
-        const dateStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
-        const fileName = `Bao_Cao_Nhat_Ky_Tac_Dong_${dateStr}.xlsx`;
-
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                icon: 'success',
-                title: 'Xuất Báo Cáo Thành Công!',
-                text: `Đã xuất ${logData.length} bản ghi log ra file ${fileName}.`,
-                timer: 2000,
-                showConfirmButton: false
-            });
-        }
-
-    } catch (err) {
-        console.error("Lỗi xuất Excel Audit Log:", err);
-        Swal.fire('Lỗi', 'Không thể xuất file Excel: ' + err.message, 'error');
-    }
-}
-		/**
- * Hàm gọi API lấy danh sách Audit Logs bằng biến API_URL
- * Format cột THỜI GIAN chuẩn: HH:mm:ss dd/MM/yyyy
- */
-async function viewAllAuditLogs(assetId) {
-    try {
-        // 1. Cập nhật Tiêu đề Mã tài sản trên Header Modal
-        const $titleElem =$('#modalAssetCodeTitle');
-        if ($titleElem.length) {$titleElem.text(assetId ? assetId : 'Tất Cả');
-        }
-
-        // 2. Hiển thị Loading trong khi gọi API
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                title: 'Đang tải nhật ký tác động...',
-                html: '<div class="spinner-border text-primary" role="status"></div>',
-                allowOutsideClick: false,
-                showConfirmButton: false
-            });
-        }
-
-        // 3. Chuẩn bị payload (mã hóa nếu client dùng hàm encryptData)
-        let payloadTsId = '';
-        if (assetId) {
-            payloadTsId = typeof encryptData === 'function' ? encryptData(assetId) : assetId;
-        }
-
-        // 4. Gọi API Backend bằng biến API_URL đã khai báo
-        const endpoint = `${API_URL}?action=get_asset_logs`;
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                action: 'get_asset_logs',
-                ts_id: payloadTsId 
-            })
-        });
-
-        // 5. Kiểm tra Content-Type tránh lỗi HTML Error
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-            const htmlText = await response.text();
-            console.error("Server trả về HTML thay vì JSON:", htmlText);
-            throw new Error(`Server Vercel phản hồi lỗi HTML (HTTP ${response.status}). Vui lòng kiểm tra lại action API!`);
-        }
-
-        const result = await response.json();
-
-        if (typeof Swal !== 'undefined') {
-            Swal.close();
-        }
-
-        if (!result.success) {
-            throw new Error(result.error || result.message || 'Không thể lấy dữ liệu nhật ký tác động!');
-        }
-
-        const rawLogs = result.data || [];
-
-        // 6. Reset khung xem file inline nếu đang mở
-        const $viewer =$('#swal_file_inline_viewer_container');
-        if ($viewer.length) {$viewer.addClass('d-none').html('');
-            delete $viewer[0].dataset.activeSrc;
-        }
-
-        // 7. Hủy Instance DataTable cũ nếu đã tồn tại
-        if ($.fn.DataTable.isDataTable('#auditLogDataTable')) {
-            $('#auditLogDataTable').DataTable().destroy();
-            $('#auditLogDataTable tbody').empty();
-        }
-
-        // Helper Format Thời Gian: hh:mm:ss dd/MM/yyyy
-        const formatDateTime = (dateVal) => {
-            if (!dateVal) return '-';
-            
-            let dateObj = new Date(dateVal);
-            // Trường hợp chuỗi dạng "19:01:26 6/10/2026" hoặc không khớp chuẩn ISO
-            if (isNaN(dateObj.getTime())) {
-                const parts = String(dateVal).split(' ');
-                if (parts.length === 2) {
-                    const timePart = parts[0];
-                    const datePart = parts[1].split('/');
-                    if (datePart.length === 3) {
-                        dateObj = new Date(`${datePart[2]}-${datePart[1].padStart(2, '0')}-${datePart[0].padStart(2, '0')}T${timePart}`);
-                    }
-                }
-            }
-
-            if (isNaN(dateObj.getTime())) return String(dateVal); // Trả về chuỗi gốc nếu không parse được
-
-            const hh = String(dateObj.getHours()).padStart(2, '0');
-            const mm = String(dateObj.getMinutes()).padStart(2, '0');
-            const ss = String(dateObj.getSeconds()).padStart(2, '0');
-            const DD = String(dateObj.getDate()).padStart(2, '0');
-            const MM = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const YYYY = dateObj.getFullYear();
-
-            return `${hh}:${mm}:${ss} ${DD}/${MM}/${YYYY}`;
-        };
-
-        // 8. Khởi tạo DataTables Plugin cho bảng Log trong Modal
-        const auditLogTable = $('#auditLogDataTable').DataTable({
-            data: rawLogs,
-            pageLength: 10,
-            lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Tất cả"]],
-            order: [[1, 'desc']], // Sắp xếp thời gian mới nhất lên đầu
-            language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/vi.json',
-                search: "Tìm kiếm nhật ký:"
-            },
-            columns: [
-                { 
-                    data: null, 
-                    className: 'text-center text-secondary',
-                    render: (d, t, r, meta) => meta.row + 1 
-                },
-                { 
-                    data: 'created_at',
-                    className: 'text-center text-nowrap font-monospace',
-                    render: (d, t, r) => formatDateTime(d || r.timestamp || r.thoi_gian)
-                },
-                { 
-                    data: 'action_type',
-                    className: 'text-center',
-                    render: (d, t, r) => {
-                        const act = (d || r.action || 'Cập nhật').toString().trim();
-                        return `<span class="badge bg-warning text-dark px-2 py-1" style="font-size: 0.75rem; font-weight: 600;">${act}</span>`;
-                    }
-                },
-                { 
-                    data: 'performed_by',
-                    className: 'text-center fw-bold text-dark',
-                    render: (d, t, r) => d || r.user || r.nguoi_thuc_hien || 'Hệ thống' 
-                },
-                { 
-    data: 'note',
-    render: (d, t, r) => {
-        const noteText = d || r.details || r.noi_dung || 'Cập nhật nội dung bản ghi';
-        
-        const formatData = (dataObj) => {
-            if (!dataObj) return '';
-            if (typeof dataObj === 'object') return JSON.stringify(dataObj);
-            return String(dataObj);
-        };
-
-        const oldStr = formatData(r.old_data);
-        const newStr = formatData(r.new_data);
-
-        let html = `<div class="mb-1">${noteText}</div>`;
-
-        if (oldStr) {
-            html += `<div style="color: #dc3545; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Cũ:</b> ${oldStr}</div>`;
-        }
-        if (newStr) {
-            html += `<div style="color: #198754; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Mới:</b> ${newStr}</div>`;
-        }
-
-        // Lấy chuỗi chứa liên kết tệp đính kèm
-        const rawFileStr = r.file_url || r.tep_dinh_kem || (r.new_data && r.new_data.tep_dinh_kem) || '';
-        
-        if (rawFileStr) {
-            // Tách các URL bằng dấu phẩy và lọc bỏ khoảng trắng thừa
-            const fileList = String(rawFileStr).split(',').map(u => u.trim()).filter(u => u.length > 0);
-            
-            if (fileList.length > 0) {
-                html += `<div class="mt-2 d-flex flex-wrap gap-1 align-items-center">`;
-                html += `<small class="text-muted fw-bold me-1"><i class="fa-solid fa-paperclip"></i> Tệp đính kèm (${fileList.length}):</small>`;
-                
-                fileList.forEach((url, index) => {
-                    // Nếu có nhiều file thì đánh số Tệp 1, Tệp 2..., nếu 1 file thì để "Xem tệp"
-                    const btnLabel = fileList.length > 1 ? `Tệp ${index + 1}` : `Xem tệp đính kèm`;
-                    
-                    html += `
-                        <button type="button" 
-                                class="btn btn-sm btn-outline-primary py-0 px-2" 
-                                style="font-size: 0.72rem; border-radius: 4px;"
-                                onclick="toggleInlineMedia('swal_file_inline_viewer_container', '${url}', 'pdf', 'Tep_${index + 1}')">
-                            <i class="fa-solid fa-file-lines me-1"></i>${btnLabel}
-                        </button>`;
-                });
-                
-                html += `</div>`;
-            }
-        }
-
-        return html;
-    }
-}
-            ]
-        });
-
-        // 9. Mở Bootstrap Modal
-        const modalElem = document.getElementById('auditLogModal');
-        if (modalElem) {
-            const bsModal = bootstrap.Modal.getOrCreateInstance(modalElem);
-            bsModal.show();
-
-            $(modalElem).off('shown.bs.modal').on('shown.bs.modal', function () {
-                auditLogTable.columns.adjust().draw();
-            });
-        }
-
-    } catch (err) {
-        console.error("Lỗi khi tải nhật ký tác động từ API:", err);
-        if (typeof Swal !== 'undefined') {
-            Swal.fire('Lỗi API', err.message, 'error');
-        } else {
-            alert('Lỗi API: ' + err.message);
-        }
-    }
-}
         function decryptData(cipherText) {
             if (!cipherText) return '';
             try {
@@ -1026,7 +658,7 @@ async function exportExcelReport() {
     if (existingDriveUrls.length > 0) {
         var headerDrive = document.createElement("div");
         headerDrive.className = "text-primary fw-semibold small mb-1";
-        headerDrive.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i> Tệp trên Drive (' + existingDriveUrls.length + '):';
+        headerDrive.innerHTML = '** Tệp trên Drive (' + existingDriveUrls.length + '):';
         container.appendChild(headerDrive);
 
         existingDriveUrls.forEach(function(url, index) {
@@ -1050,7 +682,7 @@ async function exportExcelReport() {
 
             var fileNameSpan = document.createElement("span");
             fileNameSpan.className = "text-truncate me-2 " + (isCurrentlyViewing ? "fw-bold text-primary" : "");
-            fileNameSpan.style.maxWidth = "600px";
+            fileNameSpan.style.maxWidth = "200px";
             fileNameSpan.title = fName;
             // Chèn icon chuẩn FontAwesome vào trước tên tệp
             fileNameSpan.innerHTML = '**' + fName;
@@ -1582,167 +1214,113 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
 
         $(document).ready(function() {
             assetsTable = $('#assetsTable').DataTable({
-    serverSide: true,
-    processing: true,
-    scrollX: true,
-    ajax: {
-        url: `${API_URL}?action=server_assets`,
-        type: 'GET'
-    },
-    columns: [
-        // 1. STT
-        { 
-            data: null, 
-            className: 'text-center align-middle',
-            render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 
-        },
+                serverSide: true,
+                processing: true,
+                scrollX: true,
+                ajax: {
+                    url: `${API_URL}?action=server_assets`,
+                    type: 'GET'
+                },
+                columns: [
+                    { data: null, render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 },
+                    { 
+    data: 'hinh_anh', 
+    className: 'align-middle',
+    render: (data, type, row, meta) => {
+        let decrypted = decryptData(data);
+        if (!decrypted) return '<span class="text-muted small fst-italic">Không có tệp</span>';
+        let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
+        if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có tệp</span>';
 
-        // 2. TỆP ĐÍNH KÈM / HÌNH Ảnh
-        { 
-            data: 'hinh_anh', 
-            className: 'align-middle',
-            render: (data, type, row) => {
-                let decrypted = data || ''; // Dữ liệu đã được Server giải mã sẵn
-                if (!decrypted) return '<span class="text-muted small fst-italic">Không có tệp</span>';
-                
-                let urls = String(decrypted).split(',').map(s => s.trim()).filter(Boolean);
-                if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có tệp</span>';
+        let htmlList = '<div style="min-width: 180px;">';
+        urls.forEach((url, idx) => {
+            let fName = url.split('/').pop().split('?')[0] || `Asset_File_${idx + 1}`;
+            
+            let safeEmbedUrl = url.replace(/'/g, "\\'");
+            let downloadUrl = getDownloadDriveUrl(url);
 
-                let htmlList = '<div style="min-width: 180px;">';
-                urls.forEach((url, idx) => {
-                    let fName = url.split('/').pop().split('?')[0] || `Asset_File_${idx + 1}`;
-                    let safeEmbedUrl = url.replace(/'/g, "\\'");
-                    let downloadUrl = typeof getDownloadDriveUrl === 'function' ? getDownloadDriveUrl(url) : url;
-
-                    htmlList += `
-                        <div class="mb-1">
-                            <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 shadow-sm">
-                                <span class="text-truncate me-2 small text-secondary" style="max-width: 90px;" title="${fName}">
-                                    <i class="fa-solid fa-file me-1"></i> ${fName}
-                                </span>
-                                <div class="d-flex align-items-center">
-                                    <!-- NÚT 1: XEM INLINE -->
-                                    <button type="button" class="btn btn-info btn-sm text-white py-0 px-2 me-1" style="font-size: 0.7rem;" 
-                                            onclick="toggleInlineMedia('table_assets_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
-                                            title="Xem trực tiếp trên web">
-                                        <i class="fa-solid fa-file me-1"></i> Xem Inline
-                                    </button>
-                                    <!-- NÚT 2: TẢI VỀ MÁY TÍNH -->
-                                    <a href="${downloadUrl}" download class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.7rem;" title="Tải trực tiếp về máy tính">
-                                        <i class="fa-solid fa-download"></i>
-                                    </a>
-                                </div>
-                            </div>
+            htmlList += `
+                <div class="mb-1">
+                    <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 shadow-sm">
+                        <span class="text-truncate me-2 small text-secondary" style="max-width: 90px;" title="${fName}">
+                            <i class="fa-solid fa-file me-1"></i> ${fName}
+                        </span>
+                        <div class="d-flex align-items-center">
+                            <!-- NÚT 1: XEM INLINE -->
+                            <button type="button" class="btn btn-info btn-sm text-white py-0 px-2 me-1" style="font-size: 0.7rem;" 
+                                    onclick="toggleInlineMedia('table_assets_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
+                                    title="Xem trực tiếp trên web">
+                                <i class="fa-solid fa-file me-1"></i> Xem Inline
+                            </button>
+                            <!-- NÚT 2: TẢI VỀ MÁY TÍNH -->
+                            <a href="${downloadUrl}" download class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.7rem;" title="Tải trực tiếp về máy tính">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
                         </div>
-                    `;
-                });
-                htmlList += '</div>';
-                return htmlList;
-            }
-        },
-
-        // 3. MÃ TÀI SẢN
-        { data: 'ma_tai_san', render: data => `<span class="badge bg-secondary">${data || ''}</span>` },
-
-        // 4. ĐƠN VỊ
-        { data: 'don_vi', render: data => `<small class="text-muted">${data || ''}</small>` },
-
-        // 5. TÊN TÀI SẢN
-        { data: 'ten_tai_san', render: data => `<span class="fw-semibold text-dark">${data || ''}</span>` },
-
-        // 6. NHÓM TÀI SẢN
-        { data: 'nhom_tai_san', render: data => `<small class="text-muted">${data || ''}</small>` },
-
-        // 7. NGUYÊN GIÁ
-        { data: 'nguyen_gia', render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
-
-        // 8. HAO MÒN LŨY KẾ
-        { data: 'hao_mon_luy_ke', render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
-
-        // 9. GIÁ TRỊ CÒN LẠI
-        { data: 'gia_tri_con_lai', render: data => data ? Number(data).toLocaleString('vi-VN') + ' đ' : '0 đ' },
-
-        // 10. NGÀY ĐƯA VÀO SỬ DỤNG
-        { 
-            data: 'ngay_dua_vao_sd', 
-            render: data => {
-                if (!data) return '-';
-                return typeof formatDateToDMY === 'function' ? `<small class="text-muted">${formatDateToDMY(data)}</small>` : `<small class="text-muted">${data}</small>`;
-            }
-        },
-
-        // 11. TRẠNG THÁI SỬ DỤNG
-        { data: 'trang_thai_sd', render: data => `<span class="badge bg-success-subtle text-success border">${data || ''}</span>` },
-
-        // 12. TRẠNG THÁI QUYẾT TOÁN
-        { data: 'trang_thai_qt', render: data => `<span class="badge bg-primary-subtle text-primary border">${data || ''}</span>` },
-
-        // 13. BỔ SỔ
-        { data: 'bo_so', render: data => `<small class="text-muted">${data || ''}</small>` },
-
-        // 14. CÁN BỘ SỬ DỤNG
-        { data: 'can_bo_su_dung', render: data => data || '' },
-
-        // 15. PHÒNG BAN QUẢN LÝ
-        { data: 'phong_ban_quan_ly', render: data => data || '' },
-
-        // 16. SỐ SERIAL
-        { data: 'so_serial', render: data => `<span class="badge bg-light text-dark border">${data || ''}</span>` },
-
-        // 17. THỜI GIAN IMPORT
-        { data: 'import_at', render: data => `<small class="text-muted">${data || ''}</small>` },
-
-        // 18. THAO TÁC (SỬA / XÓA)
-        { 
-            data: 'ma_tai_san', 
-            className: 'text-center align-middle',
-            render: (data, type, row) => {
-                // Helper escape chuỗi an toàn để không vỡ cú pháp JavaScript onclick
-                const safeStr = (val) => String(val || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-
-                let mAs = safeStr(row.ma_tai_san);
-                let dV  = safeStr(row.don_vi);
-                let tTs = safeStr(row.ten_tai_san);
-                let nTs = safeStr(row.nhom_tai_san);
-                let nG  = safeStr(row.nguyen_gia);
-                let hM  = safeStr(row.hao_mon_luy_ke);
-                let gCL = safeStr(row.gia_tri_con_lai);
-                let nSD = safeStr(row.ngay_dua_vao_sd);
-                let tT  = safeStr(row.trang_thai_sd);
-                let tQt = safeStr(row.trang_thai_qt);
-                let bS  = safeStr(row.bo_so);
-                let cB  = safeStr(row.can_bo_su_dung);
-                let pB  = safeStr(row.phong_ban_quan_ly);
-                let sS  = safeStr(row.so_serial);
-                let hA  = safeStr(row.hinh_anh);
-                let iAt = safeStr(row.import_at);
-
-                return `
-                    <div class="d-flex justify-content-center">
-                        <button type="button" class="btn btn-warning btn-sm text-white me-1" 
-                                onclick="editAsset('${mAs}', '${dV}', '${tTs}', '${nTs}', '${nG}', '${hM}', '${gCL}', '${nSD}', '${tT}', '${tQt}', '${bS}', '${cB}', '${pB}', '${sS}', '${hA}', '${iAt}')" 
-                                title="Sửa tài sản">
-                            <i class="fa-solid fa-pen"></i>
-                        </button>
-                        <button type="button" class="btn btn-danger btn-sm" 
-                                onclick="deleteAsset('${mAs}')" 
-                                title="Xóa tài sản">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
                     </div>
-                `;
-            }
-        }
-    ],
-    language: {
-        search: "Tìm kiếm:",
-        lengthMenu: "Hiển thị _MENU_ dòng",
-        info: "Hiển thị _START_ đến _END_ của _TOTAL_ dòng",
-        paginate: { first: "Đầu", last: "Cuối", next: "Sau", previous: "Trước" },
-        zeroRecords: "Không tìm thấy dữ liệu",
-        processing: "Đang tải dữ liệu..."
+                </div>
+            `;
+        });
+        htmlList += '</div>';
+        return htmlList;
     }
-});
+},
+                    { data: 'ma_tai_san', render: data => `<span class="badge bg-secondary">${decryptData(data)}</span>` },
+                    { data: 'don_vi', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
+                    { data: 'ten_tai_san', render: data => `<span class="fw-semibold text-dark">${decryptData(data)}</span>` },
+                    { data: 'nhom_tai_san', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
+                    { data: 'nguyen_gia', render: data => { let v = decryptData(data); return v ? Number(v).toLocaleString('vi-VN') + ' đ' : '0'; } },
+                    { data: 'hao_mon_luy_ke', render: data => { let v = decryptData(data); return v ? Number(v).toLocaleString('vi-VN') + ' đ' : '0'; } },
+                    { data: 'gia_tri_con_lai', render: data => { let v = decryptData(data); return v ? Number(v).toLocaleString('vi-VN') + ' đ' : '0'; } },
+                    { 
+                        data: 'ngay_dua_vao_sd', 
+                        render: data => `<small class="text-muted">${formatDateToDMY(decryptData(data))}</small>` 
+                    },
+                    { data: 'trang_thai_sd', render: data => `<span class="badge bg-success-subtle text-success border">${decryptData(data)}</span>` },
+                    { data: 'trang_thai_qt', render: data => `<span class="badge bg-primary-subtle text-primary border">${decryptData(data)}</span>` },
+                    { data: 'bo_so', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
+                    { data: 'can_bo_su_dung', render: data => decryptData(data) },
+                    { data: 'phong_ban_quan_ly', render: data => decryptData(data) },
+                    { data: 'so_serial', render: data => `<span class="badge bg-light text-dark border">${decryptData(data)}</span>` },
+                    { data: 'import_at', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
+                    { 
+                        data: 'ma_tai_san', 
+                        className: 'text-center align-middle',
+                        render: (data, type, row) => {
+                            let mAs = decryptData(row.ma_tai_san);
+                            let dV = decryptData(row.don_vi).replace(/'/g, "\\'");
+                            let tTs = decryptData(row.ten_tai_san).replace(/'/g, "\\'");
+                            let nTs = decryptData(row.nhom_tai_san).replace(/'/g, "\\'");
+                            let nG = decryptData(row.nguyen_gia);
+                            let hM = decryptData(row.hao_mon_luy_ke);
+                            let gCL = decryptData(row.gia_tri_con_lai);
+                            let nSD = decryptData(row.ngay_dua_vao_sd);
+                            let tT = decryptData(row.trang_thai_sd);
+                            let tQt = decryptData(row.trang_thai_qt);
+                            let bS = decryptData(row.bo_so).replace(/'/g, "\\'");
+                            let cB = decryptData(row.can_bo_su_dung).replace(/'/g, "\\'");
+                            let pB = decryptData(row.phong_ban_quan_ly).replace(/'/g, "\\'");
+                            let sS = decryptData(row.so_serial);
+                            let hA = decryptData(row.hinh_anh);
+                            let iAt = decryptData(row.import_at);
+
+                            return `
+                                <button class="btn btn-warning btn-sm text-white me-1" onclick="editAsset('${mAs}', '${dV}', '${tTs}', '${nTs}', '${nG}', '${hM}', '${gCL}', '${nSD}', '${tT}', '${tQt}', '${bS}', '${cB}', '${pB}', '${sS}', '${hA}', '${iAt}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteAsset('${mAs}')" title="Xóa"><i class="fa-solid fa-trash"></i></button>
+                            `;
+                        }
+                    }
+                ],
+                language: {
+                    search: "Tìm kiếm:",
+                    lengthMenu: "Hiển thị _MENU_ dòng",
+                    info: "Hiển thị _START_ đến _END_ của _TOTAL_ dòng",
+                    paginate: { first: "Đầu", last: "Cuối", next: "Sau", previous: "Trước" },
+                    zeroRecords: "Không tìm thấy dữ liệu",
+                    processing: "Đang tải dữ liệu..."
+                }
+            });
+
             historyTable = $('#historyTable').DataTable({
                 serverSide: true,
                 processing: true,
@@ -1845,7 +1423,7 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
                             return `
                                 <button class="btn btn-warning btn-sm text-white me-1" onclick="openEditHistoryModal('${safeParam}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
                                 <button class="btn btn-outline-danger btn-sm" onclick="deleteHistory(${hId})" title="Xóa"><i class="fa-solid fa-xmark"></i></button>
-                            	<button class="btn btn-info btn-sm me-1" onclick="viewAssetAuditLogs('${safeTsId}')" title="Xem Nhật Ký Tác Động"><i class="fa-solid fa-receipt me-1"></i></button>
+                            	<button class="btn btn-sm btn-outline-dark me-1 fa-solid fa-receipt me-1" title="Xem Nhật Ký Tác Động" onclick="viewAssetAuditLogs('${safeTsId}')"></button>
 							`;
                         }
                     }
@@ -2168,170 +1746,7 @@ if (currentVal && listDotKiemKe.some(d => String(d.id) === String(currentVal))) 
                 }
             }
         }
-		/**
- * Hàm xuất báo cáo danh sách tài sản ĐẦY ĐỦ CÁC CỘT CSDL từ DataTables Plugin (#assetsTable)
- * - Sử dụng thư viện ExcelJS sinh file .xlsx chuẩn
- * - Giải mã AES toàn bộ các trường dữ liệu bằng decryptData()
- * - Bóc tách HTML thô bằng DOMParser (không bị vỡ ô/render lỗi)
- */
-async function exportAssetReportToExcel() {
-    var tableSelector = '#assetsTable';
-    if (!$.fn.DataTable.isDataTable(tableSelector)) {
-        if (typeof Swal !== 'undefined') {
-            Swal.fire('Thông báo', 'Bảng dữ liệu tài sản chưa sẵn sàng!', 'warning');
-        } else {
-            alert('Bảng dữ liệu tài sản chưa sẵn sàng!');
-        }
-        return;
-    }
 
-    var table = $(tableSelector).DataTable();
-
-    // 1. Lấy dữ liệu đang hiển thị theo bộ lọc tìm kiếm trên DataTables
-    const tableData = table.rows({ search: 'applied' }).data().toArray();
-    if (!tableData || tableData.length === 0) {
-        if (typeof Swal !== 'undefined') {
-            Swal.fire('Thông báo', 'Không có dữ liệu tài sản trong bảng để xuất báo cáo!', 'warning');
-        } else {
-            alert('Không có dữ liệu tài sản trong bảng để xuất báo cáo!');
-        }
-        return;
-    }
-
-    // 2. Hỏi xác nhận qua SweetAlert2 trước khi xuất
-    Swal.fire({
-        title: 'Xuất Báo Cáo Danh Sách Tài Sản?',
-        text: `Hệ thống sẽ tạo file Excel chứa ${tableData.length} bản ghi tài sản hiện có trên bảng.`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: '<i class="fa-solid fa-file-excel me-1"></i> Tải Báo Cáo',
-        cancelButtonText: 'Hủy',
-        confirmButtonColor: '#198754'
-    }).then(async (result) => {
-        if (!result.isConfirmed) return;
-
-        try {
-            const workbook = new ExcelJS.Workbook();
-            const worksheet = workbook.addWorksheet('DanhSachTaiSan');
-
-            // Cấu hình đầy đủ 16 cột tài sản theo đúng Schema CSDL
-            worksheet.columns = [
-                { header: 'STT', key: 'stt', width: 8 },
-                { header: 'Mã Tài Sản', key: 'maTS', width: 18 },
-                { header: 'Đơn Vị', key: 'donVi', width: 20 },
-                { header: 'Tên Tài Sản', key: 'tenTS', width: 30 },
-                { header: 'Nhóm Tài Sản', key: 'nhomTS', width: 22 },
-                { header: 'Nguyên Giá', key: 'nguyenGia', width: 18 },
-                { header: 'Hao Mòn Lũy Kế', key: 'haoMonLuyKe', width: 18 },
-                { header: 'Giá Trị Còn Lại', key: 'giaTriConLai', width: 18 },
-                { header: 'Ngày Đưa Vào SD', key: 'ngayDuaVaoSD', width: 18 },
-                { header: 'Trạng Thái SD', key: 'trangThaiSD', width: 18 },
-                { header: 'Trạng Thái QT', key: 'trangThaiQT', width: 18 },
-                { header: 'Bổ Sổ', key: 'boSo', width: 15 },
-                { header: 'Cán Bộ Sử Dụng', key: 'canBoSD', width: 22 },
-                { header: 'Phòng Ban Quản Lý', key: 'phongBanQL', width: 22 },
-                { header: 'Số Serial', key: 'soSerial', width: 18 },
-                { header: 'Hình Ảnh / Tệp', key: 'hinhAnh', width: 35 },
-                { header: 'Thời Gian Import', key: 'importAt', width: 22 }
-            ];
-
-            // Instance DOMParser làm sạch HTML thô
-            const parser = new DOMParser();
-
-            // Helper giải mã dữ liệu an toàn & bóc tách text
-            const safeDecrypt = (val) => {
-                if (val === null || val === undefined) return '';
-                let str = String(val).trim();
-                if (!str) return '';
-
-                // Bóc tách decrypt nếu có
-                if (typeof decryptData === 'function') {
-                    try {
-                        const decrypted = decryptData(str);
-                        if (decrypted !== null && decrypted !== undefined) {
-                            str = String(decrypted);
-                        }
-                    } catch (e) {}
-                }
-
-                // Dùng DOMParser bóc tách text thuần từ HTML (không dùng DOM/textarea)
-                const doc = parser.parseFromString(str, 'text/html');
-                return doc.body.textContent || '';
-            };
-
-            // 3. Đổ dữ liệu từ DataTable vào từng dòng Excel (có giải mã & bóc tách HTML)
-            tableData.forEach((row, idx) => {
-                worksheet.addRow({
-                    stt: idx + 1,
-                    maTS: safeDecrypt(row.ma_tai_san) || row.ma_tai_san || '',
-                    donVi: safeDecrypt(row.don_vi),
-                    tenTS: safeDecrypt(row.ten_tai_san),
-                    nhomTS: safeDecrypt(row.nhom_tai_san),
-                    nguyenGia: safeDecrypt(row.nguyen_gia) || 0,
-                    haoMonLuyKe: safeDecrypt(row.hao_mon_luy_ke) || 0,
-                    giaTriConLai: safeDecrypt(row.gia_tri_con_lai) || 0,
-                    ngayDuaVaoSD: safeDecrypt(row.ngay_dua_vao_sd),
-                    trangThaiSD: safeDecrypt(row.trang_thai_sd),
-                    trangThaiQT: safeDecrypt(row.trang_thai_qt),
-                    boSo: safeDecrypt(row.bo_so),
-                    canBoSD: safeDecrypt(row.can_bo_su_dung),
-                    phongBanQL: safeDecrypt(row.phong_ban_quan_ly),
-                    soSerial: safeDecrypt(row.so_serial),
-                    hinhAnh: safeDecrypt(row.hinh_anh),
-                    importAt: safeDecrypt(row.import_at)
-                });
-            });
-
-            // 4. Định dạng Header (Màu xanh Primary, chữ trắng đậm, căn giữa)
-            const headerRow = worksheet.getRow(1);
-            headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
-            headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0D6EFD' } };
-            headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-
-            // 5. Kẻ ô Border và thiết lập căn chỉnh ô
-            worksheet.eachRow((row, rNum) => {
-                row.eachCell((cell) => {
-                    cell.border = {
-                        top: { style: 'thin' }, left: { style: 'thin' },
-                        bottom: { style: 'thin' }, right: { style: 'thin' }
-                    };
-                    if (rNum > 1) cell.alignment = { vertical: 'middle', wrapText: true };
-                });
-            });
-
-            // 6. Tạo file .xlsx và tải xuống trực tiếp bằng HTML5 Blob URL
-            const buffer = await workbook.xlsx.writeBuffer();
-            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
-            const now = new Date();
-            const dateStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
-            const fileName = `Bao_Cao_Tai_San_Full_${dateStr}.xlsx`;
-
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Xuất Báo Cáo Thành Công!',
-                    text: `Đã tải về file Excel ${fileName}.`,
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-            }
-
-        } catch (err) {
-            console.error("Lỗi khi tạo file ExcelJS:", err);
-            Swal.fire('Lỗi', 'Không thể tạo file Excel: ' + err.message, 'error');
-        }
-    });
-}
         async function toggleActiveDotKiemKe() {
             const selectDot = document.getElementById('selectDot');
             const currentDotId = selectDot.value;
@@ -2938,114 +2353,50 @@ async function exportAssetReportToExcel() {
                 container.innerHTML = '<span class="text-muted small fst-italic">Chưa có tệp đính kèm nào.</span>';
                 return;
             }
-			function getFileInfo(fileNameOrUrl) {
-        if (!fileNameOrUrl) {
-            return { mediaType: "pdf", iconClass: "fa-solid fa-file-pdf text-danger" };
-        }
-        var str = fileNameOrUrl.toLowerCase();
-        
-        // Hình ảnh
-        if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(str) || str.indexOf("data:image/") === 0 || str.indexOf("googleusercontent.com") !== -1) {
-            return { mediaType: "image", iconClass: "fa-solid fa-file-image text-success" };
-        }
-        // Word
-        if (/\.(doc|docx)$/i.test(str)) {
-            return { mediaType: "pdf", iconClass: "fa-solid fa-file-word text-primary" };
-        }
-        // Excel
-        if (/\.(xls|xlsx|csv)$/i.test(str)) {
-            return { mediaType: "pdf", iconClass: "fa-solid fa-file-excel text-success" };
-        }
-        // PowerPoint
-        if (/\.(ppt|pptx)$/i.test(str)) {
-            return { mediaType: "pdf", iconClass: "fa-solid fa-file-powerpoint text-warning" };
-        }
-        // Zip / Nén
-        if (/\.(zip|rar|7z|tar|gz)$/i.test(str)) {
-            return { mediaType: "pdf", iconClass: "fa-solid fa-file-zipper text-secondary" };
-        }
-        // Code / Văn bản
-        if (/\.(txt|json|html|css|js|php|py)$/i.test(str)) {
-            return { mediaType: "pdf", iconClass: "fa-solid fa-file-code text-info" };
-        }
-        // PDF (Mặc định)
-        return { mediaType: "pdf", iconClass: "fa-solid fa-file-pdf text-danger" };
-    }
+
             if (editHistoryExistingDriveUrls.length > 0) {
                 var headerDrive = document.createElement('div');
                 headerDrive.className = 'text-primary fw-semibold small mb-1';
                 headerDrive.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i> Tệp trên Drive (' + editHistoryExistingDriveUrls.length + '):';
                 container.appendChild(headerDrive);
-				editHistoryExistingDriveUrls.forEach(function(url, idx) {
-            var rawName = url.split("/").pop().split("?")[0] || ("Drive_File_" + (idx + 1));
-            var fName = rawName;
-            try { fName = decodeURIComponent(rawName); } catch(e) {}
 
-            var isCurrentlyViewing = (currentActiveSrc === url);
-            var fileInfo = getFileInfo(fName || url);
-            var downloadUrl = typeof getDownloadDriveUrl === "function" ? getDownloadDriveUrl(url) : url;
+                editHistoryExistingDriveUrls.forEach(function(url, idx) {
+                    var rawName = url.split('/').pop().split('?')[0] || ('Drive_File_' + (idx + 1));
+                    var fName = rawName;
+                    try { fName = decodeURIComponent(rawName); } catch(e) {}
 
-            var div = document.createElement("div");
-            div.className = "file-detail-item mb-1 p-1 border rounded " + (isCurrentlyViewing ? "bg-light border-primary" : "");
-            
-            var btnClass = isCurrentlyViewing ? "btn-dark" : "btn-info text-white";
-            var btnIcon = isCurrentlyViewing ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
-            var btnText = isCurrentlyViewing ? "Đang xem..." : "Xem Inline";
+                    var isPdf = fName.toLowerCase().indexOf('.pdf') !== -1 || url.indexOf('.pdf') !== -1;
+                    var isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.indexOf('image/') !== -1;
+                    var isCurrentlyViewing = (currentActiveSrc === url);
+                    var safeName = fName.replace(/'/g, "\\'");
+                    var safeUrl = url.replace(/'/g, "\\'");
 
-            var row = document.createElement("div");
-            row.className = "d-flex align-items-center justify-content-between";
+                    var div = document.createElement('div');
+                    div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
 
-            var fileNameSpan = document.createElement("span");
-            fileNameSpan.className = "text-truncate me-2 " + (isCurrentlyViewing ? "fw-bold text-primary" : "");
-            fileNameSpan.style.maxWidth = "600px";
-            fileNameSpan.title = fName;
-            // Chèn icon chuẩn FontAwesome vào trước tên tệp
-            fileNameSpan.innerHTML = '**' + fName;
+                    var inlineBtnHtml = '';
+                    if (isPdf || isImage) {
+                        var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
+                        var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
+                        var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
 
-            var actionDiv = document.createElement("div");
-            actionDiv.className = "d-flex align-items-center";
+                        inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'swal_file_inline_viewer_container\', \'' + safeUrl + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
+                    } else {
+                        inlineBtnHtml = '<a href="' + url + '" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>';
+                    }
 
-            var btnView = document.createElement("button");
-            btnView.type = "button";
-            btnView.className = "btn " + btnClass + " btn-sm py-0 px-2 me-1";
-            btnView.style.fontSize = "0.75rem";
-            btnView.title = "Xem trực tiếp trên web";
-            btnView.innerHTML = '**' + btnText;
-            btnView.onclick = function() {
-                toggleInlineMedia('swal_file_inline_viewer_container', url, fileInfo.mediaType, fName);
-            };
+                    div.innerHTML = 
+                        '<div class="d-flex align-items-center justify-content-between">' +
+                            '<span class="text-truncate me-2 text-primary" style="max-width: 60%;" title="' + fName + '"><i class="fa-solid fa-cloud-arrow-up me-1"></i> ' + fName + '</span>' +
+                            '<div>' +
+                                inlineBtnHtml +
+                                '<button type="button" class="btn btn-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="deleteDriveFileDirectly(\'' + safeUrl + '\', ' + idx + ', \'history\', ' + historyId + ')" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>' +
+                            '</div>' +
+                        '</div>';
+                    container.appendChild(div);
+                });
+            }
 
-            var btnDownload = document.createElement("a");
-            btnDownload.href = downloadUrl;
-            btnDownload.setAttribute("download", "");
-            btnDownload.className = "btn btn-outline-secondary btn-sm py-0 px-2 me-1";
-            btnDownload.style.fontSize = "0.75rem";
-            btnDownload.title = "Tải trực tiếp về máy tính";
-            btnDownload.innerHTML = '**Tải về';
-
-            var btnDelete = document.createElement("button");
-            btnDelete.type = "button";
-            btnDelete.className = "btn btn-danger btn-sm py-0 px-1";
-            btnDelete.style.fontSize = "0.7rem";
-            btnDelete.title = "Xóa trực tiếp trên Drive";
-            btnDelete.innerHTML = '**Xóa Drive';
-            btnDelete.onclick = function() {
-                if (typeof deleteDriveFileDirectly === "function") {
-                    deleteDriveFileDirectly(url, idx, 'asset', null);
-                }
-            };
-
-            actionDiv.appendChild(btnView);
-            actionDiv.appendChild(btnDownload);
-            actionDiv.appendChild(btnDelete);
-
-            row.appendChild(fileNameSpan);
-            row.appendChild(actionDiv);
-            div.appendChild(row);
-
-            container.appendChild(div);
-        });
-    }
             if (editHistoryFilesList.length > 0) {
                 var headerTemp = document.createElement('div');
                 headerTemp.className = 'd-flex justify-content-between align-items-center mt-2 mb-1';
@@ -3620,50 +2971,6 @@ html5QrcodeScanner.render(onScanSuccess, (err) => {});
             reader.readAsArrayBuffer(file);
         }
     </script>
-	<!-- Modal Nhật Ký Tác Động Tài Sản -->
-<div class="modal fade" id="auditLogModal" tabindex="-1" aria-labelledby="auditLogModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content rounded-1 shadow-lg">
-            <!-- Header Modal Tối Màu -->
-            <div class="modal-header bg-dark text-white py-2 px-3">
-                <h6 class="modal-title d-flex align-items-center fw-bold" id="auditLogModalLabel">
-                    <i class="fa-solid fa-book-open text-warning me-2"></i>
-                    Nhật Ký Tác Động Tài Sản - <span id="modalAssetCodeTitle" class="text-warning ms-1">Tất Cả</span>
-                </h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            
-            <!-- Body Modal Chứa Bảng DataTables -->
-            <div class="modal-body p-3">
-                <!-- Container Xem Trực Tiếp Tệp Đính Kèm Inline (nếu có) -->
-                <div id="swal_file_inline_viewer_container" class="mb-3 d-none"></div>
-
-                <div class="table-responsive">
-                    <table id="auditLogDataTable" class="table table-bordered align-middle w-100" style="font-size: 0.82rem; color: #212529;">
-                        <thead>
-                            <tr style="background-color: #f8f9fa; color: #495057; font-weight: 600;">
-                                <th class="text-center" style="width: 40px;">STT</th>
-                                <th class="text-center" style="width: 120px;">THỜI GIAN</th>
-                                <th class="text-center" style="width: 100px;">HÀNH ĐỘNG</th>
-                                <th class="text-center" style="width: 130px;">NGƯỜI THỰC HIỆN</th>
-                                <th>CHI TIẾT THAY ĐỔI / GHI CHÚ</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Footer Modal -->
-            <div class="modal-footer py-1 px-3 bg-light justify-content-between">
-                <button type="button" class="btn btn-outline-success btn-sm fw-semibold" onclick="exportAuditLogsToExcel()">
-                    <i class="fa-solid fa-file-excel me-1"></i> Xuất Log Excel
-                </button>
-                <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">Đóng</button>
-            </div>
-        </div>
-    </div>
-</div>
 	<!-- Modal Bảng Nhật Ký Tác Động Tài Sản -->
 <div class="modal fade" id="modalAssetAuditLogs" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
