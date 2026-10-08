@@ -3118,8 +3118,123 @@ async function exportAssetReportToExcel() {
 
             renderEditHistoryFileList(historyId);
         }
+		function renderEditHistoryFileList(historyId) {
+            var container = document.getElementById('swal_fileDetailList');
+            if (!container) return;
 
-        function renderEditHistoryFileList(historyId) {
+            var viewerContainer = document.getElementById('swal_file_inline_viewer_container');
+            if (!viewerContainer) {
+                viewerContainer = document.createElement('div');
+                viewerContainer.id = 'swal_file_inline_viewer_container';
+                viewerContainer.className = 'd-none mt-2 w-100';
+                container.parentNode.insertBefore(viewerContainer, container.nextSibling);
+            }
+            viewerContainer.dataset.historyId = historyId || '';
+
+            var currentActiveSrc = viewerContainer.dataset.activeSrc || '';
+            container.innerHTML = '';
+
+            if (editHistoryFilesList.length === 0 && editHistoryExistingDriveUrls.length === 0) {
+                container.innerHTML = '<span class="text-muted small fst-italic">Chưa có tệp đính kèm nào.</span>';
+                return;
+            }
+
+            if (editHistoryExistingDriveUrls.length > 0) {
+                var headerDrive = document.createElement('div');
+                headerDrive.className = 'text-primary fw-semibold small mb-1';
+                headerDrive.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i> Tệp trên Drive (' + editHistoryExistingDriveUrls.length + '):';
+                container.appendChild(headerDrive);
+
+                editHistoryExistingDriveUrls.forEach(function(url, idx) {
+                    var rawName = url.split('/').pop().split('?')[0] || ('Drive_File_' + (idx + 1));
+                    var fName = rawName;
+                    try { fName = decodeURIComponent(rawName); } catch(e) {}
+
+                    var isPdf = fName.toLowerCase().indexOf('.pdf') !== -1 || url.indexOf('.pdf') !== -1;
+                    var isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(fName) || url.indexOf('image/') !== -1;
+                    var isCurrentlyViewing = (currentActiveSrc === url);
+                    var safeName = fName.replace(/'/g, "\\'");
+                    var safeUrl = url.replace(/'/g, "\\'");
+
+                    var div = document.createElement('div');
+                    div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
+
+                    var inlineBtnHtml = '';
+                    if (isPdf || isImage) {
+                        var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
+                        var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
+                        var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
+
+                        inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'swal_file_inline_viewer_container\', \'' + safeUrl + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
+                    } else {
+                        inlineBtnHtml = '<a href="' + url + '" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;"><i class="fa-solid fa-download me-1"></i> Tải về</a>';
+                    }
+
+                    div.innerHTML = 
+                        '<div class="d-flex align-items-center justify-content-between">' +
+                            '<span class="text-truncate me-2 text-primary" style="max-width: 60%;" title="' + fName + '"><i class="fa-solid fa-cloud-arrow-up me-1"></i> ' + fName + '</span>' +
+                            '<div>' +
+                                inlineBtnHtml +
+                                '<button type="button" class="btn btn-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="deleteDriveFileDirectly(\'' + safeUrl + '\', ' + idx + ', \'history\', ' + historyId + ')" title="Xóa trực tiếp trên Drive"><i class="fa-solid fa-trash-can me-1"></i> Xóa Drive</button>' +
+                            '</div>' +
+                        '</div>';
+                    container.appendChild(div);
+                });
+            }
+
+            if (editHistoryFilesList.length > 0) {
+                var headerTemp = document.createElement('div');
+                headerTemp.className = 'd-flex justify-content-between align-items-center mt-2 mb-1';
+                headerTemp.innerHTML = 
+                    '<span class="text-success fw-semibold small"><i class="fa-solid fa-circle-plus me-1"></i> Tệp mới chọn (' + editHistoryFilesList.length + '):</span>' +
+                    '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 0.65rem;" onclick="clearAllEditHistoryTempFiles(' + historyId + ')" title="Xóa tất cả tệp mới vừa chọn">' +
+                        '<i class="fa-solid fa-trash-can me-1"></i> Xóa hết' +
+                    '</button>';
+                container.appendChild(headerTemp);
+
+                editHistoryFilesList.forEach(function(file, idx) {
+                    var fileNameLower = file.name.toLowerCase();
+                    var isPdf = file.type === 'application/pdf' || fileNameLower.indexOf('.pdf') !== -1;
+                    var isImage = file.type.indexOf('image/') === 0 || /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name);
+                    var isWord = fileNameLower.indexOf('.doc') !== -1 || fileNameLower.indexOf('.docx') !== -1;
+                    var isExcel = fileNameLower.indexOf('.xls') !== -1 || fileNameLower.indexOf('.xlsx') !== -1 || fileNameLower.indexOf('.csv') !== -1;
+
+                    var fileIconClass = 'fa-file text-secondary';
+                    if (isPdf) fileIconClass = 'fa-file-pdf text-danger';
+                    else if (isImage) fileIconClass = 'fa-file-image text-success';
+                    else if (isWord) fileIconClass = 'fa-file-word text-primary';
+                    else if (isExcel) fileIconClass = 'fa-file-excel text-success';
+
+                    var b64 = editHistoryBase64List[idx];
+                    var isCurrentlyViewing = (currentActiveSrc === b64);
+                    var safeName = file.name.replace(/'/g, "\\'");
+                    var safeB64 = b64 ? b64.replace(/'/g, "\\'") : '';
+
+                    var div = document.createElement('div');
+                    div.className = 'file-detail-item ' + (isCurrentlyViewing ? 'active-viewing' : '');
+
+                    var inlineBtnHtml = '';
+                    if (isPdf || isImage) {
+                        var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
+                        var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
+                        var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
+
+                        inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'swal_file_inline_viewer_container\', \'' + safeB64 + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
+                    }
+
+                    div.innerHTML = 
+                        '<div class="d-flex align-items-center justify-content-between">' +
+                            '<span class="text-truncate me-2 text-success" style="max-width: 60%;" title="' + file.name + '"><i class="fa-solid ' + fileIconClass + ' me-1"></i> ' + file.name + '</span>' +
+                            '<div>' +
+                                inlineBtnHtml +
+                                '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="removeEditTempFile(' + idx + ', ' + historyId + ')" title="Bỏ chọn tệp"><i class="fa-solid fa-xmark me-1"></i> Bỏ chọn</button>' +
+                            '</div>' +
+                        '</div>';
+                    container.appendChild(div);
+                });
+            }
+        }
+        function renderEditHistoryFileList1(historyId) {
             var container = document.getElementById('swal_fileDetailList');
             if (!container) return;
 
