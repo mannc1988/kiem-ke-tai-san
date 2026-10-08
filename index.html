@@ -1966,7 +1966,7 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
                                 <span class="text-truncate me-1 text-secondary" style="max-width: 80px;" title="${fName}">${fName}</span>
                                 <div class="d-flex align-items-center">
                                     <button type="button" class="btn btn-info btn-sm text-white py-0 px-1 me-1" style="font-size: 0.65rem;" 
-                                            onclick="toggleInlineMedia('table_assets_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
+                                            onclick="toggleInlineMedia('table_history_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
                                             title="Xem trực tiếp trên web">
                                         <i class="fa-solid fa-file-pdf me-1"></i> Xem Inline
                                     </button>
@@ -2060,6 +2060,7 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
         processing: "Đang tải dữ liệu..."
     }
 });
+			loadInitialCache();
 });
         async function loadAssetsCache() {
             try {
