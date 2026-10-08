@@ -1112,22 +1112,9 @@ async function exportExcelReport() {
                 container.appendChild(headerTemp);
 
                 tempFilesList.forEach(function(file, index) {
-                    var fileNameLower = file.name.toLowerCase();
-                    var isPdf = file.type === 'application/pdf' || fileNameLower.indexOf('.pdf') !== -1;
-                    var isImage = file.type.indexOf('image/') === 0 || /\.(png|jpg|jpeg|gif|webp)$/i.test(fileNameLower);
-                    var isWord = fileNameLower.indexOf('.doc') !== -1 || fileNameLower.indexOf('.docx') !== -1;
-                    var isExcel = fileNameLower.indexOf('.xls') !== -1 || fileNameLower.indexOf('.xlsx') !== -1 || fileNameLower.indexOf('.csv') !== -1;
-
-                    var fileIconClass = 'fa-file text-secondary';
-                    if (isPdf) fileIconClass = 'fa-file-pdf text-danger';
-                    else if (isImage) fileIconClass = 'fa-file-image text-success';
-                    else if (isWord) fileIconClass = 'fa-file-word text-primary';
-                    else if (isExcel) fileIconClass = 'fa-file-excel text-success';
-
                     var b64 = tempBase64List[index];
-                    var isCurrentlyViewing = (currentActiveSrc === b64);
-                    var safeName = file.name.replace(/'/g, "\\'");
-                    var safeB64 = b64 ? b64.replace(/'/g, "\\'") : '';
+            var isCurrentlyViewing = (currentActiveSrc === b64);
+            var fileInfo = getFileInfo(file.name || b64);
 
                     var div = document.createElement("div");
             div.className = "file-detail-item mb-1 p-1 border rounded " + (isCurrentlyViewing ? "bg-light border-success" : "");
