@@ -1231,175 +1231,8 @@ inlineBtnHtml = `
         toggleInlineMedia(elementPrefixId, fileOrUrl, mediaType, nameToDisplay);
     }
 }
-		/**
- * Hàm Toggle Inline Viewer
- * - File đã lưu trên Drive / URL Web: Xem qua Google Docs / Drive Viewer
- * - File tạm local (Blob / Base64 / File từ Máy tính): Xem bằng trình xem mặc định của Trình duyệt
- */
+		
 function toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName) {
-    if (fileName === undefined) fileName = "";
-
-    var checkStr = (fileName || urlOrBase64).toLowerCase();
-    if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)($|\?)/i.test(checkStr) || checkStr.indexOf("data:image/") === 0) {
-        mediaType = "image";
-    } else if (!mediaType) {
-        mediaType = "pdf";
-    }
-
-    var targetContainer = document.getElementById(elementPrefixId);
-    if (!targetContainer) {
-        targetContainer = document.getElementById(elementPrefixId + "_media");
-    }
-    if (!targetContainer) return;
-
-    // 1. Toggle đóng/mở nếu bấm lại đúng file đang xem
-    if (!targetContainer.classList.contains("d-none") && targetContainer.dataset.activeSrc === urlOrBase64) {
-        targetContainer.classList.add("d-none");
-        targetContainer.innerHTML = "";
-        delete targetContainer.dataset.embedSrc;
-        delete targetContainer.dataset.activeSrc;
-
-        if (elementPrefixId === "asset_form_inline_viewer_container" && typeof renderImageDetailList === "function") {
-            renderImageDetailList();
-        }
-        if (elementPrefixId === "swal_file_inline_viewer_container") {
-            var hId = targetContainer.dataset.historyId || null;
-            if (typeof renderEditHistoryFileList === "function") renderEditHistoryFileList(hId);
-        }
-        return;
-    }
-
-    targetContainer.dataset.activeSrc = urlOrBase64;
-
-    // 2. Chuẩn hóa tên tệp hiển thị
-    var displayFileName = fileName;
-    if (!displayFileName || displayFileName.trim() === "") {
-        if (urlOrBase64.indexOf("data:") === 0 || urlOrBase64.indexOf("blob:") === 0) {
-            displayFileName = mediaType === "pdf" ? "Tài liệu tạm.pdf" : "Hình ảnh tạm.png";
-        } else {
-            var rawName = urlOrBase64.split("/").pop().split("?")[0];
-            try { displayFileName = decodeURIComponent(rawName); } catch (e) { displayFileName = rawName; }
-        }
-    }
-
-    var embedSrc = urlOrBase64;
-
-    // 3. Phân loại xem Google Docs (File trên Drive) hay Trình duyệt (File tạm)
-    if (mediaType === "pdf") {
-        var fileId = "";
-
-        // Trích xuất File ID Google Drive từ các dạng URL khác nhau
-        if (urlOrBase64.indexOf("googleusercontent.com/d/") !== -1) {
-            fileId = urlOrBase64.split("googleusercontent.com/d/")[1].split("?")[0].split("/")[0];
-        } else if (urlOrBase64.indexOf("/d/") !== -1) {
-            fileId = urlOrBase64.split("/d/")[1].split("/")[0];
-        } else if (urlOrBase64.indexOf("id=") !== -1) {
-            fileId = urlOrBase64.split("id=")[1].split("&")[0];
-        }
-
-        if (fileId) {
-            // [CÁCH 1]: FILE LƯU TRÊN DRIVE -> XEM BẰNG GOOGLE DOCS / DRIVE PREVIEW
-            embedSrc = "https://drive.google.com/file/d/" + fileId + "/preview";
-        } else if (urlOrBase64.indexOf("http://") === 0 || urlOrBase64.indexOf("https://") === 0) {
-            // [CÁCH 2]: LINK URL ONLINE NGOÀI DRIVE -> XEM QUA GOOGLE DOCS VIEWER
-            embedSrc = "https://docs.google.com/gview?embedded=true&url=" + encodeURIComponent(urlOrBase64);
-        } else if (urlOrBase64.indexOf("data:application/pdf;base64,") === 0) {
-            // [CÁCH 3]: FILE TẠM DẠNG BASE64 -> CHUYỂN BLOB XEM TRỰC TIẾP TRÊN TRÌNH DUYỆT
-            try {
-                var base64Data = urlOrBase64.split(",")[1];
-                var binaryStr = atob(base64Data);
-                var len = binaryStr.length;
-                var bytes = new Uint8Array(len);
-                for (var i = 0; i < len; i++) {
-                    bytes[i] = binaryStr.charCodeAt(i);
-                }
-                var blob = new Blob([bytes], { type: "application/pdf" });
-                embedSrc = URL.createObjectURL(blob);
-            } catch (e) {
-                console.error("Lỗi tạo Blob URL cho PDF tạm:", e);
-            }
-        } else if (urlOrBase64.indexOf("blob:") === 0) {
-            // [CÁCH 4]: FILE TẠM DẠNG BLOB LOCAL -> XEM TRỰC TIẾP TRÊN TRÌNH DUYỆT
-            embedSrc = urlOrBase64;
-        }
-    }
-
-    targetContainer.dataset.embedSrc = embedSrc;
-
-    // 4. Tạo Header điều khiển
-    var headerDiv = document.createElement("div");
-    headerDiv.className = "d-flex align-items-center justify-content-between bg-white px-3 py-2 border border-bottom-0 rounded-top shadow-sm";
-
-    var titleBox = document.createElement("div");
-    titleBox.className = "d-flex align-items-center text-truncate me-2";
-    var iconClass = mediaType === "pdf" ? "fa-solid fa-file-pdf text-danger me-2" : "fa-solid fa-file-image text-primary me-2";
-    titleBox.innerHTML = '****Xem trực tiếp: ' + displayFileName + '**';
-
-    var btnBox = document.createElement("div");
-    btnBox.className = "d-flex align-items-center";
-
-    var btnNewTab = document.createElement("button");
-    btnNewTab.type = "button";
-    btnNewTab.className = "btn btn-outline-primary btn-sm py-1 px-2 me-2 shadow-sm";
-    btnNewTab.style.fontSize = "0.78rem";
-    btnNewTab.innerHTML = '**Mở Tab Mới';
-    btnNewTab.onclick = function() { window.open(embedSrc, "_blank"); };
-
-    var btnClose = document.createElement("button");
-    btnClose.type = "button";
-    btnClose.className = "btn-close ms-1";
-    btnClose.title = "Đóng";
-    btnClose.onclick = function() {
-        toggleInlineMedia(elementPrefixId, urlOrBase64, mediaType, fileName);
-    };
-
-    btnBox.appendChild(btnNewTab);
-    btnBox.appendChild(btnClose);
-    headerDiv.appendChild(titleBox);
-    headerDiv.appendChild(btnBox);
-
-    var mainWrapper = document.createElement("div");
-    mainWrapper.className = "position-relative mt-2 w-100";
-    mainWrapper.style.width = "100%";
-    mainWrapper.appendChild(headerDiv);
-
-    // 5. Tạo Khung Iframe / Img chứa nội dung
-    if (mediaType === "pdf") {
-        var iframe = document.createElement("iframe");
-        iframe.src = embedSrc;
-        iframe.setAttribute("allow", "autoplay");
-        iframe.style.cssText = "width: 100%; height: 85vh; border: 1px solid #dee2e6; border-radius: 0 0 8px 8px; background: #525659; box-shadow: 0 6px 20px rgba(0,0,0,0.15);";
-        mainWrapper.appendChild(iframe);
-    } else if (mediaType === "image") {
-        var imgContainer = document.createElement("div");
-        imgContainer.className = "w-100 d-flex justify-content-center align-items-center bg-dark rounded-bottom p-2";
-        imgContainer.style.cssText = "min-height: 400px; max-height: 85vh; border: 1px solid #dee2e6; box-shadow: 0 6px 20px rgba(0,0,0,0.15);";
-
-        var img = document.createElement("img");
-        img.src = embedSrc;
-        img.style.cssText = "max-width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 4px;";
-        img.alt = "Inline Image Preview";
-
-        imgContainer.appendChild(img);
-        mainWrapper.appendChild(imgContainer);
-    }
-
-    // 6. Đưa khung xem vào giao diện và cuộn tới vị trí xem
-    targetContainer.innerHTML = "";
-    targetContainer.appendChild(mainWrapper);
-    targetContainer.classList.remove("d-none");
-    targetContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
-
-    // 7. Render lại danh sách đính kèm (nếu có các hàm callback)
-    if (elementPrefixId === "asset_form_inline_viewer_container" && typeof renderImageDetailList === "function") {
-        renderImageDetailList();
-    }
-    if (elementPrefixId === "swal_file_inline_viewer_container") {
-        var hId = targetContainer.dataset.historyId || null;
-        if (typeof renderEditHistoryFileList === "function") renderEditHistoryFileList(hId);
-    }
-}
-function toggleInlineMedia2(elementPrefixId, urlOrBase64, mediaType, fileName) {
             if (mediaType === undefined) mediaType = 'pdf';
             if (fileName === undefined) fileName = '';
 
@@ -2005,231 +1838,124 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
     }
 });
             historyTable = $('#historyTable').DataTable({
-    serverSide: true,
-    processing: true,
-    scrollX: true,
-    searching: true,
-    ordering: true,
-    order: [[0, 'desc']], // Mặc định sắp xếp theo ID lịch sử giảm dần
-    ajax: {
-        url: API_URL,
-        type: 'GET',
-        data: function(d) {
-            return $.extend({}, d, {
-                action: 'server_history',
-                dot_id: $('#selectDot').val() || ''
-            });
-        }
-    },
-    columns: [
-        // 1. STT / ID
-        { 
-            data: null, 
-            name: 'id',
-            orderable: false, 
-            searchable: false, 
-            className: 'text-center align-middle',
-            render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 
-        },
-
-        // 2. ĐỢT KIỂM KÊ
-        { 
+                serverSide: true,
+                processing: true,
+                scrollX: true,
+                ajax: {
+                    url: `${API_URL}?action=server_history`,
+                    type: 'GET',
+                    data: function(d) {
+                        d.dot_id = $('#selectDot').val();
+                    }
+                },
+                columns: [
+                    { data: null, render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 },
+                    
+            { 
             data: 'dotName', 
-            name: 'dotName',
-            orderable: true, 
-            searchable: true, 
             render: (data, type, row) => {
-                let displayName = data || 'Chưa xác định';
-                let activeBadge = (Number(row.dotActive) === 0) ? ' <span class="badge bg-danger small">Đã khóa</span>' : '';
+                // Ưu tiên hiển thị dotName trả về từ JOIN
+                let displayName = decryptData(row.dotName);
+                
+                // Cảnh báo đợt đã khóa
+                let activeBadge = (Number(row.dotActive) === 0) 
+                    ? ' Đã khóa' 
+                    : '';
+
                 return `${displayName}${activeBadge}`;
             }
         },
+                    { data: 'tsId', render: data => `<span class="badge bg-secondary">${decryptData(data)}</span>` },
+                    { data: 'tsName', render: data => `<span class="fw-semibold text-dark">${decryptData(data)}</span>` },
+                    { data: 'phong_ban', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
+                    { data: 'so_serial', render: data => `<span class="badge bg-light text-dark border">${decryptData(data)}</span>` },
+                    { data: 'nguoiKK', render: data => decryptData(data) || data },
+                    { data: 'ket_qua_kk', render: data => `<span class="badge bg-success-subtle text-success border">${decryptData(data)}</span>` },
+                    { data: 'phuong_an_xl', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
+                    { 
+    data: 'tep_dinh_kem', 
+    className: 'align-middle',
+    render: (data, type, row, meta) => {
+        let decrypted = decryptData(data);
+        if (!decrypted) return '<span class="text-muted small fst-italic">Không có file</span>';
+        let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
+        if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có file</span>';
 
-        // 3. MÃ TÀI SẢN
-        { 
-            data: 'tsId', 
-            name: 'tsId',
-            orderable: true, 
-            searchable: true, 
-            render: data => `<span class="badge bg-secondary">${data || ''}</span>` 
-        },
+        let htmlList = '<div style="min-width: 180px;">';
+        urls.forEach((url, idx) => {
+            let fName = url.split('/').pop().split('?')[0] || `File_${idx + 1}`;
+            
+            let safeEmbedUrl = url.replace(/'/g, "\\'");
+            let downloadUrl = getDownloadDriveUrl(url);
 
-        // 4. TÊN TÀI SẢN
-        { 
-            data: 'tsName', 
-            name: 'tsName',
-            orderable: true, 
-            searchable: true, 
-            render: data => `<span class="fw-semibold text-dark">${data || ''}</span>` 
-        },
-
-        // 5. PHÒNG BAN
-        { 
-            data: 'phong_ban', 
-            name: 'phong_ban',
-            orderable: true, 
-            searchable: true, 
-            render: data => `<small class="text-muted">${data || ''}</small>` 
-        },
-
-        // 6. SỐ SERIAL
-        { 
-            data: 'so_serial', 
-            name: 'so_serial',
-            orderable: true, 
-            searchable: true, 
-            render: data => `<span class="badge bg-light text-dark border">${data || ''}</span>` 
-        },
-
-        // 7. NGƯỜI KIỂM KÊ
-        { 
-            data: 'nguoiKK', 
-            name: 'nguoiKK',
-            orderable: true, 
-            searchable: true, 
-            render: data => data || '' 
-        },
-
-        // 8. KẾT QUẢ KIỂM KÊ
-        { 
-            data: 'ket_qua_kk', 
-            name: 'ket_qua_kk',
-            orderable: true, 
-            searchable: true, 
-            render: data => `<span class="badge bg-success-subtle text-success border">${data || ''}</span>` 
-        },
-
-        // 9. PHƯƠNG ÁN XỬ LÝ
-        { 
-            data: 'phuong_an_xl', 
-            name: 'phuong_an_xl',
-            orderable: true, 
-            searchable: true, 
-            render: data => `<small class="text-muted">${data || ''}</small>` 
-        },
-
-        // 10. TỆP ĐÍNH KÈM
-        { 
-            data: 'tep_dinh_kem', 
-            name: 'tep_dinh_kem',
-            orderable: false, 
-            searchable: false, 
-            className: 'align-middle',
-            render: (data, type, row, meta) => {
-                let decrypted = data || '';
-                if (!decrypted) return '<span class="text-muted small fst-italic">Không có file</span>';
-                
-                let urls = String(decrypted).split(',').map(s => s.trim()).filter(Boolean);
-                if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có file</span>';
-
-                let htmlList = '<div style="min-width: 180px;">';
-                urls.forEach((url, idx) => {
-                    let fName = url.split('/').pop().split('?')[0] || `File_${idx + 1}`;
-                    let safeEmbedUrl = url.replace(/'/g, "\\'");
-                    let downloadUrl = typeof getDownloadDriveUrl === 'function' ? getDownloadDriveUrl(url) : url;
-
-                    htmlList += `
-                        <div class="mb-1">
-                            <div class="d-flex align-items-center justify-content-between bg-white border rounded px-1 py-1 shadow-sm" style="font-size: 0.75rem;">
-                                <span class="text-truncate me-1 text-secondary" style="max-width: 80px;" title="${fName}">${fName}</span>
-                                <div class="d-flex align-items-center">
-                                    <button type="button" class="btn btn-info btn-sm text-white py-0 px-1 me-1" style="font-size: 0.65rem;" 
-                                            onclick="toggleInlineMedia('table_history_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
-                                            title="Xem trực tiếp trên web">
-                                        <i class="fa-solid fa-file-pdf me-1"></i> Xem Inline
-                                    </button>
-                                    <a href="${downloadUrl}" download class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.65rem;" title="Tải về máy">
-                                        <i class="fa-solid fa-download"></i>
-                                    </a>
-                                </div>
-                            </div>
+            htmlList += `
+                <div class="mb-1">
+                    <div class="d-flex align-items-center justify-content-between bg-white border rounded px-1 py-1 shadow-sm" style="font-size: 0.75rem;">
+                        <span class="text-truncate me-1 text-secondary" style="max-width: 80px;" title="${fName}">${fName}</span>
+                        <div class="d-flex align-items-center">
+                            <!-- NÚT 1: XEM INLINE -->
+                            <button type="button" class="btn btn-info btn-sm text-white py-0 px-1 me-1" style="font-size: 0.65rem;" 
+                                    onclick="toggleInlineMedia('table_history_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
+                                    title="Xem trực tiếp trên web">
+                                <i class="fa-solid fa-file-pdf me-1"></i> Xem Inline
+                            </button>
+                            <!-- NÚT 2: TẢI VỀ MÁY TÍNH -->
+                            <a href="${downloadUrl}" download class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.65rem;" title="Tải trực tiếp về máy tính">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
                         </div>
-                    `;
-                });
-                htmlList += '</div>';
-                return htmlList;
-            }
-        },
-
-        // 11. THỜI GIAN
-        { 
-            data: 'thoiGian', 
-            name: 'thoiGian',
-            orderable: true, 
-            searchable: true, 
-            render: data => `<span class="text-muted small">${data || ''}</span>` 
-        },
-
-        // 12. GHI CHÚ
-        { 
-            data: 'ghiChu', 
-            name: 'ghiChu',
-            orderable: true, 
-            searchable: true, 
-            render: data => `<span class="badge bg-light text-secondary border">${data || ''}</span>` 
-        },
-
-        // 13. THAO TÁC (SỬA / XÓA / XEM LOG)
-        { 
-            data: 'id', 
-            name: 'action_btn',
-            orderable: false, 
-            searchable: false, 
-            className: 'text-center align-middle',
-            render: (data, type, row) => {
-                const safeStr = (val) => String(val || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-
-                let hId     = row.id;
-                let hDot    = safeStr(row.dotId);
-                let hTsId   = safeStr(row.tsId);
-                let hTsName = safeStr(row.tsName);
-                let hPb     = safeStr(row.phong_ban);
-                let hSerial = safeStr(row.so_serial);
-                let hNguoi  = safeStr(row.nguoiKK);
-                let hKetQua = safeStr(row.ket_qua_kk);
-                let hPa     = safeStr(row.phuong_an_xl);
-                let hTep    = safeStr(row.tep_dinh_kem);
-                let hNote   = safeStr(row.ghiChu);
-                let hTime   = safeStr(row.thoiGian);
-
-                let safeParam = encodeURIComponent(JSON.stringify({
-                    id: hId, 
-                    dotId: hDot, 
-                    tsId: hTsId, 
-                    tsName: hTsName, 
-                    phong_ban: hPb, 
-                    so_serial: hSerial, 
-                    nguoiKK: hNguoi, 
-                    ket_qua_kk: hKetQua, 
-                    phuong_an_xl: hPa, 
-                    tep_dinh_kem: hTep, 
-                    ghiChu: hNote, 
-                    thoiGian: hTime
-                }));
-
-                let safeTsId = hTsId;
-
-                return `
-                    <div class="d-flex justify-content-center align-items-center">
-                        <button type="button" class="btn btn-warning btn-sm text-white me-1" onclick="openEditHistoryModal('${safeParam}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
-                        <button type="button" class="btn btn-outline-danger btn-sm me-1" onclick="deleteHistory(${hId})" title="Xóa"><i class="fa-solid fa-xmark"></i></button>
-                        <button type="button" class="btn btn-info btn-sm text-white" onclick="viewAllAuditLogs('${safeTsId}')" title="Xem Nhật Ký Tác Động"><i class="fa-solid fa-clock-rotate-left"></i></button>
                     </div>
-                `;
-            }
-        }
-    ],
-    language: {
-        search: "Tìm kiếm:",
-        lengthMenu: "Hiển thị _MENU_ dòng",
-        info: "Hiển thị _START_ đến _END_ của _TOTAL_ dòng",
-        paginate: { first: "Đầu", last: "Cuối", next: "Sau", previous: "Trước" },
-        zeroRecords: "Không tìm thấy dữ liệu",
-        processing: "Đang tải dữ liệu..."
+                </div>
+            `;
+        });
+        htmlList += '</div>';
+        return htmlList;
     }
-});
-			loadInitialCache();
-});
+},
+                    { data: 'thoiGian', render: data => `<span class="text-muted small">${decryptData(data)}</span>` },
+                    { data: 'ghiChu', render: data => `<span class="badge bg-light text-secondary border">${decryptData(data)}</span>` },
+                    { 
+                        data: 'id', 
+                        className: 'text-center align-middle',
+                        render: (data, type, row) => {
+                            let hId = data;
+                            let hDot = decryptData(row.dotId) || row.dotId;
+                            let hTsId = decryptData(row.tsId) || row.tsId;
+                            let hTsName = decryptData(row.tsName) || row.tsName;
+                            let hPb = decryptData(row.phong_ban) || row.phong_ban;
+                            let hSerial = decryptData(row.so_serial) || row.so_serial;
+                            let hNguoi = decryptData(row.nguoiKK) || row.nguoiKK;
+                            let hKetQua = decryptData(row.ket_qua_kk) || row.ket_qua_kk;
+                            let hPa = decryptData(row.phuong_an_xl) || row.phuong_an_xl;
+                            let hTep = decryptData(row.tep_dinh_kem) || row.tep_dinh_kem;
+                            let hNote = decryptData(row.ghiChu) || row.ghiChu;
+                            let hTime = decryptData(row.thoiGian) || row.thoiGian;
+
+                            let safeParam = encodeURIComponent(JSON.stringify({
+                                id: hId, dotId: hDot, tsId: hTsId, tsName: hTsName, phong_ban: hPb, so_serial: hSerial, nguoiKK: hNguoi, ket_qua_kk: hKetQua, phuong_an_xl: hPa, tep_dinh_kem: hTep, ghiChu: hNote, thoiGian: hTime
+                            }));
+							const rawTsId = row.ma_tai_san || row.ts_id || row.tsId;
+        const safeTsId = (typeof decryptData === 'function' ? decryptData(rawTsId) : rawTsId) || rawTsId;
+                            return `
+                                <button class="btn btn-warning btn-sm text-white me-1" onclick="openEditHistoryModal('${safeParam}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteHistory(${hId})" title="Xóa"><i class="fa-solid fa-xmark"></i></button>
+                            	<button class="btn btn-sm btn-outline-dark me-1 fa-solid fa-receipt me-1" title="Xem Nhật Ký Tác Động" onclick="viewAssetAuditLogs('${safeTsId}')"></button>
+							`;
+                        }
+                    }
+                ],
+                language: {
+                    search: "Tìm kiếm:",
+                    lengthMenu: "Hiển thị _MENU_ dòng",
+                    info: "Hiển thị _START_ đến _END_ của _TOTAL_ dòng",
+                    paginate: { first: "Đầu", last: "Cuối", next: "Sau", previous: "Trước" },
+                    zeroRecords: "Không tìm thấy dữ liệu",
+                    processing: "Đang tải dữ liệu..."
+                }
+            });
+
+            loadInitialCache();
+        });
         async function loadAssetsCache() {
             try {
                 const response = await fetch(`${API_URL}?action=data`);
