@@ -1838,124 +1838,232 @@ function toggleInlineMedia1(elementPrefixId, urlOrBase64, mediaType, fileName) {
     }
 });
             historyTable = $('#historyTable').DataTable({
-                serverSide: true,
-                processing: true,
-                scrollX: true,
-                ajax: {
-                    url: `${API_URL}?action=server_history`,
-                    type: 'GET',
-                    data: function(d) {
-                        d.dot_id = $('#selectDot').val();
-                    }
-                },
-                columns: [
-                    { data: null, render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 },
-                    
-            { 
-            data: 'dotName', 
-            render: (data, type, row) => {
-                // Ưu tiên hiển thị dotName trả về từ JOIN
-                let displayName = decryptData(row.dotName);
-                
-                // Cảnh báo đợt đã khóa
-                let activeBadge = (Number(row.dotActive) === 0) 
-                    ? ' Đã khóa' 
-                    : '';
+    serverSide: true,
+    processing: true,
+    scrollX: true,
+    searching: true,
+    ordering: true,
+    order: [[0, 'desc']], // Mặc định sắp xếp theo ID lịch sử giảm dần
+    ajax: {
+        url: API_URL,
+        type: 'GET',
+        data: function(d) {
+            return $.extend({}, d, {
+                action: 'server_history',
+                dot_id: $('#selectDot').val() || ''
+            });
+        }
+    },
+    columns: [
+        // 1. STT / ID
+        { 
+            data: null, 
+            name: 'id',
+            orderable: false, 
+            searchable: false, 
+            className: 'text-center align-middle',
+            render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1 
+        },
 
+        // 2. ĐỢT KIỂM KÊ
+        { 
+            data: 'dotName', 
+            name: 'dotName',
+            orderable: true, 
+            searchable: true, 
+            render: (data, type, row) => {
+                let displayName = data || 'Chưa xác định';
+                let activeBadge = (Number(row.dotActive) === 0) ? ' <span class="badge bg-danger small">Đã khóa</span>' : '';
                 return `${displayName}${activeBadge}`;
             }
         },
-                    { data: 'tsId', render: data => `<span class="badge bg-secondary">${decryptData(data)}</span>` },
-                    { data: 'tsName', render: data => `<span class="fw-semibold text-dark">${decryptData(data)}</span>` },
-                    { data: 'phong_ban', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
-                    { data: 'so_serial', render: data => `<span class="badge bg-light text-dark border">${decryptData(data)}</span>` },
-                    { data: 'nguoiKK', render: data => decryptData(data) || data },
-                    { data: 'ket_qua_kk', render: data => `<span class="badge bg-success-subtle text-success border">${decryptData(data)}</span>` },
-                    { data: 'phuong_an_xl', render: data => `<small class="text-muted">${decryptData(data)}</small>` },
-                    { 
-    data: 'tep_dinh_kem', 
-    className: 'align-middle',
-    render: (data, type, row, meta) => {
-        let decrypted = decryptData(data);
-        if (!decrypted) return '<span class="text-muted small fst-italic">Không có file</span>';
-        let urls = decrypted.split(',').map(s => s.trim()).filter(Boolean);
-        if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có file</span>';
 
-        let htmlList = '<div style="min-width: 180px;">';
-        urls.forEach((url, idx) => {
-            let fName = url.split('/').pop().split('?')[0] || `File_${idx + 1}`;
-            
-            let safeEmbedUrl = url.replace(/'/g, "\\'");
-            let downloadUrl = getDownloadDriveUrl(url);
+        // 3. MÃ TÀI SẢN
+        { 
+            data: 'tsId', 
+            name: 'tsId',
+            orderable: true, 
+            searchable: true, 
+            render: data => `<span class="badge bg-secondary">${data || ''}</span>` 
+        },
 
-            htmlList += `
-                <div class="mb-1">
-                    <div class="d-flex align-items-center justify-content-between bg-white border rounded px-1 py-1 shadow-sm" style="font-size: 0.75rem;">
-                        <span class="text-truncate me-1 text-secondary" style="max-width: 80px;" title="${fName}">${fName}</span>
-                        <div class="d-flex align-items-center">
-                            <!-- NÚT 1: XEM INLINE -->
-                            <button type="button" class="btn btn-info btn-sm text-white py-0 px-1 me-1" style="font-size: 0.65rem;" 
-                                    onclick="toggleInlineMedia('table_history_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
-                                    title="Xem trực tiếp trên web">
-                                <i class="fa-solid fa-file-pdf me-1"></i> Xem Inline
-                            </button>
-                            <!-- NÚT 2: TẢI VỀ MÁY TÍNH -->
-                            <a href="${downloadUrl}" download class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.65rem;" title="Tải trực tiếp về máy tính">
-                                <i class="fa-solid fa-download"></i>
-                            </a>
+        // 4. TÊN TÀI SẢN
+        { 
+            data: 'tsName', 
+            name: 'tsName',
+            orderable: true, 
+            searchable: true, 
+            render: data => `<span class="fw-semibold text-dark">${data || ''}</span>` 
+        },
+
+        // 5. PHÒNG BAN
+        { 
+            data: 'phong_ban', 
+            name: 'phong_ban',
+            orderable: true, 
+            searchable: true, 
+            render: data => `<small class="text-muted">${data || ''}</small>` 
+        },
+
+        // 6. SỐ SERIAL
+        { 
+            data: 'so_serial', 
+            name: 'so_serial',
+            orderable: true, 
+            searchable: true, 
+            render: data => `<span class="badge bg-light text-dark border">${data || ''}</span>` 
+        },
+
+        // 7. NGƯỜI KIỂM KÊ
+        { 
+            data: 'nguoiKK', 
+            name: 'nguoiKK',
+            orderable: true, 
+            searchable: true, 
+            render: data => data || '' 
+        },
+
+        // 8. KẾT QUẢ KIỂM KÊ
+        { 
+            data: 'ket_qua_kk', 
+            name: 'ket_qua_kk',
+            orderable: true, 
+            searchable: true, 
+            render: data => `<span class="badge bg-success-subtle text-success border">${data || ''}</span>` 
+        },
+
+        // 9. PHƯƠNG ÁN XỬ LÝ
+        { 
+            data: 'phuong_an_xl', 
+            name: 'phuong_an_xl',
+            orderable: true, 
+            searchable: true, 
+            render: data => `<small class="text-muted">${data || ''}</small>` 
+        },
+
+        // 10. TỆP ĐÍNH KÈM
+        { 
+            data: 'tep_dinh_kem', 
+            name: 'tep_dinh_kem',
+            orderable: false, 
+            searchable: false, 
+            className: 'align-middle',
+            render: (data, type, row, meta) => {
+                let decrypted = data || '';
+                if (!decrypted) return '<span class="text-muted small fst-italic">Không có file</span>';
+                
+                let urls = String(decrypted).split(',').map(s => s.trim()).filter(Boolean);
+                if (urls.length === 0) return '<span class="text-muted small fst-italic">Không có file</span>';
+
+                let htmlList = '<div style="min-width: 180px;">';
+                urls.forEach((url, idx) => {
+                    let fName = url.split('/').pop().split('?')[0] || `File_${idx + 1}`;
+                    let safeEmbedUrl = url.replace(/'/g, "\\'");
+                    let downloadUrl = typeof getDownloadDriveUrl === 'function' ? getDownloadDriveUrl(url) : url;
+
+                    htmlList += `
+                        <div class="mb-1">
+                            <div class="d-flex align-items-center justify-content-between bg-white border rounded px-1 py-1 shadow-sm" style="font-size: 0.75rem;">
+                                <span class="text-truncate me-1 text-secondary" style="max-width: 80px;" title="${fName}">${fName}</span>
+                                <div class="d-flex align-items-center">
+                                    <button type="button" class="btn btn-info btn-sm text-white py-0 px-1 me-1" style="font-size: 0.65rem;" 
+                                            onclick="toggleInlineMedia('table_history_inline_viewer', '${safeEmbedUrl}', 'pdf')" 
+                                            title="Xem trực tiếp trên web">
+                                        <i class="fa-solid fa-file-pdf me-1"></i> Xem Inline
+                                    </button>
+                                    <a href="${downloadUrl}" download class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.65rem;" title="Tải về máy">
+                                        <i class="fa-solid fa-download"></i>
+                                    </a>
+                                </div>
+                            </div>
                         </div>
+                    `;
+                });
+                htmlList += '</div>';
+                return htmlList;
+            }
+        },
+
+        // 11. THỜI GIAN
+        { 
+            data: 'thoiGian', 
+            name: 'thoiGian',
+            orderable: true, 
+            searchable: true, 
+            render: data => `<span class="text-muted small">${data || ''}</span>` 
+        },
+
+        // 12. GHI CHÚ
+        { 
+            data: 'ghiChu', 
+            name: 'ghiChu',
+            orderable: true, 
+            searchable: true, 
+            render: data => `<span class="badge bg-light text-secondary border">${data || ''}</span>` 
+        },
+
+        // 13. THAO TÁC (SỬA / XÓA / XEM LOG)
+        { 
+            data: 'id', 
+            name: 'action_btn',
+            orderable: false, 
+            searchable: false, 
+            className: 'text-center align-middle',
+            render: (data, type, row) => {
+                const safeStr = (val) => String(val || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+                let hId     = row.id;
+                let hDot    = safeStr(row.dotId);
+                let hTsId   = safeStr(row.tsId);
+                let hTsName = safeStr(row.tsName);
+                let hPb     = safeStr(row.phong_ban);
+                let hSerial = safeStr(row.so_serial);
+                let hNguoi  = safeStr(row.nguoiKK);
+                let hKetQua = safeStr(row.ket_qua_kk);
+                let hPa     = safeStr(row.phuong_an_xl);
+                let hTep    = safeStr(row.tep_dinh_kem);
+                let hNote   = safeStr(row.ghiChu);
+                let hTime   = safeStr(row.thoiGian);
+
+                let safeParam = encodeURIComponent(JSON.stringify({
+                    id: hId, 
+                    dotId: hDot, 
+                    tsId: hTsId, 
+                    tsName: hTsName, 
+                    phong_ban: hPb, 
+                    so_serial: hSerial, 
+                    nguoiKK: hNguoi, 
+                    ket_qua_kk: hKetQua, 
+                    phuong_an_xl: hPa, 
+                    tep_dinh_kem: hTep, 
+                    ghiChu: hNote, 
+                    thoiGian: hTime
+                }));
+
+                let safeTsId = hTsId;
+
+                return `
+                    <div class="d-flex justify-content-center align-items-center">
+                        <button type="button" class="btn btn-warning btn-sm text-white me-1" onclick="openEditHistoryModal('${safeParam}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
+                        <button type="button" class="btn btn-outline-danger btn-sm me-1" onclick="deleteHistory(${hId})" title="Xóa"><i class="fa-solid fa-xmark"></i></button>
+                        <button type="button" class="btn btn-info btn-sm text-white" onclick="viewAllAuditLogs('${safeTsId}')" title="Xem Nhật Ký Tác Động"><i class="fa-solid fa-clock-rotate-left"></i></button>
                     </div>
-                </div>
-            `;
-        });
-        htmlList += '</div>';
-        return htmlList;
+                `;
+            }
+        }
+    ],
+    language: {
+        search: "Tìm kiếm:",
+        lengthMenu: "Hiển thị _MENU_ dòng",
+        info: "Hiển thị _START_ đến _END_ của _TOTAL_ dòng",
+        paginate: { first: "Đầu", last: "Cuối", next: "Sau", previous: "Trước" },
+        zeroRecords: "Không tìm thấy dữ liệu",
+        processing: "Đang tải dữ liệu..."
     }
-},
-                    { data: 'thoiGian', render: data => `<span class="text-muted small">${decryptData(data)}</span>` },
-                    { data: 'ghiChu', render: data => `<span class="badge bg-light text-secondary border">${decryptData(data)}</span>` },
-                    { 
-                        data: 'id', 
-                        className: 'text-center align-middle',
-                        render: (data, type, row) => {
-                            let hId = data;
-                            let hDot = decryptData(row.dotId) || row.dotId;
-                            let hTsId = decryptData(row.tsId) || row.tsId;
-                            let hTsName = decryptData(row.tsName) || row.tsName;
-                            let hPb = decryptData(row.phong_ban) || row.phong_ban;
-                            let hSerial = decryptData(row.so_serial) || row.so_serial;
-                            let hNguoi = decryptData(row.nguoiKK) || row.nguoiKK;
-                            let hKetQua = decryptData(row.ket_qua_kk) || row.ket_qua_kk;
-                            let hPa = decryptData(row.phuong_an_xl) || row.phuong_an_xl;
-                            let hTep = decryptData(row.tep_dinh_kem) || row.tep_dinh_kem;
-                            let hNote = decryptData(row.ghiChu) || row.ghiChu;
-                            let hTime = decryptData(row.thoiGian) || row.thoiGian;
+});
+			loadInitialCache();
+});
 
-                            let safeParam = encodeURIComponent(JSON.stringify({
-                                id: hId, dotId: hDot, tsId: hTsId, tsName: hTsName, phong_ban: hPb, so_serial: hSerial, nguoiKK: hNguoi, ket_qua_kk: hKetQua, phuong_an_xl: hPa, tep_dinh_kem: hTep, ghiChu: hNote, thoiGian: hTime
-                            }));
-							const rawTsId = row.ma_tai_san || row.ts_id || row.tsId;
-        const safeTsId = (typeof decryptData === 'function' ? decryptData(rawTsId) : rawTsId) || rawTsId;
-                            return `
-                                <button class="btn btn-warning btn-sm text-white me-1" onclick="openEditHistoryModal('${safeParam}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
-                                <button class="btn btn-outline-danger btn-sm" onclick="deleteHistory(${hId})" title="Xóa"><i class="fa-solid fa-xmark"></i></button>
-                            	<button class="btn btn-sm btn-outline-dark me-1 fa-solid fa-receipt me-1" title="Xem Nhật Ký Tác Động" onclick="viewAssetAuditLogs('${safeTsId}')"></button>
-							`;
-                        }
-                    }
-                ],
-                language: {
-                    search: "Tìm kiếm:",
-                    lengthMenu: "Hiển thị _MENU_ dòng",
-                    info: "Hiển thị _START_ đến _END_ của _TOTAL_ dòng",
-                    paginate: { first: "Đầu", last: "Cuối", next: "Sau", previous: "Trước" },
-                    zeroRecords: "Không tìm thấy dữ liệu",
-                    processing: "Đang tải dữ liệu..."
-                }
-            });
-
-            loadInitialCache();
-        });
         async function loadAssetsCache() {
             try {
                 const response = await fetch(`${API_URL}?action=data`);
