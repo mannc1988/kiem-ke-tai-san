@@ -2929,8 +2929,160 @@ async function exportAssetReportToExcel() {
                 }
             }
         }
+async function openEditHistoryModal(encodedJsonStr) {
+            const item = JSON.parse(decodeURIComponent(encodedJsonStr));
+            editHistoryFilesList = [];
+            editHistoryBase64List = [];
+            editHistoryExistingDriveUrls = item.tep_dinh_kem ? item.tep_dinh_kem.split(',').map(s => s.trim()).filter(Boolean) : [];
 
-        async function openEditHistoryModal(encodedJsonStr) {
+            let phongBanSet = new Set(['Phòng Hành Chính', 'Phòng Kế Toán', 'Phòng CNTT']);
+            danhSachTS.forEach(t => { if (t.phong_ban_quan_ly) phongBanSet.add(t.phong_ban_quan_ly); });
+            if (item.phong_ban) phongBanSet.add(item.phong_ban);
+
+            let canBoSet = new Set(['158974-Nguyễn Cao Mẩn']);
+            danhSachTS.forEach(t => { if (t.can_bo_su_dung) canBoSet.add(t.can_bo_su_dung); });
+            if (item.nguoiKK) canBoSet.add(item.nguoiKK);
+
+            let phongBanOptions = Array.from(phongBanSet).map(pb => `<option value="${pb}" ${pb === item.phong_ban ? 'selected' : ''}>${pb}</option>`).join('');
+            let canBoOptions = Array.from(canBoSet).map(cb => `<option value="${cb}" ${cb === item.nguoiKK ? 'selected' : ''}>${cb}</option>`).join('');
+
+            let ketQuaList = ['Khớp danh mục', 'Thừa tài sản', 'Thiếu tài sản', 'Hỏng/Chờ thanh lý', 'Khác'];
+            let ketQuaOptions = ketQuaList.map(kq => `<option value="${kq}" ${kq === item.ket_qua_kk ? 'selected' : ''}>${kq}</option>`).join('');
+
+            let phuongAnList = ['Giữ nguyên', 'Thu hồi', 'Điều chuyển', 'Thanh lý', 'Khác'];
+            let phuongAnOptions = phuongAnList.map(pa => `<option value="${pa}" ${pa === item.phuong_an_xl ? 'selected' : ''}>${pa}</option>`).join('');
+
+            const { value: formValues } = await Swal.fire({
+                title: `<span class="text-primary"><i class="fa-solid fa-pen-to-square me-2"></i>Sửa Lịch Sử Kiểm Kê Tài Sản</span>`,
+                html: `
+                    <div class="text-start" style="font-size: 0.95rem;">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Mã Tài Sản:</label>
+                                <input type="text" id="swal_tsId" class="form-control form-control-sm bg-light" value="${item.tsId}" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Tên Tài Sản:</label>
+                                <input type="text" id="swal_tsName" class="form-control form-control-sm bg-light" value="${item.tsName}" readonly>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Phòng Ban Quản Lý:</label>
+                                <select id="swal_phong_ban" class="form-select form-select-sm">${phongBanOptions}</select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Số Serial (Nhập tự do):</label>
+                                <input type="text" id="swal_so_serial" class="form-control form-control-sm" value="${item.so_serial || ''}">
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Cán Bộ Kiểm Kê:</label>
+                                <select id="swal_nguoiKK" class="form-select form-select-sm">${canBoOptions}</select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Kết Quả KK:</label>
+                                <select id="swal_ket_qua_kk" class="form-select form-select-sm">${ketQuaOptions}</select>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Phương Án XL:</label>
+                                <select id="swal_phuong_an_xl" class="form-select form-select-sm">${phuongAnOptions}</select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Ghi Chú (Nhập tự do):</label>
+                                <input type="text" id="swal_ghiChu" class="form-control form-control-sm" value="${item.ghiChu || ''}">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Đính Kèm Tệp/Ảnh (Google Drive):</label>
+                            <input type="file" id="swal_fileInput" class="form-control form-control-sm mb-2" accept="*/*" multiple onchange="handleEditHistoryFilesSelect(event, ${item.id})">
+                            <div id="swal_fileDetailList" class="border rounded p-3 bg-white" style="max-height: 500px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                `,
+                width: '95vw',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showCancelButton: true,
+                confirmButtonText: '<i class="fa-solid fa-floppy-disk me-1"></i> Lưu Cập Nhật DB',
+                cancelButtonText: 'Hủy',
+                confirmButtonColor: '#198754',
+                didOpen: () => {
+                    renderEditHistoryFileList(item.id);
+                },
+                preConfirm: () => {
+                    return {
+                        phong_ban: document.getElementById('swal_phong_ban').value,
+                        so_serial: document.getElementById('swal_so_serial').value.trim(),
+                        nguoiKK: document.getElementById('swal_nguoiKK').value,
+                        ket_qua_kk: document.getElementById('swal_ket_qua_kk').value,
+                        phuong_an_xl: document.getElementById('swal_phuong_an_xl').value,
+                        ghiChu: document.getElementById('swal_ghiChu').value.trim()
+                    }
+                }
+            });
+
+            if (formValues) {
+                Swal.fire({
+                    title: 'Đang lưu lịch sử...',
+                    text: 'Đang đồng bộ dữ liệu vào DB...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                let finalDriveUrls = [...editHistoryExistingDriveUrls];
+                for (let file of editHistoryFilesList) {
+                    try {
+                        let b64 = await toBase64(file);
+                        const res = await fetch(`${API_URL}?action=upload_drive`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                fileName: `History_${Date.now()}_${file.name}`,
+                                fileData: b64,
+                                mimeType: file.type
+                            })
+                        });
+                        const resJson = await res.json();
+                        if (resJson.success) {
+                            finalDriveUrls.push(resJson.url);
+                        }
+                    } catch (e) {}
+                }
+
+                const payload = {
+                    id: item.id,
+                    phong_ban: encryptData(formValues.phong_ban),
+                    so_serial: encryptData(formValues.so_serial),
+                    nguoiKK: formValues.nguoiKK,
+                    ket_qua_kk: encryptData(formValues.ket_qua_kk),
+                    phuong_an_xl: encryptData(formValues.phuong_an_xl),
+                    tep_dinh_kem: encryptData(finalDriveUrls.join(',')),
+                    ghiChu: encryptData(formValues.ghiChu)
+                };
+
+                try {
+                    const updateRes = await fetch(`${API_URL}?action=update_history`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const updateJson = await updateRes.json();
+                    if (updateJson.success) {
+                        Swal.fire({ icon: 'success', title: 'Đã cập nhật lịch sử thành công!', timer: 1200, showConfirmButton: false });
+                        refreshHistoryData();
+                    } else {
+                        Swal.fire('Lỗi', updateJson.error || 'Không thể cập nhật lịch sử!', 'error');
+                    }
+                } catch (err) {
+                    Swal.fire('Lỗi', 'Không thể kết nối máy chủ!', 'error');
+                }
+            }
+        }
+        async function openEditHistoryModal1(encodedJsonStr) {
             const item = JSON.parse(decodeURIComponent(encodedJsonStr));
             editHistoryFilesList = [];
             editHistoryBase64List = [];
