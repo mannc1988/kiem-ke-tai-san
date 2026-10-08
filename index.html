@@ -1139,16 +1139,20 @@ async function exportExcelReport() {
                         var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
                         var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
 
-                        inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="function() {
-    // 1. Ưu tiên truyền đối tượng File trực tiếp (nếu có biến `file`)
-    if (typeof file !== 'undefined' && (file instanceof File || file instanceof Blob)) {
-        viewFileOnBrowserViaBlob(file, file.name, fileInfo.mediaType);
-    } 
-    // 2. Nếu không có biến file thì dùng chuỗi Base64 (`b64`)
-    else if (typeof b64 !== 'undefined' && b64) {
-        viewFileOnBrowserViaBlob(b64, (typeof file !== 'undefined' && file.name) ? file.name : '', fileInfo.mediaType);
-    }
-};" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
+                        // Escape các chuỗi an toàn trước khi đưa vào onclick
+const safeFileName = String((typeof file !== 'undefined' && file.name) || '').replace(/'/g, "\\'");
+const safeMediaType = String(fileInfo?.mediaType || '').replace(/'/g, "\\'");
+const safeB64 = (typeof b64 !== 'undefined' && b64) ? String(b64).replace(/'/g, "\\'") : '';
+
+inlineBtnHtml = `
+    <button type="button" 
+            class="btn ${btnClass} btn-sm py-0 px-2 me-1" 
+            style="font-size: 0.75rem;" 
+            onclick="handleViewInlineFile(typeof file !== 'undefined' ? file : null, '${safeB64}', '${safeFileName}', '${safeMediaType}')" 
+            title="Xem Inline Full Width">
+        <i class="fa-solid ${btnIcon} me-1"></i> ${btnText}
+    </button>
+`;
                     }
 
                     div.innerHTML = 
@@ -1164,6 +1168,16 @@ async function exportExcelReport() {
                     container.appendChild(div);
                 });
             }
+}
+		function handleViewInlineFile(fileObj, b64Data, fileName, mediaType) {
+    // 1. Ưu tiên truyền đối tượng File/Blob trực tiếp
+    if (fileObj && (fileObj instanceof File || fileObj instanceof Blob)) {
+        viewFileOnBrowserViaBlob(fileObj, fileObj.name || fileName, mediaType);
+    } 
+    // 2. Sử dụng chuỗi Base64
+    else if (b64Data) {
+        viewFileOnBrowserViaBlob(b64Data, fileName || '', mediaType);
+    }
 }
 		async function viewFileOnBrowserViaBlob(fileOrUrl, fileName, mediaType) {
     var elementPrefixId = 'asset_form_inline_viewer_container';
