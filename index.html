@@ -972,22 +972,7 @@ async function exportExcelReport() {
     }
     return 'pdf';
 }
-        function renderImageDetailList() {
-    var container = document.getElementById("imageDetailList");
-    var inlineContainer = document.getElementById("asset_form_inline_viewer_container");
-    var currentActiveSrc = inlineContainer ? (inlineContainer.dataset.activeSrc || "") : "";
-
-    container.innerHTML = "";
-
-    if (tempFilesList.length === 0 && existingDriveUrls.length === 0) {
-        var emptySpan = document.createElement("span");
-        emptySpan.className = "text-muted small fst-italic";
-        emptySpan.textContent = "Chưa có tệp đính kèm nào.";
-        container.appendChild(emptySpan);
-        return;
-    }
-
-    // 1. Hàm nhận diện cấu hình Icon & Loại Media chuẩn FontAwesome
+		// 1. Hàm nhận diện cấu hình Icon & Loại Media chuẩn FontAwesome
     function getFileInfo(fileNameOrUrl) {
         if (!fileNameOrUrl) {
             return { mediaType: "pdf", iconClass: "fa-solid fa-file-pdf text-danger" };
@@ -1020,6 +1005,20 @@ async function exportExcelReport() {
         }
         // PDF (Mặc định)
         return { mediaType: "pdf", iconClass: "fa-solid fa-file-pdf text-danger" };
+    }
+        function renderImageDetailList() {
+    var container = document.getElementById("imageDetailList");
+    var inlineContainer = document.getElementById("asset_form_inline_viewer_container");
+    var currentActiveSrc = inlineContainer ? (inlineContainer.dataset.activeSrc || "") : "";
+
+    container.innerHTML = "";
+
+    if (tempFilesList.length === 0 && existingDriveUrls.length === 0) {
+        var emptySpan = document.createElement("span");
+        emptySpan.className = "text-muted small fst-italic";
+        emptySpan.textContent = "Chưa có tệp đính kèm nào.";
+        container.appendChild(emptySpan);
+        return;
     }
 
     // 2. HIỂN THỊ DANH SÁCH TỆP ĐÃ CÓ TRÊN GOOGLE DRIVE
