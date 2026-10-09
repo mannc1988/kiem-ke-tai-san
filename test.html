@@ -3345,6 +3345,49 @@ html5QrcodeScanner.render(onScanSuccess, (err) => {});
             reader.readAsArrayBuffer(file);
         }
     </script>
+	<!-- Modal Nhật Ký Tác Động Tài Sản -->
+<div class="modal fade" id="auditLogModal" tabindex="-1" aria-labelledby="auditLogModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content rounded-1 shadow-lg">
+            <!-- Header Modal Tối Màu -->
+            <div class="modal-header bg-dark text-white py-2 px-3">
+                <h6 class="modal-title d-flex align-items-center fw-bold" id="auditLogModalLabel">
+                    <i class="fa-solid fa-book-open text-warning me-2"></i>
+                    Nhật Ký Tác Động Tài Sản - <span id="modalAssetCodeTitle" class="text-warning ms-1">Tất Cả</span>
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <!-- Body Modal Chứa Bảng DataTables -->
+            <div class="modal-body p-3">
+                <!-- Container Xem Trực Tiếp Tệp Đính Kèm Inline (nếu có) -->
+                <div id="swal_file_inline_viewer_container" class="mb-3 d-none"></div>
+
+                <div class="table-responsive">
+                    <table id="auditLogDataTable" class="table table-bordered align-middle w-100" style="font-size: 0.82rem; color: #212529;">
+                        <thead>
+                            <tr style="background-color: #f8f9fa; color: #495057; font-weight: 600;">
+                                <th class="text-center" style="width: 40px;">STT</th>
+                                <th class="text-center" style="width: 120px;">THỜI GIAN</th>
+                                <th class="text-center" style="width: 100px;">HÀNH ĐỘNG</th>
+                                <th class="text-center" style="width: 130px;">NGƯỜI THỰC HIỆN</th>
+                                <th>CHI TIẾT THAY ĐỔI / GHI CHÚ</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="modal-footer py-1 px-3 bg-light justify-content-between">
+                <button type="button" class="btn btn-outline-success btn-sm fw-semibold" onclick="exportAuditLogsToExcel()">
+                    <i class="fa-solid fa-file-excel me-1"></i> Xuất Log Excel
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
 	<!-- Modal Bảng Nhật Ký Tác Động Tài Sản -->
 <div class="modal fade" id="modalAssetAuditLogs" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
