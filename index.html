@@ -3217,7 +3217,11 @@ async function openEditHistoryModal(encodedJsonStr) {
                         var btnClass = isCurrentlyViewing ? 'btn-dark' : 'btn-info text-white';
                         var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
                         var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
-
+                        // Escape các chuỗi an toàn trước khi đưa vào onclick
+const safeFileName = String((typeof file !== 'undefined' && file.name) || '').replace(/'/g, "\\'");
+const safeMediaType = String(fileInfo?.mediaType || '').replace(/'/g, "\\'");
+const safeB64 = (typeof b64 !== 'undefined' && b64) ? String(b64).replace(/'/g, "\\'") : '';
+						
                         inlineBtnHtml = `
     <button type="button" 
             class="btn ${btnClass} btn-sm py-0 px-2 me-1" 
