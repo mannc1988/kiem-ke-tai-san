@@ -3218,7 +3218,16 @@ async function openEditHistoryModal(encodedJsonStr) {
                         var btnIcon = isCurrentlyViewing ? 'fa-eye-slash' : (isPdf ? 'fa-file-pdf' : 'fa-file-image');
                         var btnText = isCurrentlyViewing ? 'Đang xem...' : 'Xem Inline';
 
-                        inlineBtnHtml = '<button type="button" class="btn ' + btnClass + ' btn-sm py-0 px-2 me-1" style="font-size: 0.75rem;" onclick="toggleInlineMedia(\'swal_file_inline_viewer_container\', \'' + safeB64 + '\', \'' + (isPdf ? 'pdf' : 'image') + '\', \'' + safeName + '\')" title="Xem Inline Full Width"><i class="fa-solid ' + btnIcon + ' me-1"></i> ' + btnText + '</button>';
+                        inlineBtnHtml = `
+    <button type="button" 
+            class="btn ${btnClass} btn-sm py-0 px-2 me-1" 
+            style="font-size: 0.75rem;" 
+            onclick="handleViewInlineFile(typeof file !== 'undefined' ? file : null, '${safeB64}', '${safeFileName}', '${safeMediaType}')" 
+            title="Xem Inline Full Width">
+        <i class="fa-solid ${btnIcon} me-1"></i> ${btnText}
+    </button>
+`;
+
                     }
 
                     div.innerHTML = 
