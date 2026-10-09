@@ -558,7 +558,7 @@ async function viewAllAuditLogs(assetId) {
         const rawLogs = result.data || [];
 
         // 6. Reset khung xem file inline nếu đang mở
-        const $viewer =$('#swal_file_inline_viewer_container');
+        const $viewer =$('#swal_file_inline_viewer_container1');
         if ($viewer.length) {$viewer.addClass('d-none').html('');
             delete $viewer[0].dataset.activeSrc;
         }
