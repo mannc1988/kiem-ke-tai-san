@@ -3206,6 +3206,7 @@ async function openEditHistoryModal(encodedJsonStr) {
 
                     var b64 = editHistoryBase64List[idx];
                     var isCurrentlyViewing = (currentActiveSrc === b64);
+					var fileInfo = getFileInfo(file.name || b64);
                     var safeName = file.name.replace(/'/g, "\\'");
                     var safeB64 = b64 ? b64.replace(/'/g, "\\'") : '';
 
