@@ -201,9 +201,19 @@
                             <input type="hidden" id="hinh_anh_url" value="">
                         </div>
                         <div class="col-md-6 text-end d-flex align-items-end justify-content-end ms-auto">
-                            <button type="button" class="btn btn-secondary btn-sm px-3 me-2" onclick="resetForm()"><i class="fa-solid fa-rotate-left me-1"></i> Làm mới</button>
-                            <button type="submit" class="btn btn-success btn-sm px-4"><i class="fa-solid fa-floppy-disk me-1"></i> Cập Nhật Dữ Liệu DB</button>
-                        </div>
+    <button type="button" class="btn btn-outline-info btn-sm px-3 me-2 fw-semibold" onclick="viewAllAuditLogs()">
+        <i class="fa-solid fa-clock-rotate-left me-1"></i> Xem Tất Cả Log
+    </button>
+    <button type="button" class="btn btn-outline-success btn-sm px-3 me-2 fw-semibold" onclick="exportAssetReportToExcel()">
+        <i class="fa-solid fa-file-excel me-1"></i> Xuất Báo Cáo
+    </button>
+    <button type="button" class="btn btn-secondary btn-sm px-3 me-2" onclick="resetForm()">
+        <i class="fa-solid fa-rotate-left me-1"></i> Làm mới
+    </button>
+    <button type="submit" class="btn btn-success btn-sm px-4">
+        <i class="fa-solid fa-floppy-disk me-1"></i> Cập Nhật Dữ Liệu DB
+    </button>
+</div>
 
                         <div class="col-12 d-none" id="asset_form_inline_viewer_container"></div>
                     </div>
