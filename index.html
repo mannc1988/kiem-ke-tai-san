@@ -558,7 +558,7 @@ async function viewAllAuditLogs(assetId) {
         const rawLogs = result.data || [];
 
         // 6. Reset khung xem file inline nếu đang mở
-        const $viewer =$('#swal_file_inline_viewer_container1');
+        const $viewer =$('#swal_file_inline_viewer_container_1');
         if ($viewer.length) {$viewer.addClass('d-none').html('');
             delete $viewer[0].dataset.activeSrc;
         }
@@ -3771,7 +3771,7 @@ html5QrcodeScanner.render(onScanSuccess, (err) => {});
             <!-- Body Modal Chứa Bảng DataTables -->
             <div class="modal-body p-3">
                 <!-- Container Xem Trực Tiếp Tệp Đính Kèm Inline (nếu có) -->
-                <div id="swal_file_inline_viewer_container1" class="mb-3 d-none"></div>
+                <div id="swal_file_inline_viewer_container_1" class="mb-3 d-none"></div>
 
                 <div class="table-responsive">
                     <table id="auditLogDataTable" class="table table-bordered align-middle w-100" style="font-size: 0.82rem; color: #212529;">
