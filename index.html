@@ -1231,7 +1231,68 @@ inlineBtnHtml = `
     }
 }
 
+function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
+    // 1. Ưu tiên truyền đối tượng File/Blob trực tiếp
+    if (fileObj && (fileObj instanceof File || fileObj instanceof Blob)) {
+        viewFileOnBrowserViaBlob(fileObj, fileObj.name || fileName, mediaType);
+    } 
+    // 2. Sử dụng chuỗi Base64
+    else if (b64Data) {
+        viewFileOnBrowserViaBlob(b64Data, fileName || '', mediaType);
+    }
+}
+		async function viewFileOnBrowserViaBlobHis(fileOrUrl, fileName, mediaType) {
+    var elementPrefixId = 'swal_file_inline_viewer_container';
+    var targetContainer = document.getElementById(elementPrefixId);
+    if (!targetContainer) return;
 
+    var blobUrl = '';
+    var nameToDisplay = fileName || 'Tài liệu xem trực tiếp';
+
+    try {
+        // 1. Nếu tham số là một đối tượng File/Blob (từ )
+        if (fileOrUrl instanceof File || fileOrUrl instanceof Blob) {
+            blobUrl = URL.createObjectURL(fileOrUrl);
+            if (!fileName) nameToDisplay = fileOrUrl.name;
+        } 
+        // 2. Nếu là chuỗi Base64
+        else if (typeof fileOrUrl === 'string' && fileOrUrl.indexOf('data:') === 0) {
+            var parts = fileOrUrl.split(',');
+            var mimeMatch = parts[0].match(/:(.*?);/);
+            var mime = mimeMatch ? mimeMatch[1] : (mediaType === 'image' ? 'image/png' : 'application/pdf');
+            var base64Data = parts[1];
+            var binaryStr = atob(base64Data);
+            var len = binaryStr.length;
+            var bytes = new Uint8Array(len);
+            for (var i = 0; i < len; i++) {
+                bytes[i] = binaryStr.charCodeAt(i);
+            }
+            var blob = new Blob([bytes], { type: mime });
+            blobUrl = URL.createObjectURL(blob);
+        }
+        // 3. Nếu là Blob URL sẵn có
+        else if (typeof fileOrUrl === 'string' && fileOrUrl.indexOf('blob:') === 0) {
+            blobUrl = fileOrUrl;
+        }
+        // 4. Nếu là đường dẫn URL thông thường -> Fetch về chuyển sang Blob URL
+        else if (typeof fileOrUrl === 'string' && (fileOrUrl.indexOf('http://') === 0 || fileOrUrl.indexOf('https://') === 0)) {
+            var response = await fetch(fileOrUrl);
+            var responseBlob = await response.blob();
+            blobUrl = URL.createObjectURL(responseBlob);
+        }
+
+        if (blobUrl) {
+            // Gọi hàm render toggleInlineMedia với Blob URL đã chuẩn hóa
+            toggleInlineMedia(elementPrefixId, blobUrl, mediaType, nameToDisplay);
+        } else {
+            console.error('Không thể tạo Blob URL cho tệp:', fileOrUrl);
+        }
+    } catch (error) {
+        console.error('Lỗi khi tải và chuyển đổi tệp sang Blob URL:', error);
+        // Fallback gọi hàm cơ bản nếu fetch bị lỗi CORS
+        toggleInlineMedia(elementPrefixId, fileOrUrl, mediaType, nameToDisplay);
+    }
+}
         
         async function deleteDriveFileDirectly(fileUrl, index, context = 'asset', historyId = null) {
             if (!fileUrl || typeof fileUrl !== 'string') {
@@ -3226,7 +3287,7 @@ const safeB64 = (typeof b64 !== 'undefined' && b64) ? String(b64).replace(/'/g, 
     <button type="button" 
             class="btn ${btnClass} btn-sm py-0 px-2 me-1" 
             style="font-size: 0.75rem;" 
-            onclick="handleViewInlineFile(typeof file !== 'undefined' ? file : null, '${safeB64}', '${safeFileName}', '${safeMediaType}')" 
+            onclick="handleViewInlineFileHis(typeof file !== 'undefined' ? file : null, '${safeB64}', '${safeFileName}', '${safeMediaType}')" 
             title="Xem Inline Full Width">
         <i class="fa-solid ${btnIcon} me-1"></i> ${btnText}
     </button>
