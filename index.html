@@ -1234,11 +1234,11 @@ inlineBtnHtml = `
 function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
     // 1. Ưu tiên truyền đối tượng File/Blob trực tiếp
     if (fileObj && (fileObj instanceof File || fileObj instanceof Blob)) {
-        viewFileOnBrowserViaBlob(fileObj, fileObj.name || fileName, mediaType);
+        viewFileOnBrowserViaBlobHis(fileObj, fileObj.name || fileName, mediaType);
     } 
     // 2. Sử dụng chuỗi Base64
     else if (b64Data) {
-        viewFileOnBrowserViaBlob(b64Data, fileName || '', mediaType);
+        viewFileOnBrowserViaBlobHis(b64Data, fileName || '', mediaType);
     }
 }
 		async function viewFileOnBrowserViaBlobHis(fileOrUrl, fileName, mediaType) {
