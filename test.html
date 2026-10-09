@@ -350,7 +350,214 @@
             if (plainText === undefined || plainText === null || plainText === '') return '';
             return CryptoJS.AES.encrypt(plainText.toString(), SECRET_KEY).toString();
         }
+		async function viewAllAuditLogs(assetId) {
+    try {
+        // 1. Cập nhật Tiêu đề Mã tài sản trên Header Modal
+        const $titleElem =$('#modalAssetCodeTitle');
+        if ($titleElem.length) {$titleElem.text(assetId ? assetId : 'Tất Cả');
+        }
 
+        // 2. Hiển thị Loading trong khi gọi API
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Đang tải nhật ký tác động...',
+                html: '<div class="spinner-border text-primary" role="status"></div>',
+                allowOutsideClick: false,
+                showConfirmButton: false
+            });
+        }
+
+        // 3. Chuẩn bị payload (mã hóa nếu client dùng hàm encryptData)
+        let payloadTsId = '';
+        if (assetId) {
+            payloadTsId = typeof encryptData === 'function' ? encryptData(assetId) : assetId;
+        }
+
+        // 4. Gọi API Backend bằng biến API_URL đã khai báo
+        const endpoint = `${API_URL}?action=get_asset_logs`;
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                action: 'get_asset_logs',
+                ts_id: payloadTsId 
+            })
+        });
+
+        // 5. Kiểm tra Content-Type tránh lỗi HTML Error
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            const htmlText = await response.text();
+            console.error("Server trả về HTML thay vì JSON:", htmlText);
+            throw new Error(`Server Vercel phản hồi lỗi HTML (HTTP ${response.status}). Vui lòng kiểm tra lại action API!`);
+        }
+
+        const result = await response.json();
+
+        if (typeof Swal !== 'undefined') {
+            Swal.close();
+        }
+
+        if (!result.success) {
+            throw new Error(result.error || result.message || 'Không thể lấy dữ liệu nhật ký tác động!');
+        }
+
+        const rawLogs = result.data || [];
+
+        // 6. Reset khung xem file inline nếu đang mở
+        const $viewer =$('#swal_file_inline_viewer_container');
+        if ($viewer.length) {$viewer.addClass('d-none').html('');
+            delete $viewer[0].dataset.activeSrc;
+        }
+
+        // 7. Hủy Instance DataTable cũ nếu đã tồn tại
+        if ($.fn.DataTable.isDataTable('#auditLogDataTable')) {
+            $('#auditLogDataTable').DataTable().destroy();
+            $('#auditLogDataTable tbody').empty();
+        }
+
+        // Helper Format Thời Gian: hh:mm:ss dd/MM/yyyy
+        const formatDateTime = (dateVal) => {
+            if (!dateVal) return '-';
+            
+            let dateObj = new Date(dateVal);
+            // Trường hợp chuỗi dạng "19:01:26 6/10/2026" hoặc không khớp chuẩn ISO
+            if (isNaN(dateObj.getTime())) {
+                const parts = String(dateVal).split(' ');
+                if (parts.length === 2) {
+                    const timePart = parts[0];
+                    const datePart = parts[1].split('/');
+                    if (datePart.length === 3) {
+                        dateObj = new Date(`${datePart[2]}-${datePart[1].padStart(2, '0')}-${datePart[0].padStart(2, '0')}T${timePart}`);
+                    }
+                }
+            }
+
+            if (isNaN(dateObj.getTime())) return String(dateVal); // Trả về chuỗi gốc nếu không parse được
+
+            const hh = String(dateObj.getHours()).padStart(2, '0');
+            const mm = String(dateObj.getMinutes()).padStart(2, '0');
+            const ss = String(dateObj.getSeconds()).padStart(2, '0');
+            const DD = String(dateObj.getDate()).padStart(2, '0');
+            const MM = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const YYYY = dateObj.getFullYear();
+
+            return `${hh}:${mm}:${ss} ${DD}/${MM}/${YYYY}`;
+        };
+
+        // 8. Khởi tạo DataTables Plugin cho bảng Log trong Modal
+        const auditLogTable = $('#auditLogDataTable').DataTable({
+            data: rawLogs,
+            pageLength: 10,
+            lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Tất cả"]],
+            order: [[1, 'desc']], // Sắp xếp thời gian mới nhất lên đầu
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/vi.json',
+                search: "Tìm kiếm nhật ký:"
+            },
+            columns: [
+                { 
+                    data: null, 
+                    className: 'text-center text-secondary',
+                    render: (d, t, r, meta) => meta.row + 1 
+                },
+                { 
+                    data: 'created_at',
+                    className: 'text-center text-nowrap font-monospace',
+                    render: (d, t, r) => formatDateTime(d || r.timestamp || r.thoi_gian)
+                },
+                { 
+                    data: 'action_type',
+                    className: 'text-center',
+                    render: (d, t, r) => {
+                        const act = (d || r.action || 'Cập nhật').toString().trim();
+                        return `<span class="badge bg-warning text-dark px-2 py-1" style="font-size: 0.75rem; font-weight: 600;">${act}</span>`;
+                    }
+                },
+                { 
+                    data: 'performed_by',
+                    className: 'text-center fw-bold text-dark',
+                    render: (d, t, r) => d || r.user || r.nguoi_thuc_hien || 'Hệ thống' 
+                },
+                { 
+    data: 'note',
+    render: (d, t, r) => {
+        const noteText = d || r.details || r.noi_dung || 'Cập nhật nội dung bản ghi';
+        
+        const formatData = (dataObj) => {
+            if (!dataObj) return '';
+            if (typeof dataObj === 'object') return JSON.stringify(dataObj);
+            return String(dataObj);
+        };
+
+        const oldStr = formatData(r.old_data);
+        const newStr = formatData(r.new_data);
+
+        let html = `<div class="mb-1">${noteText}</div>`;
+
+        if (oldStr) {
+            html += `<div style="color: #dc3545; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Cũ:</b> ${oldStr}</div>`;
+        }
+        if (newStr) {
+            html += `<div style="color: #198754; font-family: monospace; font-size: 0.8rem; word-break: break-all;"><b>Mới:</b> ${newStr}</div>`;
+        }
+
+        // Lấy chuỗi chứa liên kết tệp đính kèm
+        const rawFileStr = r.file_url || r.tep_dinh_kem || (r.new_data && r.new_data.tep_dinh_kem) || '';
+        
+        if (rawFileStr) {
+            // Tách các URL bằng dấu phẩy và lọc bỏ khoảng trắng thừa
+            const fileList = String(rawFileStr).split(',').map(u => u.trim()).filter(u => u.length > 0);
+            
+            if (fileList.length > 0) {
+                html += `<div class="mt-2 d-flex flex-wrap gap-1 align-items-center">`;
+                html += `<small class="text-muted fw-bold me-1"><i class="fa-solid fa-paperclip"></i> Tệp đính kèm (${fileList.length}):</small>`;
+                
+                fileList.forEach((url, index) => {
+                    // Nếu có nhiều file thì đánh số Tệp 1, Tệp 2..., nếu 1 file thì để "Xem tệp"
+                    const btnLabel = fileList.length > 1 ? `Tệp ${index + 1}` : `Xem tệp đính kèm`;
+                    
+                    html += `
+                        <button type="button" 
+                                class="btn btn-sm btn-outline-primary py-0 px-2" 
+                                style="font-size: 0.72rem; border-radius: 4px;"
+                                onclick="toggleInlineMedia('swal_file_inline_viewer_container', '${url}', 'pdf', 'Tep_${index + 1}')">
+                            <i class="fa-solid fa-file-lines me-1"></i>${btnLabel}
+                        </button>`;
+                });
+                
+                html += `</div>`;
+            }
+        }
+
+        return html;
+    }
+}
+            ]
+        });
+
+        // 9. Mở Bootstrap Modal
+        const modalElem = document.getElementById('auditLogModal');
+        if (modalElem) {
+            const bsModal = bootstrap.Modal.getOrCreateInstance(modalElem);
+            bsModal.show();
+
+            $(modalElem).off('shown.bs.modal').on('shown.bs.modal', function () {
+                auditLogTable.columns.adjust().draw();
+            });
+        }
+
+    } catch (err) {
+        console.error("Lỗi khi tải nhật ký tác động từ API:", err);
+        if (typeof Swal !== 'undefined') {
+            Swal.fire('Lỗi API', err.message, 'error');
+        } else {
+            alert('Lỗi API: ' + err.message);
+        }
+    }
+}
         function decryptData(cipherText) {
             if (!cipherText) return '';
             try {
