@@ -3756,5 +3756,61 @@ html5QrcodeScanner.render(onScanSuccess, (err) => {});
             reader.readAsArrayBuffer(file);
         }
     </script>
+	<!-- Modal Nhật Ký Tác Động Tài Sản (Dùng chung duy nhất 1 Modal) -->
+<div class="modal fade" id="auditLogModal" tabindex="-1" aria-labelledby="auditLogModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content rounded-1 shadow-lg">
+            
+            <!-- Header Modal Tối Màu -->
+            <div class="modal-header bg-dark text-white py-2 px-3">
+                <h6 class="modal-title d-flex align-items-center fw-bold" id="auditLogModalLabel">
+                    <i class="fa-solid fa-book-open text-warning me-2"></i>
+                    Nhật Ký Tác Động Tài Sản - <span id="modalAssetCodeTitle" class="text-warning ms-1">Tất Cả</span>
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- Body Modal Chứa Bảng Nhật Ký & Inline Viewer -->
+            <div class="modal-body p-3">
+                
+                <!-- Container Xem Trực Tiếp Tệp Đính Kèm Inline -->
+                <div id="swal_file_inline_viewer_container" class="mb-3 d-none border rounded p-2 bg-light shadow-sm position-relative">
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                        <span class="fw-bold text-primary small"><i class="fa-solid fa-paperclip me-1"></i> Xem trước tệp đính kèm</span>
+                        <button type="button" class="btn-close btn-sm" onclick="$('#swal_file_inline_viewer_container').addClass('d-none').empty();" aria-label="Close"></button>
+                    </div>
+                    <div id="inline_viewer_content" class="w-100" style="min-height: 250px; max-height: 450px; overflow-y: auto;">
+                        <!-- Nội dung preview file (Iframe/Image) sẽ được render tại đây -->
+                    </div>
+                </div>
+
+                <!-- Bảng DataTables Lịch Sử -->
+                <div class="table-responsive">
+                    <table id="auditLogDataTable" class="table table-bordered table-hover align-middle w-100" style="font-size: 0.82rem; color: #212529;">
+                        <thead>
+                            <tr style="background-color: #f8f9fa; color: #495057; font-weight: 600;">
+                                <th class="text-center" style="width: 50px;">STT</th>
+                                <th class="text-center" style="width: 140px;">THỜI GIAN</th>
+                                <th class="text-center" style="width: 110px;">HÀNH ĐỘNG</th>
+                                <th class="text-center" style="width: 140px;">NGƯỜI THỰC HIỆN</th>
+                                <th>CHI TIẾT THAY ĐỔI / GHI CHÚ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyAssetLogs"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="modal-footer py-1 px-3 bg-light justify-content-between">
+                <button type="button" class="btn btn-outline-success btn-sm fw-semibold" onclick="exportAuditLogsToExcel()">
+                    <i class="fa-solid fa-file-excel me-1"></i> Xuất Log Excel
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">Đóng</button>
+            </div>
+
+        </div>
+    </div>
+</div>
 </body>
 </html>
