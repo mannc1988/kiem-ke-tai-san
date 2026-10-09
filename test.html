@@ -350,6 +350,149 @@
             if (plainText === undefined || plainText === null || plainText === '') return '';
             return CryptoJS.AES.encrypt(plainText.toString(), SECRET_KEY).toString();
         }
+		async function exportAuditLogsToExcel() {
+    try {
+        const tableSelector = '#auditLogDataTable';
+        
+        // 1. Kiểm tra bảng DataTables đã khởi tạo chưa
+        if (!$.fn.DataTable.isDataTable(tableSelector)) {
+            Swal.fire('Thông báo', 'Bảng nhật ký tác động chưa sẵn sàng!', 'warning');
+            return;
+        }
+
+        const table = $(tableSelector).DataTable();
+
+        // 2. Lấy toàn bộ dữ liệu đang có/hiển thị trên DataTables (bao gồm dữ liệu đã lọc qua ô search)
+        const logData = table.rows({ search: 'applied' }).data().toArray();
+
+        if (!logData || logData.length === 0) {
+            Swal.fire('Thông báo', 'Không có dữ liệu log để xuất!', 'warning');
+            return;
+        }
+
+        // 3. Khởi tạo Workbook ExcelJS
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('NhatKyTacDong');
+
+        // Cấu hình danh sách cột theo đúng giao diện Modal Log
+        worksheet.columns = [
+            { header: 'STT', key: 'stt', width: 8 },
+            { header: 'Thời Gian', key: 'time', width: 22 },
+            { header: 'Hành Động', key: 'action', width: 15 },
+            { header: 'Người Thực Hiện', key: 'user', width: 22 },
+            { header: 'Nội Dung / Ghi Chú', key: 'note', width: 35 },
+            { header: 'Dữ Liệu Cũ', key: 'oldData', width: 45 },
+            { header: 'Dữ Liệu Mới', key: 'newData', width: 45 },
+            { header: 'Tệp Đính Kèm', key: 'fileUrl', width: 35 }
+        ];
+
+        // Helper làm sạch HTML & giải mã
+        const parser = new DOMParser();
+        const cleanText = (val) => {
+            if (val === null || val === undefined) return '';
+            let str = String(val).trim();
+            if (!str) return '';
+            
+            if (typeof decryptData === 'function') {
+                try {
+                    const dec = decryptData(str);
+                    if (dec) str = String(dec);
+                } catch (e) {}
+            }
+
+            if (typeof str === 'object') return JSON.stringify(str);
+            const doc = parser.parseFromString(str, 'text/html');
+            return doc.body.textContent || str;
+        };
+
+        // Helper format thời gian HH:mm:ss dd/MM/yyyy
+        const formatDateTime = (dateVal) => {
+            if (!dateVal) return '-';
+            let dateObj = new Date(dateVal);
+            if (isNaN(dateObj.getTime())) return String(dateVal);
+
+            const hh = String(dateObj.getHours()).padStart(2, '0');
+            const mm = String(dateObj.getMinutes()).padStart(2, '0');
+            const ss = String(dateObj.getSeconds()).padStart(2, '0');
+            const DD = String(dateObj.getDate()).padStart(2, '0');
+            const MM = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const YYYY = dateObj.getFullYear();
+
+            return `${hh}:${mm}:${ss} ${DD}/${MM}/${YYYY}`;
+        };
+
+        // 4. Đổ dữ liệu từ DataTable vào từng dòng Excel
+        logData.forEach((row, idx) => {
+            const rawTime = row.created_at || row.timestamp || row.thoi_gian || '';
+            const rawAction = row.action_type || row.action || row.hanh_dong || 'Cập nhật';
+            const rawUser = row.performed_by || row.user || row.nguoi_thuc_hien || 'Hệ thống';
+            const rawNote = row.note || row.details || row.noi_dung || '';
+            
+            const oldStr = row.old_data ? (typeof row.old_data === 'object' ? JSON.stringify(row.old_data) : String(row.old_data)) : '';
+            const newStr = row.new_data ? (typeof row.new_data === 'object' ? JSON.stringify(row.new_data) : String(row.new_data)) : '';
+            const fileStr = row.file_url || row.tep_dinh_kem || (row.new_data && row.new_data.tep_dinh_kem) || '';
+
+            worksheet.addRow({
+                stt: idx + 1,
+                time: formatDateTime(rawTime),
+                action: cleanText(rawAction),
+                user: cleanText(rawUser),
+                note: cleanText(rawNote),
+                oldData: cleanText(oldStr),
+                newData: cleanText(newStr),
+                fileUrl: cleanText(fileStr)
+            });
+        });
+
+        // 5. Định dạng Header màu tối (dark header) giống giao diện
+        const headerRow = worksheet.getRow(1);
+        headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '212529' } };
+        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+        // 6. Kẻ khung và thiết lập căn chỉnh
+        worksheet.eachRow((row, rNum) => {
+            row.eachCell((cell) => {
+                cell.border = {
+                    top: { style: 'thin' }, left: { style: 'thin' },
+                    bottom: { style: 'thin' }, right: { style: 'thin' }
+                };
+                if (rNum > 1) cell.alignment = { vertical: 'middle', wrapText: true };
+            });
+        });
+
+        // 7. Tạo file và kích hoạt tải về
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+        const now = new Date();
+        const dateStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
+        const fileName = `Bao_Cao_Nhat_Ky_Tac_Dong_${dateStr}.xlsx`;
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Xuất Báo Cáo Thành Công!',
+                text: `Đã xuất ${logData.length} bản ghi log ra file ${fileName}.`,
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+
+    } catch (err) {
+        console.error("Lỗi xuất Excel Audit Log:", err);
+        Swal.fire('Lỗi', 'Không thể xuất file Excel: ' + err.message, 'error');
+    }
+}
 		async function viewAllAuditLogs(assetId) {
     try {
         // 1. Cập nhật Tiêu đề Mã tài sản trên Header Modal
