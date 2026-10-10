@@ -1435,9 +1435,42 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
                 osc.stop(ctx.currentTime + 0.15);
             } catch (e) {}
         }
+		function viewAssetDetail(row) {
+    const fmtMoney = val => val ? Number(val).toLocaleString('vi-VN') + ' đ' : '0 đ';
+    const fmtDate = val => (val && typeof formatDateToDMY === 'function') ? formatDateToDMY(val) : (val || '-');
+
+    let html = `
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle mb-0">
+                <tbody>
+                    <tr><th style="width: 35%;">Mã tài sản</th><td><span class="badge bg-secondary">${row.ma_tai_san || '-'}</span></td></tr>
+                    <tr><th>Tên tài sản</th><td class="fw-bold text-primary">${row.ten_tai_san || '-'}</td></tr>
+                    <tr><th>Đơn vị</th><td>${row.don_vi || '-'}</td></tr>
+                    <tr><th>Nhóm tài sản</th><td>${row.nhom_tai_san || '-'}</td></tr>
+                    <tr><th>Nguyên giá</th><td class="text-success fw-semibold">${fmtMoney(row.nguyen_gia)}</td></tr>
+                    <tr><th>Hao mòn lũy kế</th><td class="text-danger">${fmtMoney(row.hao_mon_luy_ke)}</td></tr>
+                    <tr><th>Giá trị còn lại</th><td class="text-primary fw-semibold">${fmtMoney(row.gia_tri_con_lai)}</td></tr>
+                    <tr><th>Ngày đưa vào SD</th><td>${fmtDate(row.ngay_dua_vao_sd)}</td></tr>
+                    <tr><th>Trạng thái sử dụng</th><td><span class="badge bg-success-subtle text-success border">${row.trang_thai_sd || '-'}</span></td></tr>
+                    <tr><th>Trạng thái quyết toán</th><td><span class="badge bg-primary-subtle text-primary border">${row.trang_thai_qt || '-'}</span></td></tr>
+                    <tr><th>Bộ sổ</th><td>${row.bo_so || '-'}</td></tr>
+                    <tr><th>Cán bộ sử dụng</th><td>${row.can_bo_su_dung || '-'}</td></tr>
+                    <tr><th>Phòng ban quản lý</th><td>${row.phong_ban_quan_ly || '-'}</td></tr>
+                    <tr><th>Số Serial</th><td><span class="badge bg-light text-dark border">${row.so_serial || '-'}</span></td></tr>
+                    <tr><th>Thời gian Import</th><td>${row.import_at || '-'}</td></tr>
+                    <tr><th>Tệp đính kèm</th><td>${row.hinh_anh || '<span class="text-muted fst-italic">Không có tệp</span>'}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    \$('#assetDetailModalBody').html(html);
+    let modal = new bootstrap.Modal(document.getElementById('assetDetailModal'));
+    modal.show();
+}
 
         $(document).ready(function() {
-            assetsTable = $('#assetsTable').DataTable({
+            assetsTable = \$('#assetsTable').DataTable({
     serverSide: true,
     processing: true,
     scrollX: true,
@@ -1558,7 +1591,7 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
         // 17. THỜI GIAN IMPORT
         { data: 'import_at', name: 'import_at', orderable: true, searchable: true, render: data => `<small class="text-muted">${data || ''}</small>` },
 
-        // 18. THAO TÁC (LOG / SỬA / XÓA)
+        // 18. THAO TÁC (LOG / XEM / SỬA / XÓA)
         { 
             data: 'ma_tai_san', 
             name: 'action_btn',
@@ -1585,19 +1618,27 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
                 let hA  = safeStr(row.hinh_anh);
                 let iAt = safeStr(row.import_at);
 
+                // Mã hóa JSON để truyền an toàn vào hàm viewAssetDetail
+                let rowJson = JSON.stringify(row).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+
                 return `
-						<div class="d-flex justify-content-center align-items-center">
+                    <div class="d-flex justify-content-center align-items-center">
+                        <button type="button" class="btn btn-primary btn-sm me-1" 
+                                onclick='viewAssetDetail(${rowJson})' 
+                                title="Xem chi tiết tất cả cột">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
                         <button type="button" class="btn btn-warning btn-sm text-white me-1" 
                                 onclick="editAsset('${mAs}', '${dV}', '${tTs}', '${nTs}', '${nG}', '${hM}', '${gCL}', '${nSD}', '${tT}', '${tQt}', '${bS}', '${cB}', '${pB}', '${sS}', '${hA}', '${iAt}')" 
                                 title="Sửa tài sản">
                             <i class="fa-solid fa-pen"></i>
                         </button>
-                        <button type="button" class="btn btn-danger btn-sm" 
+                        <button type="button" class="btn btn-danger btn-sm me-1" 
                                 onclick="deleteAsset('${mAs}')" 
                                 title="Xóa tài sản">
                             <i class="fa-solid fa-trash"></i>
                         </button>
-                        <button type="button" class="btn btn-outline-info btn-sm me-1" 
+                        <button type="button" class="btn btn-outline-info btn-sm" 
                                 onclick="viewAllAuditLogs('${mAs}')" 
                                 title="Xem nhật ký tài sản">
                             <i class="fa-solid fa-clock-rotate-left"></i>
@@ -3872,6 +3913,25 @@ html5QrcodeScanner.render(onScanSuccess, (err) => {});
             </div>
         </div>
     </div>
+</div>
+	<!-- Modal Xem Chi Tiết Tài Sản -->
+<div class="modal fade" id="assetDetailModal" tabindex="-1" aria-labelledby="assetDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white py-2">
+        <h5 class="modal-title fs-6" id="assetDetailModalLabel">
+          <i class="fa-solid fa-circle-info me-2"></i>Chi Tiết Đầy Đủ Tài Sản
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-3" id="assetDetailModalBody">
+        <!-- Nội dung bảng chi tiết sẽ được render ở đây -->
+      </div>
+      <div class="modal-footer py-1">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+      </div>
+    </div>
+  </div>
 </div>
 </body>
 </html>
