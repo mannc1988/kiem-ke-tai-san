@@ -1439,7 +1439,6 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
     const fmtMoney = val => val ? Number(val).toLocaleString('vi-VN') + ' đ' : '0 đ';
     const fmtDate = val => (val && typeof formatDateToDMY === 'function') ? formatDateToDMY(val) : (val || '-');
 
-    // ID vùng chứa xem Inline media trong Modal chi tiết
     const inlineViewerId = 'detail_asset_inline_viewer_container';
 
     // Xử lý danh sách tệp đính kèm
@@ -1455,6 +1454,7 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
                 let rawFileName = url.split('/').pop().split('?')[0] || `Tep_${idx + 1}`;
                 let fileName = decodeURIComponent(rawFileName);
                 let safeUrl = url.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                let safeFileName = fileName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 let downloadUrl = typeof getDownloadDriveUrl === 'function' ? getDownloadDriveUrl(url) : url;
 
                 fileHtml += `
@@ -1464,7 +1464,7 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
                         </span>
                         <div class="d-flex align-items-center gap-1">
                             <button type="button" class="btn btn-info btn-sm text-white py-0 px-2" style="font-size: 0.75rem;" 
-                                    onclick="toggleInlineMedia('${inlineViewerId}', '${safeUrl}', 'pdf', '${fileName}')" 
+                                    onclick="toggleInlineMedia('${inlineViewerId}', '${safeUrl}', 'pdf', '${safeFileName}')" 
                                     title="Xem trực tiếp">
                                 <i class="fa-solid fa-eye me-1"></i>Xem Inline
                             </button>
@@ -1476,14 +1476,12 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
                 `;
             });
 
-            // Vùng hiển thị Frame Xem Inline bên dưới danh sách file
-            fileHtml += `
-                <div id="${inlineViewerId}" class="mt-2" style="display: none;"></div>
-            </div>`;
+            fileHtml += '</div>';
         }
     }
 
-    let html = `
+    // Render bảng thông tin vào Modal Body (chừa lại khung #detail_asset_inline_viewer_container ở trên)
+    let tableHtml = `
         <div class="table-responsive">
             <table class="table table-bordered table-striped align-middle mb-0">
                 <tbody>
@@ -1508,7 +1506,11 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
         </div>
     `;
 
-    $('#assetDetailModalBody').html(html);
+    // Đặt lại trạng thái ẩn cho vùng xem inline và append bảng thông tin
+    $('#' + inlineViewerId).addClass('d-none').empty().removeData('current-url');
+    $('#assetDetailModalBody').find('.table-responsive').remove(); // Xóa bảng cũ nếu có
+    $('#assetDetailModalBody').append(tableHtml);
+
     let modal = new bootstrap.Modal(document.getElementById('assetDetailModal'));
     modal.show();
 }
@@ -3969,7 +3971,6 @@ html5QrcodeScanner.render(onScanSuccess, (err) => {});
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body p-3" id="assetDetailModalBody">
-		  <div id="detail_asset_inline_viewer_container" class="mb-3 d-none"></div>
         <!-- Nội dung bảng chi tiết sẽ được render ở đây -->
       </div>
       <div class="modal-footer py-1">
