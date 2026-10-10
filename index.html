@@ -1586,12 +1586,6 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
                 let iAt = safeStr(row.import_at);
 
                 return `
-                    <div class="d-flex justify-content-center align-items-center">
-                        <button type="button" class="btn btn-outline-info btn-sm me-1" 
-                                onclick="viewAllAuditLogs('${mAs}')" 
-                                title="Xem nhật ký tài sản">
-                            <i class="fa-solid fa-clock-rotate-left"></i>
-                        </button>
                         <button type="button" class="btn btn-warning btn-sm text-white me-1" 
                                 onclick="editAsset('${mAs}', '${dV}', '${tTs}', '${nTs}', '${nG}', '${hM}', '${gCL}', '${nSD}', '${tT}', '${tQt}', '${bS}', '${cB}', '${pB}', '${sS}', '${hA}', '${iAt}')" 
                                 title="Sửa tài sản">
@@ -1601,6 +1595,12 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
                                 onclick="deleteAsset('${mAs}')" 
                                 title="Xóa tài sản">
                             <i class="fa-solid fa-trash"></i>
+                        </button>
+						<div class="d-flex justify-content-center align-items-center">
+                        <button type="button" class="btn btn-outline-info btn-sm me-1" 
+                                onclick="viewAllAuditLogs('${mAs}')" 
+                                title="Xem nhật ký tài sản">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
                         </button>
                     </div>
                 `;
