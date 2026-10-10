@@ -1439,20 +1439,40 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
     const fmtMoney = val => val ? Number(val).toLocaleString('vi-VN') + ' đ' : '0 đ';
     const fmtDate = val => (val && typeof formatDateToDMY === 'function') ? formatDateToDMY(val) : (val || '-');
 
-    const inlineViewerId = 'detail_asset_inline_viewer_container';
+    const containerId = 'detail_asset_inline_viewer_container';
 
-    // Xử lý danh sách tệp đính kèm
+    // 1. Reset khung xem inline về trạng thái ẩn sạch sẽ trước khi load tài sản mới
+    const $viewer =$('#' + containerId);
+    \$viewer.addClass('d-none').empty();
+    delete \$viewer[0].dataset.activeSrc;
+    delete \$viewer[0].dataset.embedSrc;
+
+    // 2. Xử lý danh sách tệp đính kèm
     let fileHtml = '<span class="text-muted fst-italic">Không có tệp</span>';
     let decrypted = row.hinh_anh || '';
     
     if (decrypted) {
         let urls = String(decrypted).split(/[,;]/).map(s => s.trim()).filter(Boolean);
         if (urls.length > 0) {
-            fileHtml = '<div class="d-flex flex-column gap-1">';
+            fileHtml = '<div class="d-flex flex-column gap-1" style="min-width: 220px;">';
             
             urls.forEach((url, idx) => {
-                let rawFileName = url.split('/').pop().split('?')[0] || `Tep_${idx + 1}`;
-                let fileName = decodeURIComponent(rawFileName);
+                let rawFileName = url.split('/').pop().split('?')[0] || `Tài_liệu_${idx + 1}`;
+                let fileName = rawFileName;
+                try { fileName = decodeURIComponent(rawFileName); } catch (e) {}
+
+                // Xác định mediaType (pdf/image) dựa trên đuôi file
+                let ext = fileName.split('.').pop().toLowerCase();
+                let mediaType = 'pdf';
+                let iconClass = 'fa-file-pdf text-danger';
+
+                if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                    mediaType = 'image';
+                    iconClass = 'fa-file-image text-success';
+                } else if (['doc', 'docx'].includes(ext)) {
+                    iconClass = 'fa-file-word text-primary';
+                }
+
                 let safeUrl = url.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 let safeFileName = fileName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 let downloadUrl = typeof getDownloadDriveUrl === 'function' ? getDownloadDriveUrl(url) : url;
@@ -1460,15 +1480,15 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
                 fileHtml += `
                     <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 shadow-sm">
                         <span class="text-truncate me-2 small text-dark fw-medium" title="${fileName}">
-                            <i class="fa-solid fa-file me-1 text-secondary"></i>${fileName}
+                            <i class="fa-solid ${iconClass} me-1"></i>${fileName}
                         </span>
                         <div class="d-flex align-items-center gap-1">
-                            <button type="button" class="btn btn-info btn-sm text-white py-0 px-2" style="font-size: 0.75rem;" 
-                                    onclick="toggleInlineMedia('${inlineViewerId}', '${safeUrl}', 'pdf', '${safeFileName}')" 
+                            <button type="button" class="btn btn-info btn-sm text-white py-0 px-2" style="font-size: 0.72rem;" 
+                                    onclick="toggleInlineMedia('${containerId}', '${safeUrl}', '${mediaType}', '${safeFileName}')" 
                                     title="Xem trực tiếp">
                                 <i class="fa-solid fa-eye me-1"></i>Xem Inline
                             </button>
-                            <a href="${downloadUrl}" download target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.75rem;" title="Tải về máy">
+                            <a href="${downloadUrl}" download target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.72rem;" title="Tải về máy">
                                 <i class="fa-solid fa-download"></i>
                             </a>
                         </div>
@@ -1480,7 +1500,7 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
         }
     }
 
-    // Render bảng thông tin vào Modal Body (chừa lại khung #detail_asset_inline_viewer_container ở trên)
+    // 3. Render bảng thông tin chi tiết
     let tableHtml = `
         <div class="table-responsive">
             <table class="table table-bordered table-striped align-middle mb-0">
@@ -1506,11 +1526,8 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
         </div>
     `;
 
-    // Đặt lại trạng thái ẩn cho vùng xem inline và append bảng thông tin
-    $('#' + inlineViewerId).addClass('d-none').empty().removeData('current-url');
-    $('#assetDetailModalBody').find('.table-responsive').remove(); // Xóa bảng cũ nếu có
-    $('#assetDetailModalBody').append(tableHtml);
-
+    // 4. Đổ bảng vào vùng chứa và hiển thị Modal
+    $('#assetDetailTableContainer').html(tableHtml);
     let modal = new bootstrap.Modal(document.getElementById('assetDetailModal'));
     modal.show();
 }
@@ -3971,7 +3988,11 @@ html5QrcodeScanner.render(onScanSuccess, (err) => {});
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body p-3" id="assetDetailModalBody">
-        <!-- Nội dung bảng chi tiết sẽ được render ở đây -->
+        <!-- 1. Vùng chứa khung xem trực tiếp (Inline Viewer) -->
+        <div id="detail_asset_inline_viewer_container" class="d-none mb-3"></div>
+
+        <!-- 2. Vùng chứa bảng thông tin chi tiết tài sản -->
+        <div id="assetDetailTableContainer"></div>
       </div>
       <div class="modal-footer py-1">
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
