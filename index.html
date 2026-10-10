@@ -1464,13 +1464,13 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
         </div>
     `;
 
-    \$('#assetDetailModalBody').html(html);
+    $('#assetDetailModalBody').html(html);
     let modal = new bootstrap.Modal(document.getElementById('assetDetailModal'));
     modal.show();
 }
 
         $(document).ready(function() {
-            assetsTable = \$('#assetsTable').DataTable({
+            assetsTable = $('#assetsTable').DataTable({
     serverSide: true,
     processing: true,
     scrollX: true,
