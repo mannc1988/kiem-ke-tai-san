@@ -1435,6 +1435,99 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
                 osc.stop(ctx.currentTime + 0.15);
             } catch (e) {}
         }
+		function viewHistoryDetail(row) {
+    const containerId = 'detail_history_inline_viewer_container';
+
+    // Reset sạch khung xem inline cũ khi mở modal
+    const $viewer =$('#' + containerId);
+    $viewer.addClass('d-none').empty();
+    delete $viewer[0].dataset.activeSrc;
+    delete $viewer[0].dataset.embedSrc;
+
+    // Xử lý tách danh sách tệp đính kèm
+    let fileHtml = '<span class="text-muted fst-italic">Không có tệp</span>';
+    let decrypted = row.tep_dinh_kem || '';
+    
+    if (decrypted) {
+        let urls = String(decrypted).split(/[,;]/).map(s => s.trim()).filter(Boolean);
+        if (urls.length > 0) {
+            fileHtml = '<div class="d-flex flex-column gap-1" style="min-width: 220px;">';
+            
+            urls.forEach((url, idx) => {
+                let rawFileName = url.split('/').pop().split('?')[0] || `Tệp_KK_${idx + 1}`;
+                let fileName = rawFileName;
+                try { fileName = decodeURIComponent(rawFileName); } catch (e) {}
+
+                let ext = fileName.split('.').pop().toLowerCase();
+                let mediaType = 'pdf';
+                let iconClass = 'fa-file-pdf text-danger';
+
+                if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                    mediaType = 'image';
+                    iconClass = 'fa-file-image text-success';
+                } else if (['doc', 'docx'].includes(ext)) {
+                    iconClass = 'fa-file-word text-primary';
+                }
+
+                let safeUrl = url.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                let safeFileName = fileName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                let downloadUrl = typeof getDownloadDriveUrl === 'function' ? getDownloadDriveUrl(url) : url;
+
+                fileHtml += `
+                    <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 shadow-sm">
+                        <span class="text-truncate me-2 small text-dark fw-medium" title="${fileName}">
+                            <i class="fa-solid ${iconClass} me-1"></i>${fileName}
+                        </span>
+                        <div class="d-flex align-items-center gap-1">
+                            <button type="button" class="btn btn-info btn-sm text-white py-0 px-2" style="font-size: 0.72rem;" 
+                                    onclick="toggleInlineMedia('${containerId}', '${safeUrl}', '${mediaType}', '${safeFileName}')" 
+                                    title="Xem trực tiếp">
+                                <i class="fa-solid fa-eye me-1"></i>Xem Inline
+                            </button>
+                            <a href="${downloadUrl}" download target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.72rem;" title="Tải về máy">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
+
+            fileHtml += '</div>';
+        }
+    }
+
+    // Tên đợt kiểm kê + trạng thái đợt
+    let dotDisplay = row.dotName || 'Chưa xác định';
+    if (Number(row.dotActive) === 0) {
+        dotDisplay += ' <span class="badge bg-danger small">Đã khóa</span>';
+    }
+
+    // Render bảng thông tin
+    let tableHtml = `
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle mb-0">
+                <tbody>
+                    <tr><th style="width: 35%;">ID Kiểm Kê</th><td><span class="badge bg-secondary">#${row.id || '-'}</span></td></tr>
+                    <tr><th>Đợt kiểm kê</th><td class="fw-semibold text-dark">${dotDisplay}</td></tr>
+                    <tr><th>Mã tài sản</th><td><span class="badge bg-secondary">${row.tsId || '-'}</span></td></tr>
+                    <tr><th>Tên tài sản</th><td class="fw-bold text-primary">${row.tsName || '-'}</td></tr>
+                    <tr><th>Phòng ban</th><td>${row.phong_ban || '-'}</td></tr>
+                    <tr><th>Số Serial</th><td><span class="badge bg-light text-dark border">${row.so_serial || '-'}</span></td></tr>
+                    <tr><th>Người kiểm kê</th><td class="fw-semibold">${row.nguoiKK || '-'}</td></tr>
+                    <tr><th>Kết quả kiểm kê</th><td><span class="badge bg-success-subtle text-success border fs-6">${row.ket_qua_kk || '-'}</span></td></tr>
+                    <tr><th>Phương án xử lý</th><td>${row.phuong_an_xl || '-'}</td></tr>
+                    <tr><th>Thời gian thực hiện</th><td><span class="text-muted">${row.thoiGian || '-'}</span></td></tr>
+                    <tr><th>Ghi chú</th><td>${row.ghiChu || '-'}</td></tr>
+                    <tr><th>Tệp đính kèm</th><td>${fileHtml}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    $('#historyDetailTableContainer').html(tableHtml);
+    let modal = new bootstrap.Modal(document.getElementById('historyDetailModal'));
+    modal.show();
+}
 		function viewAssetDetail(row) {
     const fmtMoney = val => val ? Number(val).toLocaleString('vi-VN') + ' đ' : '0 đ';
     const fmtDate = val => (val && typeof formatDateToDMY === 'function') ? formatDateToDMY(val) : (val || '-');
@@ -1885,55 +1978,57 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
             render: data => `<span class="badge bg-light text-secondary border">${data || ''}</span>` 
         },
 
-        // 13. THAO TÁC (SỬA / XÓA / XEM LOG)
-        { 
-            data: 'id', 
-            name: 'action_btn',
-            orderable: false, 
-            searchable: false, 
-            className: 'text-center align-middle',
-            render: (data, type, row) => {
-                const safeStr = (val) => String(val || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        // 13. THAO TÁC (XEM CHI TIẾT / SỬA / XÓA / LOGS)
+{ 
+    data: 'id', 
+    name: 'action_btn',
+    orderable: false, 
+    searchable: false, 
+    className: 'text-center align-middle',
+    render: (data, type, row) => {
+        const safeStr = (val) => String(val || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
-                let hId     = row.id;
-                let hDot    = safeStr(row.dotId);
-                let hTsId   = safeStr(row.tsId);
-                let hTsName = safeStr(row.tsName);
-                let hPb     = safeStr(row.phong_ban);
-                let hSerial = safeStr(row.so_serial);
-                let hNguoi  = safeStr(row.nguoiKK);
-                let hKetQua = safeStr(row.ket_qua_kk);
-                let hPa     = safeStr(row.phuong_an_xl);
-                let hTep    = safeStr(row.tep_dinh_kem);
-                let hNote   = safeStr(row.ghiChu);
-                let hTime   = safeStr(row.thoiGian);
+        let hId     = row.id;
+        let hDot    = safeStr(row.dotId);
+        let hTsId   = safeStr(row.tsId);
+        let hTsName = safeStr(row.tsName);
+        let hPb     = safeStr(row.phong_ban);
+        let hSerial = safeStr(row.so_serial);
+        let hNguoi  = safeStr(row.nguoiKK);
+        let hKetQua = safeStr(row.ket_qua_kk);
+        let hPa     = safeStr(row.phuong_an_xl);
+        let hTep    = safeStr(row.tep_dinh_kem);
+        let hNote   = safeStr(row.ghiChu);
+        let hTime   = safeStr(row.thoiGian);
 
-                let safeParam = encodeURIComponent(JSON.stringify({
-                    id: hId, 
-                    dotId: hDot, 
-                    tsId: hTsId, 
-                    tsName: hTsName, 
-                    phong_ban: hPb, 
-                    so_serial: hSerial, 
-                    nguoiKK: hNguoi, 
-                    ket_qua_kk: hKetQua, 
-                    phuong_an_xl: hPa, 
-                    tep_dinh_kem: hTep, 
-                    ghiChu: hNote, 
-                    thoiGian: hTime
-                }));
+        let safeParam = encodeURIComponent(JSON.stringify({
+            id: hId, 
+            dotId: hDot, 
+            tsId: hTsId, 
+            tsName: hTsName, 
+            phong_ban: hPb, 
+            so_serial: hSerial, 
+            nguoiKK: hNguoi, 
+            ket_qua_kk: hKetQua, 
+            phuong_an_xl: hPa, 
+            tep_dinh_kem: hTep, 
+            ghiChu: hNote, 
+            thoiGian: hTime
+        }));
 
-                let safeTsId = hTsId;
+        // Encode JSON dữ liệu dòng cho hàm viewHistoryDetail
+        let rowJson = JSON.stringify(row).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
 
-                return `
-                    <div class="d-flex justify-content-center align-items-center">
-                        <button type="button" class="btn btn-warning btn-sm text-white me-1" onclick="openEditHistoryModal('${safeParam}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
-                        <button type="button" class="btn btn-outline-danger btn-sm me-1" onclick="deleteHistory(${hId})" title="Xóa"><i class="fa-solid fa-xmark"></i></button>
-                        <button type="button" class="btn btn-info btn-sm text-white" onclick="viewAllAuditLogs('${safeTsId}')" title="Xem Nhật Ký Tác Động"><i class="fa-solid fa-clock-rotate-left"></i></button>
-                    </div>
-                `;
-            }
-        }
+        return `
+            <div class="d-flex justify-content-center align-items-center">
+                <button type="button" class="btn btn-primary btn-sm me-1" onclick='viewHistoryDetail(${rowJson})' title="Xem chi tiết đầy đủ"><i class="fa-solid fa-eye"></i></button>
+                <button type="button" class="btn btn-warning btn-sm text-white me-1" onclick="openEditHistoryModal('${safeParam}')" title="Sửa"><i class="fa-solid fa-pen"></i></button>
+                <button type="button" class="btn btn-outline-danger btn-sm me-1" onclick="deleteHistory(${hId})" title="Xóa"><i class="fa-solid fa-xmark"></i></button>
+                <button type="button" class="btn btn-info btn-sm text-white" onclick="viewAllAuditLogs('${hTsId}')" title="Xem Nhật Ký Tác Động"><i class="fa-solid fa-clock-rotate-left"></i></button>
+            </div>
+        `;
+    }
+}
     ],
     language: {
         search: "Tìm kiếm:",
@@ -3992,6 +4087,29 @@ html5QrcodeScanner.render(onScanSuccess, (err) => {});
         <div id="assetDetailTableContainer"></div>
         <!-- 2. Vùng chứa khung xem trực tiếp (Inline Viewer) -->
         <div id="detail_asset_inline_viewer_container" class="d-none mb-3"></div>
+      </div>
+      <div class="modal-footer py-1">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+      </div>
+    </div>
+  </div>
+</div>
+	<!-- Modal Xem Chi Tiết Kết Quả Kiểm Kê -->
+<div class="modal fade" id="historyDetailModal" tabindex="-1" aria-labelledby="historyDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white py-2">
+        <h5 class="modal-title fs-6" id="historyDetailModalLabel">
+          <i class="fa-solid fa-clipboard-check me-2"></i>Chi Tiết Kết Quả Kiểm Kê
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-3" id="historyDetailModalBody">
+        <!-- 1. Vùng chứa khung xem trực tiếp (Inline Viewer) -->
+        <div id="detail_history_inline_viewer_container" class="d-none mb-3"></div>
+
+        <!-- 2. Vùng chứa bảng thông tin chi tiết lịch sử kiểm kê -->
+        <div id="historyDetailTableContainer"></div>
       </div>
       <div class="modal-footer py-1">
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
