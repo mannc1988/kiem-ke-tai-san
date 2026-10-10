@@ -1439,6 +1439,61 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
     const fmtMoney = val => val ? Number(val).toLocaleString('vi-VN') + ' đ' : '0 đ';
     const fmtDate = val => (val && typeof formatDateToDMY === 'function') ? formatDateToDMY(val) : (val || '-');
 
+    // Xử lý tách danh sách tệp đính kèm riêng cho Modal
+    let fileHtml = '<span class="text-muted fst-italic">Không có tệp</span>';
+    let decrypted = row.hinh_anh || '';
+    
+    if (decrypted) {
+        let urls = String(decrypted).split(/[,;]/).map(s => s.trim()).filter(Boolean);
+        if (urls.length > 0) {
+            fileHtml = '<div class="d-flex flex-column gap-1">';
+            urls.forEach((url, idx) => {
+                let rawFileName = url.split('/').pop().split('?')[0] || `File_${idx + 1}`;
+                let fileName = decodeURIComponent(rawFileName);
+
+                let ext = fileName.split('.').pop().toLowerCase();
+                let iconClass = 'fa-file';
+                let fileType = 'unknown';
+
+                if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
+                    iconClass = 'fa-file-image text-primary';
+                    fileType = 'image';
+                } else if (ext === 'pdf') {
+                    iconClass = 'fa-file-pdf text-danger';
+                    fileType = 'pdf';
+                } else if (['doc', 'docx'].includes(ext)) {
+                    iconClass = 'fa-file-word text-primary';
+                    fileType = 'office';
+                } else if (['xls', 'xlsx'].includes(ext)) {
+                    iconClass = 'fa-file-excel text-success';
+                    fileType = 'office';
+                }
+
+                let safeEmbedUrl = url.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                let downloadUrl = typeof getDownloadDriveUrl === 'function' ? getDownloadDriveUrl(url) : url;
+
+                fileHtml += `
+                    <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 shadow-sm">
+                        <span class="text-truncate me-2 small text-dark fw-medium" title="${fileName}">
+                            <i class="fa-solid ${iconClass} me-1"></i>${fileName}
+                        </span>
+                        <div class="d-flex align-items-center gap-1">
+                            <button type="button" class="btn btn-info btn-sm text-white py-0 px-2" style="font-size: 0.75rem;" 
+                                    onclick="previewInlineFile('${safeEmbedUrl}', '${fileType}', '${fileName}')" 
+                                    title="Xem trực tiếp">
+                                <i class="fa-solid fa-eye me-1"></i>Xem Inline
+                            </button>
+                            <a href="${downloadUrl}" download target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size: 0.75rem;" title="Tải về máy">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
+            fileHtml += '</div>';
+        }
+    }
+
     let html = `
         <div class="table-responsive">
             <table class="table table-bordered table-striped align-middle mb-0">
@@ -1458,7 +1513,7 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
                     <tr><th>Phòng ban quản lý</th><td>${row.phong_ban_quan_ly || '-'}</td></tr>
                     <tr><th>Số Serial</th><td><span class="badge bg-light text-dark border">${row.so_serial || '-'}</span></td></tr>
                     <tr><th>Thời gian Import</th><td>${row.import_at || '-'}</td></tr>
-                    <tr><th>Tệp đính kèm</th><td>${row.hinh_anh || '<span class="text-muted fst-italic">Không có tệp</span>'}</td></tr>
+                    <tr><th>Tệp đính kèm</th><td>${fileHtml}</td></tr>
                 </tbody>
             </table>
         </div>
