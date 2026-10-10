@@ -1439,7 +1439,10 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
     const fmtMoney = val => val ? Number(val).toLocaleString('vi-VN') + ' đ' : '0 đ';
     const fmtDate = val => (val && typeof formatDateToDMY === 'function') ? formatDateToDMY(val) : (val || '-');
 
-    // Xử lý tách danh sách tệp đính kèm riêng cho Modal
+    // ID vùng chứa xem Inline media trong Modal chi tiết
+    const inlineViewerId = 'detail_asset_inline_viewer_container';
+
+    // Xử lý danh sách tệp đính kèm
     let fileHtml = '<span class="text-muted fst-italic">Không có tệp</span>';
     let decrypted = row.hinh_anh || '';
     
@@ -1447,39 +1450,21 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
         let urls = String(decrypted).split(/[,;]/).map(s => s.trim()).filter(Boolean);
         if (urls.length > 0) {
             fileHtml = '<div class="d-flex flex-column gap-1">';
+            
             urls.forEach((url, idx) => {
-                let rawFileName = url.split('/').pop().split('?')[0] || `File_${idx + 1}`;
+                let rawFileName = url.split('/').pop().split('?')[0] || `Tep_${idx + 1}`;
                 let fileName = decodeURIComponent(rawFileName);
-
-                let ext = fileName.split('.').pop().toLowerCase();
-                let iconClass = 'fa-file';
-                let fileType = 'unknown';
-
-                if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
-                    iconClass = 'fa-file-image text-primary';
-                    fileType = 'image';
-                } else if (ext === 'pdf') {
-                    iconClass = 'fa-file-pdf text-danger';
-                    fileType = 'pdf';
-                } else if (['doc', 'docx'].includes(ext)) {
-                    iconClass = 'fa-file-word text-primary';
-                    fileType = 'office';
-                } else if (['xls', 'xlsx'].includes(ext)) {
-                    iconClass = 'fa-file-excel text-success';
-                    fileType = 'office';
-                }
-
-                let safeEmbedUrl = url.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                let safeUrl = url.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                 let downloadUrl = typeof getDownloadDriveUrl === 'function' ? getDownloadDriveUrl(url) : url;
 
                 fileHtml += `
                     <div class="d-flex align-items-center justify-content-between bg-white border rounded px-2 py-1 shadow-sm">
                         <span class="text-truncate me-2 small text-dark fw-medium" title="${fileName}">
-                            <i class="fa-solid ${iconClass} me-1"></i>${fileName}
+                            <i class="fa-solid fa-file me-1 text-secondary"></i>${fileName}
                         </span>
                         <div class="d-flex align-items-center gap-1">
                             <button type="button" class="btn btn-info btn-sm text-white py-0 px-2" style="font-size: 0.75rem;" 
-                                    onclick="previewInlineFile('${safeEmbedUrl}', '${fileType}', '${fileName}')" 
+                                    onclick="toggleInlineMedia('${inlineViewerId}', '${safeUrl}', 'pdf', '${fileName}')" 
                                     title="Xem trực tiếp">
                                 <i class="fa-solid fa-eye me-1"></i>Xem Inline
                             </button>
@@ -1490,7 +1475,11 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
                     </div>
                 `;
             });
-            fileHtml += '</div>';
+
+            // Vùng hiển thị Frame Xem Inline bên dưới danh sách file
+            fileHtml += `
+                <div id="${inlineViewerId}" class="mt-2" style="display: none;"></div>
+            </div>`;
         }
     }
 
