@@ -1443,7 +1443,7 @@ function handleViewInlineFileHis(fileObj, b64Data, fileName, mediaType) {
 
     // 1. Reset khung xem inline về trạng thái ẩn sạch sẽ trước khi load tài sản mới
     const $viewer =$('#' + containerId);
-    \$viewer.addClass('d-none').empty();
+    $viewer.addClass('d-none').empty();
     delete \$viewer[0].dataset.activeSrc;
     delete \$viewer[0].dataset.embedSrc;
 
