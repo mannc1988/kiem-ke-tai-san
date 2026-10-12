@@ -1654,10 +1654,9 @@
     let modal = new bootstrap.Modal(document.getElementById('historyDetailModal'));
     modal.show();
 
-    // 5. Tải danh sách tất cả lịch sử kiểm kê của Tài sản này
     // 5. Tải ĐẦY ĐỦ danh sách tất cả lịch sử kiểm kê theo MÃ TÀI SẢN (không lọc theo đợt)
     if (tsCode) {
-        \$.ajax({
+        $.ajax({
             url: API_URL,
             type: 'GET',
             dataType: 'json',
@@ -1670,7 +1669,7 @@
                 length: -1                // Lấy tất cả bản ghi (hoặc dùng 99999 nếu backend không nhận -1)
             },
             success: function (res) {
-                \$('#loadingAllHistory').addClass('d-none');
+                $('#loadingAllHistory').addClass('d-none');
                 
                 // Lấy mảng dữ liệu từ backend
                 let list = (res && res.data) ? res.data : (Array.isArray(res) ? res : []);
@@ -1721,14 +1720,14 @@
                             </table>
                         </div>
                     `;
-                    \$('#containerAllHistory').html(historyTableHtml);
+                    $('#containerAllHistory').html(historyTableHtml);
                 } else {
-                    \$('#containerAllHistory').html('<div class="alert alert-info mb-0">Chưa có lịch sử kiểm kê nào khác cho tài sản này.</div>');
+                    $('#containerAllHistory').html('<div class="alert alert-info mb-0">Chưa có lịch sử kiểm kê nào khác cho tài sản này.</div>');
                 }
             },
             error: function () {
-                \$('#loadingAllHistory').addClass('d-none');
-                \$('#containerAllHistory').html('<div class="alert alert-danger mb-0">Lỗi khi tải danh sách lịch sử kiểm kê.</div>');
+                $('#loadingAllHistory').addClass('d-none');
+                $('#containerAllHistory').html('<div class="alert alert-danger mb-0">Lỗi khi tải danh sách lịch sử kiểm kê.</div>');
             }
         });
     }
