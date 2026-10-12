@@ -3639,7 +3639,7 @@
         );
         html5QrcodeScanner.render(onScanSuccess, (err) => { });
         function downloadTemplate(e) {
-            ar evt = e || window.event;
+            var evt = e || window.event;
             if (evt && typeof evt.preventDefault === 'function') {
                 evt.preventDefault();
             }
