@@ -1457,6 +1457,7 @@
         function viewHistoryDetail(row) {
             const fmtMoney = val => val ? Number(val).toLocaleString('vi-VN') + ' đ' : '0 đ';
             const containerId = 'detail_history_inline_viewer_container';
+            const fmtDate = val => (val && typeof formatDateToDMY === 'function') ? formatDateToDMY(val) : (val || '-');
 
     // 1. Reset sạch khung xem inline cũ
     const $viewer =$('#' + containerId);
