@@ -3639,7 +3639,10 @@
         );
         html5QrcodeScanner.render(onScanSuccess, (err) => { });
         function downloadTemplate(e) {
-            e.preventDefault();
+            ar evt = e || window.event;
+            if (evt && typeof evt.preventDefault === 'function') {
+                evt.preventDefault();
+            }
             const templateData = [
                 {
                     "ma_tai_san": "CC00000144981",
@@ -3663,7 +3666,7 @@
             const ws = XLSX.utils.json_to_sheet(templateData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "DanhSachTaiSan");
-            XLSX.writeFile(wb, "Template_KiemKe_TaiSan.xlsx");
+            XLSX.writeFile(wb, "Template_DanhMuc_TaiSan.xlsx");
         }
         async function importExcelData(e) {
             const file = e.target.files[0];
