@@ -1657,7 +1657,7 @@
     // 5. Tải danh sách tất cả lịch sử kiểm kê của Tài sản này
     if (tsCode) {
         $.ajax({
-            url: `${API_URL}?action=server_history&tsId=${encodeURIComponent(tsCode)}&length=100`,
+            url: `${API_URL}?action=server_history&tsCode=${encodeURIComponent(tsCode)}&length=100`,
             type: 'GET',
             dataType: 'json',
             success: function (res) {
