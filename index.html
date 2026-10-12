@@ -1459,6 +1459,9 @@
     const containerId = 'detail_history_inline_viewer_container';
     const fmtDate = val => (val && typeof formatDateToDMY === 'function') ? formatDateToDMY(val) : (val || '-');
 
+    // Lấy chính xác Mã tài sản của dòng đang xem (bắt mọi tên biến có thể có)
+    const tsCode = String(row.tsId || row.ma_tai_san || row.ts_id || row.maTs || '').trim();
+
     // 1. Reset sạch khung xem inline cũ
     const $viewer =$('#' + containerId);
     $viewer.addClass('d-none').empty();
@@ -1514,30 +1517,46 @@
         return html;
     };
 
-    // Helper render bảng thông tin tài sản gốc
+    // Helper render bảng thông tin tài sản gốc (Map đúng tất cả các tên thuộc tính có thể có)
     const renderAssetGocTable = (asset) => {
         if (!asset) return '<div class="alert alert-warning mb-0">Không tìm thấy dữ liệu tài sản gốc.</div>';
         
-        let fileGocHtml = buildFileListHtml(asset.hinh_anh);
+        let maTS = asset.ma_tai_san || asset.tsId || tsCode || '-';
+        let tenTS = asset.ten_tai_san || asset.tsName || '-';
+        let donVi = asset.don_vi || asset.donVi || '-';
+        let nhomTS = asset.nhom_tai_san || asset.nhomTS || '-';
+        let nguyenGia = asset.nguyen_gia || asset.nguyenGia || 0;
+        let haoMon = asset.hao_mon_luy_ke || asset.haoMon || 0;
+        let giaTriCL = asset.gia_tri_con_lai || asset.giaTriConLai || 0;
+        let ngaySD = asset.ngay_dua_vao_sd || asset.ngaySD || '-';
+        let trangThaiSD = asset.trang_thai_sd || asset.trangThaiSD || '-';
+        let trangThaiQT = asset.trang_thai_qt || asset.trangThaiQT || '-';
+        let boSo = asset.bo_so || asset.boSo || '-';
+        let canBo = asset.can_bo_su_dung || asset.canBo || '-';
+        let phongBan = asset.phong_ban_quan_ly || asset.phong_ban || asset.phongBan || '-';
+        let serial = asset.so_serial || asset.soSerial || '-';
+        let importAt = asset.import_at || asset.importAt || '-';
+        let fileGocHtml = buildFileListHtml(asset.hinh_anh || asset.tep_dinh_kem);
+
         return `
             <div class="table-responsive">
                 <table class="table table-bordered table-striped align-middle mb-0">
                     <tbody>
-                        <tr><th style="width: 35%;">Mã tài sản</th><td><span class="badge bg-secondary">${asset.ma_tai_san || asset.tsId || '-'}</span></td></tr>
-                        <tr><th>Tên tài sản</th><td class="fw-bold text-primary">${asset.ten_tai_san || asset.tsName || '-'}</td></tr>
-                        <tr><th>Đơn vị</th><td>${asset.don_vi || '-'}</td></tr>
-                        <tr><th>Nhóm tài sản</th><td>${asset.nhom_tai_san || '-'}</td></tr>
-                        <tr><th>Nguyên giá</th><td class="text-success fw-semibold">${fmtMoney(asset.nguyen_gia)}</td></tr>
-                        <tr><th>Hao mòn lũy kế</th><td class="text-danger">${fmtMoney(asset.hao_mon_luy_ke)}</td></tr>
-                        <tr><th>Giá trị còn lại</th><td class="text-primary fw-semibold">${fmtMoney(asset.gia_tri_con_lai)}</td></tr>
-                        <tr><th>Ngày đưa vào SD</th><td>${fmtDate(asset.ngay_dua_vao_sd)}</td></tr>
-                        <tr><th>Trạng thái sử dụng</th><td><span class="badge bg-success-subtle text-success border">${asset.trang_thai_sd || '-'}</span></td></tr>
-                        <tr><th>Trạng thái quyết toán</th><td><span class="badge bg-primary-subtle text-primary border">${asset.trang_thai_qt || '-'}</span></td></tr>
-                        <tr><th>Bộ sổ</th><td>${asset.bo_so || '-'}</td></tr>
-                        <tr><th>Cán bộ sử dụng</th><td>${asset.can_bo_su_dung || '-'}</td></tr>
-                        <tr><th>Phòng ban quản lý</th><td>${asset.phong_ban_quan_ly || asset.phong_ban || '-'}</td></tr>
-                        <tr><th>Số Serial</th><td><span class="badge bg-light text-dark border">${asset.so_serial || '-'}</span></td></tr>
-                        <tr><th>Thời gian Import</th><td>${asset.import_at || '-'}</td></tr>
+                        <tr><th style="width: 35%;">Mã tài sản</th><td><span class="badge bg-secondary">${maTS}</span></td></tr>
+                        <tr><th>Tên tài sản</th><td class="fw-bold text-primary">${tenTS}</td></tr>
+                        <tr><th>Đơn vị</th><td>${donVi}</td></tr>
+                        <tr><th>Nhóm tài sản</th><td>${nhomTS}</td></tr>
+                        <tr><th>Nguyên giá</th><td class="text-success fw-semibold">${fmtMoney(nguyenGia)}</td></tr>
+                        <tr><th>Hao mòn lũy kế</th><td class="text-danger">${fmtMoney(haoMon)}</td></tr>
+                        <tr><th>Giá trị còn lại</th><td class="text-primary fw-semibold">${fmtMoney(giaTriCL)}</td></tr>
+                        <tr><th>Ngày đưa vào SD</th><td>${fmtDate(ngaySD)}</td></tr>
+                        <tr><th>Trạng thái sử dụng</th><td><span class="badge bg-success-subtle text-success border">${trangThaiSD}</span></td></tr>
+                        <tr><th>Trạng thái quyết toán</th><td><span class="badge bg-primary-subtle text-primary border">${trangThaiQT}</span></td></tr>
+                        <tr><th>Bộ sổ</th><td>${boSo}</td></tr>
+                        <tr><th>Cán bộ sử dụng</th><td>${canBo}</td></tr>
+                        <tr><th>Phòng ban quản lý</th><td>${phongBan}</td></tr>
+                        <tr><th>Số Serial</th><td><span class="badge bg-light text-dark border">${serial}</span></td></tr>
+                        <tr><th>Thời gian Import</th><td>${importAt}</td></tr>
                         <tr><th>Tệp đính kèm</th><td>${fileGocHtml}</td></tr>
                     </tbody>
                 </table>
@@ -1581,8 +1600,8 @@
                         <tbody>
                             <tr><th style="width: 35%;">ID Kiểm Kê</th><td><span class="badge bg-secondary">#${row.id || '-'}</span></td></tr>
                             <tr><th>Đợt kiểm kê</th><td class="fw-semibold text-dark">${dotDisplay}</td></tr>
-                            <tr><th>Mã tài sản</th><td><span class="badge bg-secondary">${row.tsId || '-'}</span></td></tr>
-                            <tr><th>Tên tài sản</th><td class="fw-bold text-primary">${row.tsName || '-'}</td></tr>
+                            <tr><th>Mã tài sản</th><td><span class="badge bg-secondary">${tsCode || '-'}</span></td></tr>
+                            <tr><th>Tên tài sản</th><td class="fw-bold text-primary">${row.tsName || row.ten_tai_san || '-'}</td></tr>
                             <tr><th>Phòng ban kiểm kê</th><td>${row.phong_ban || '-'}</td></tr>
                             <tr><th>Số Serial</th><td><span class="badge bg-light text-dark border">${row.so_serial || '-'}</span></td></tr>
                             <tr><th>Người kiểm kê</th><td class="fw-semibold">${row.nguoiKK || '-'}</td></tr>
@@ -1618,19 +1637,18 @@
     $('#historyDetailTableContainer').html(htmlLayout);
 
     // 4. LẤY DỮ LIỆU TÀI SẢN GỐC CHO TAB 2
-    let tsCode = row.tsId || row.ma_tai_san || '';
     let foundAsset = null;
 
-    // Tìm trong cache DataTables assetsTable nếu đang mở ở trang
+    // Tìm trong cache DataTables assetsTable nếu đang có sẵn ở trang
     if (typeof assetsTable !== 'undefined' && assetsTable) {
         let allAssets = assetsTable.rows().data().toArray();
-        foundAsset = allAssets.find(a => String(a.ma_tai_san || a.tsId) === String(tsCode));
+        foundAsset = allAssets.find(a => String(a.ma_tai_san || a.tsId || '').trim() === tsCode);
     }
 
     if (foundAsset) {
         $('#containerTsGoc').html(renderAssetGocTable(foundAsset));
     } else {
-        // Mở AJAX truy vấn lại server lấy chi tiết dòng tài sản đó
+        // Gọi AJAX lấy chi tiết tài sản gốc theo mã tài sản tsCode
         $.ajax({
             url: API_URL,
             type: 'GET',
@@ -1639,10 +1657,11 @@
                 action: 'server_assets',
                 search: { value: tsCode },
                 start: 0,
-                length: 1
+                length: 10
             },
             success: function (res) {
-                let assetObj = (res && res.data && res.data.length > 0) ? res.data[0] : null;
+                let list = (res && res.data) ? res.data : (Array.isArray(res) ? res : []);
+                let assetObj = list.find(a => String(a.ma_tai_san || a.tsId || '').trim() === tsCode) || list[0] || null;
                 $('#containerTsGoc').html(renderAssetGocTable(assetObj));
             },
             error: function () {
@@ -1663,19 +1682,21 @@
             data: {
                 action: 'server_history',
                 tsId: tsCode,             // Lọc chính xác theo Mã TS
-                search_tsId: tsCode,      // Dự phòng nếu backend dùng bộ lọc riêng
-                dot_id: '',               // Bỏ chọn đợt để lấy ALL các đợt kiểm kê
+                search_tsId: tsCode,      // Dự phòng bộ lọc riêng
+                dot_id: '',               // Bỏ chọn đợt để lấy toàn bộ các đợt kiểm kê
                 start: 0,
-                length: -1                // Lấy tất cả bản ghi (hoặc dùng 99999 nếu backend không nhận -1)
+                length: -1                // Lấy tất cả bản ghi
             },
             success: function (res) {
                 $('#loadingAllHistory').addClass('d-none');
                 
-                // Lấy mảng dữ liệu từ backend
                 let list = (res && res.data) ? res.data : (Array.isArray(res) ? res : []);
                 
-                // Lọc thêm 1 lần ở client-side để đảm bảo tuyệt đối chỉ lấy đúng tsId này
-                list = list.filter(item => String(item.ma_tai_san).trim() === String(tsCode).trim());
+                // Lọc chính xác client-side: Bắt cả item.tsId và item.ma_tai_san
+                list = list.filter(item => {
+                    let itemCode = String(item.tsId || item.ma_tai_san || '').trim();
+                    return itemCode === tsCode;
+                });
 
                 if (list.length > 0) {
                     let historyRows = '';
