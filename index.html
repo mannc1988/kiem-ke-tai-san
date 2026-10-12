@@ -1455,7 +1455,8 @@
             } catch (e) { }
         }
         function viewHistoryDetail(row) {
-    const containerId = 'detail_history_inline_viewer_container';
+            const fmtMoney = val => val ? Number(val).toLocaleString('vi-VN') + ' đ' : '0 đ';
+            const containerId = 'detail_history_inline_viewer_container';
 
     // 1. Reset sạch khung xem inline cũ
     const $viewer =$('#' + containerId);
