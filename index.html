@@ -1674,6 +1674,7 @@
     modal.show();
 
     // 5. Tải ĐẦY ĐỦ danh sách tất cả lịch sử kiểm kê theo MÃ TÀI SẢN (không lọc theo đợt)
+    // 5. Tải danh sách lịch sử kiểm kê theo MÃ TÀI SẢN
     if (tsCode) {
         $.ajax({
             url: API_URL,
@@ -1681,21 +1682,23 @@
             dataType: 'json',
             data: {
                 action: 'server_history',
-                tsId: tsCode,             // Lọc chính xác theo Mã TS
-                search_tsId: tsCode,      // Dự phòng bộ lọc riêng
-                dot_id: '',               // Bỏ chọn đợt để lấy toàn bộ các đợt kiểm kê
+                dot_id: '', // Bỏ lọc theo đợt
+                // Gửi tham số search chuẩn của DataTables để Backend nhận diện
+                search: { value: tsCode }, 
+                tsId: tsCode,
                 start: 0,
-                length: -1                // Lấy tất cả bản ghi
+                length: 500 // Lấy tối đa 500 bản ghi
             },
             success: function (res) {
                 $('#loadingAllHistory').addClass('d-none');
                 
-                let list = (res && res.data) ? res.data : (Array.isArray(res) ? res : []);
+                let rawList = (res && res.data) ? res.data : (Array.isArray(res) ? res : []);
                 
-                // Lọc chính xác client-side: Bắt cả item.tsId và item.ma_tai_san
-                list = list.filter(item => {
-                    let itemCode = String(item.tsId || item.ma_tai_san || '').trim();
-                    return itemCode === tsCode;
+                // CLIENT-SIDE FILTER CHUẨN: Bắt buộc lọc lại đúng tsCode truyền vào
+                let list = rawList.filter(item => {
+                    let itemTsId = String(item.tsId || item.ma_tai_san || item.ts_id || '').trim().toLowerCase();
+                    let targetCode = String(tsCode).trim().toLowerCase();
+                    return itemTsId === targetCode;
                 });
 
                 if (list.length > 0) {
@@ -1743,7 +1746,7 @@
                     `;
                     $('#containerAllHistory').html(historyTableHtml);
                 } else {
-                    $('#containerAllHistory').html('<div class="alert alert-info mb-0">Chưa có lịch sử kiểm kê nào khác cho tài sản này.</div>');
+                    $('#containerAllHistory').html(`<div class="alert alert-info mb-0">Chưa có lịch sử kiểm kê nào cho tài sản <b>${tsCode}</b>.</div>`);
                 }
             },
             error: function () {
