@@ -1460,8 +1460,8 @@
     // 1. Reset sạch khung xem inline cũ
     const $viewer =$('#' + containerId);
     $viewer.addClass('d-none').empty();
-    delete \$viewer[0].dataset.activeSrc;
-    delete \$viewer[0].dataset.embedSrc;
+    delete $viewer[0].dataset.activeSrc;
+    delete $viewer[0].dataset.embedSrc;
 
     // Helper định dạng tiền tệ & ngày tháng
     const fmtMoney = val => val ? Number(val).toLocaleString('vi-VN') + ' đ' : '0 đ';
