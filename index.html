@@ -1655,32 +1655,47 @@
     modal.show();
 
     // 5. Tải danh sách tất cả lịch sử kiểm kê của Tài sản này
+    // 5. Tải ĐẦY ĐỦ danh sách tất cả lịch sử kiểm kê theo MÃ TÀI SẢN (không lọc theo đợt)
     if (tsCode) {
-        $.ajax({
-            url: `${API_URL}?action=server_history&tsCode=${encodeURIComponent(tsCode)}&length=100`,
+        \$.ajax({
+            url: API_URL,
             type: 'GET',
             dataType: 'json',
+            data: {
+                action: 'server_history',
+                tsId: tsCode,             // Lọc chính xác theo Mã TS
+                search_tsId: tsCode,      // Dự phòng nếu backend dùng bộ lọc riêng
+                dot_id: '',               // Bỏ chọn đợt để lấy ALL các đợt kiểm kê
+                start: 0,
+                length: -1                // Lấy tất cả bản ghi (hoặc dùng 99999 nếu backend không nhận -1)
+            },
             success: function (res) {
-                $('#loadingAllHistory').addClass('d-none');
-                let list = (res && res.data) ? res.data : [];
+                \$('#loadingAllHistory').addClass('d-none');
+                
+                // Lấy mảng dữ liệu từ backend
+                let list = (res && res.data) ? res.data : (Array.isArray(res) ? res : []);
+                
+                // Lọc thêm 1 lần ở client-side để đảm bảo tuyệt đối chỉ lấy đúng tsId này
+                list = list.filter(item => String(item.tsId || item.ma_tai_san).trim() === String(tsCode).trim());
+
                 if (list.length > 0) {
                     let historyRows = '';
                     list.forEach((item, index) => {
                         let isCurrent = Number(item.id) === Number(row.id);
-                        let highlightClass = isCurrent ? 'table-warning' : '';
+                        let highlightClass = isCurrent ? 'table-warning fw-semibold' : '';
                         let currentBadge = isCurrent ? '<span class="badge bg-warning text-dark ms-1">Đang xem</span>' : '';
                         let files = buildFileListHtml(item.tep_dinh_kem);
 
                         historyRows += `
                             <tr class="${highlightClass}">
-                                <td class="text-center">${index + 1} ${currentBadge}</td>
-                                <td>${item.dotName || '-'}${Number(item.dotActive) === 0 ? ' <span class="badge bg-danger small">Đã khóa</span>' : ''}</td>
-                                <td>${item.phong_ban || '-'}</td>
-                                <td>${item.nguoiKK || '-'}</td>
-                                <td><span class="badge bg-success-subtle text-success border">${item.ket_qua_kk || '-'}</span></td>
-                                <td><small>${item.phuong_an_xl || '-'}</small></td>
-                                <td><small class="text-muted">${item.thoiGian || '-'}</small></td>
-                                <td>${files}</td>
+                                <td class="text-center align-middle">${index + 1} ${currentBadge}</td>
+                                <td class="align-middle">${item.dotName || '-'}${Number(item.dotActive) === 0 ? ' <span class="badge bg-danger small ms-1">Đã khóa</span>' : ''}</td>
+                                <td class="align-middle">${item.phong_ban || '-'}</td>
+                                <td class="align-middle">${item.nguoiKK || '-'}</td>
+                                <td class="align-middle"><span class="badge bg-success-subtle text-success border">${item.ket_qua_kk || '-'}</span></td>
+                                <td class="align-middle"><small>${item.phuong_an_xl || '-'}</small></td>
+                                <td class="align-middle"><small class="text-muted">${item.thoiGian || '-'}</small></td>
+                                <td class="align-middle">${files}</td>
                             </tr>
                         `;
                     });
@@ -1688,7 +1703,7 @@
                     let historyTableHtml = `
                         <div class="table-responsive">
                             <table class="table table-bordered table-hover align-middle small mb-0">
-                                <thead class="table-light">
+                                <thead class="table-light sticky-top">
                                     <tr>
                                         <th class="text-center" style="width: 50px;">STT</th>
                                         <th>Đợt Kiểm Kê</th>
@@ -1706,14 +1721,14 @@
                             </table>
                         </div>
                     `;
-                    $('#containerAllHistory').html(historyTableHtml);
+                    \$('#containerAllHistory').html(historyTableHtml);
                 } else {
-                    $('#containerAllHistory').html('<div class="alert alert-info mb-0">Chưa có lịch sử kiểm kê nào khác cho tài sản này.</div>');
+                    \$('#containerAllHistory').html('<div class="alert alert-info mb-0">Chưa có lịch sử kiểm kê nào khác cho tài sản này.</div>');
                 }
             },
             error: function () {
-                $('#loadingAllHistory').addClass('d-none');
-                $('#containerAllHistory').html('<div class="alert alert-danger mb-0">Lỗi khi tải danh sách lịch sử kiểm kê.</div>');
+                \$('#loadingAllHistory').addClass('d-none');
+                \$('#containerAllHistory').html('<div class="alert alert-danger mb-0">Lỗi khi tải danh sách lịch sử kiểm kê.</div>');
             }
         });
     }
