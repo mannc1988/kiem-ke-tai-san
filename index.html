@@ -1602,7 +1602,30 @@
         };
 
         // Render bảng chi tiết tài sản gốc vào Tab 2
-        let tsGocHtml = getAssetDetailTableHtml(assetRow);
+        let tsGocHtml = `
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped align-middle mb-0">
+                    <tbody>
+                        <tr><th style="width: 35%;">Mã tài sản</th><td><span class="badge bg-secondary">${row.ma_tai_san || '-'}</span></td></tr>
+                        <tr><th>Tên tài sản</th><td class="fw-bold text-primary">${row.ten_tai_san || '-'}</td></tr>
+                        <tr><th>Đơn vị</th><td>${row.don_vi || '-'}</td></tr>
+                        <tr><th>Nhóm tài sản</th><td>${row.nhom_tai_san || '-'}</td></tr>
+                        <tr><th>Nguyên giá</th><td class="text-success fw-semibold">${fmtMoney(row.nguyen_gia)}</td></tr>
+                        <tr><th>Hao mòn lũy kế</th><td class="text-danger">${fmtMoney(row.hao_mon_luy_ke)}</td></tr>
+                        <tr><th>Giá trị còn lại</th><td class="text-primary fw-semibold">${fmtMoney(row.gia_tri_con_lai)}</td></tr>
+                        <tr><th>Ngày đưa vào SD</th><td>${fmtDate(row.ngay_dua_vao_sd)}</td></tr>
+                        <tr><th>Trạng thái sử dụng</th><td><span class="badge bg-success-subtle text-success border">${row.trang_thai_sd || '-'}</span></td></tr>
+                        <tr><th>Trạng thái quyết toán</th><td><span class="badge bg-primary-subtle text-primary border">${row.trang_thai_qt || '-'}</span></td></tr>
+                        <tr><th>Bộ sổ</th><td>${row.bo_so || '-'}</td></tr>
+                        <tr><th>Cán bộ sử dụng</th><td>${row.can_bo_su_dung || '-'}</td></tr>
+                        <tr><th>Phòng ban quản lý</th><td>${row.phong_ban_quan_ly || '-'}</td></tr>
+                        <tr><th>Số Serial</th><td><span class="badge bg-light text-dark border">${row.so_serial || '-'}</span></td></tr>
+                        <tr><th>Thời gian Import</th><td>${row.import_at || '-'}</td></tr>
+                        <tr><th>Tệp đính kèm</th><td>${fileHtml}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        `;
         $('#containerTsGoc').html(tsGocHtml);
     } else {
         $('#containerTsGoc').html('<div class="alert alert-warning mb-0">Hàm viewAssetDetail chưa được khai báo.</div>');
