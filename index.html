@@ -1662,8 +1662,8 @@
             dataType: 'json',
             data: {
                 action: 'server_history',
-                tsId: tsId,             // Lọc chính xác theo Mã TS
-                search_tsId: tsId,      // Dự phòng nếu backend dùng bộ lọc riêng
+                tsId: tsCode,             // Lọc chính xác theo Mã TS
+                search_tsId: tsCode,      // Dự phòng nếu backend dùng bộ lọc riêng
                 dot_id: '',               // Bỏ chọn đợt để lấy ALL các đợt kiểm kê
                 start: 0,
                 length: -1                // Lấy tất cả bản ghi (hoặc dùng 99999 nếu backend không nhận -1)
@@ -1675,7 +1675,7 @@
                 let list = (res && res.data) ? res.data : (Array.isArray(res) ? res : []);
                 
                 // Lọc thêm 1 lần ở client-side để đảm bảo tuyệt đối chỉ lấy đúng tsId này
-                list = list.filter(item => String(item.tsId || item.ma_tai_san).trim() === String(tsId).trim());
+                list = list.filter(item => String(item.ma_tai_san).trim() === String(tsCode).trim());
 
                 if (list.length > 0) {
                     let historyRows = '';
