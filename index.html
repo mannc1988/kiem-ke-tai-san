@@ -1463,11 +1463,7 @@
     delete $viewer[0].dataset.activeSrc;
     delete $viewer[0].dataset.embedSrc;
 
-    // Helper định dạng tiền tệ & ngày tháng
-    const fmtMoney = val => val ? Number(val).toLocaleString('vi-VN') + ' đ' : '0 đ';
-    const fmtDate = val => (val && typeof formatDateToDMY === 'function') ? formatDateToDMY(val) : (val || '-');
-
-    // Helper tạo danh sách tệp đính kèm
+    // Helper tạo danh sách tệp đính kèm kèm nút "Xem Inline"
     const buildFileListHtml = (rawFiles) => {
         if (!rawFiles) return '<span class="text-muted fst-italic">Không có tệp</span>';
         let urls = String(rawFiles).split(/[,;]/).map(s => s.trim()).filter(Boolean);
@@ -1516,7 +1512,7 @@
         return html;
     };
 
-    // 2. Render khung giao diện Tab hoặc Accordion
+    // 2. Tên đợt kiểm kê
     let dotDisplay = row.dotName || 'Chưa xác định';
     if (Number(row.dotActive) === 0) {
         dotDisplay += ' <span class="badge bg-danger small">Đã khóa</span>';
@@ -1524,6 +1520,7 @@
 
     let fileHtml = buildFileListHtml(row.tep_dinh_kem);
 
+    // 3. Render khung Tab giao diện
     let htmlLayout = `
         <ul class="nav nav-tabs nav-justified mb-3" id="historyDetailTab" role="tablist">
             <li class="nav-item" role="presentation">
@@ -1538,7 +1535,7 @@
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link fw-semibold" id="tab-all-history" data-bs-toggle="tab" data-bs-target="#content-all-history" type="button" role="tab">
-                    <i class="fa-solid fa-clock-rotate-left me-1"></i> Tất Cả Lịch Sử Kiểm Kê
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i> Lịch Sử Kiểm Kê Của TS này
                 </button>
             </li>
         </ul>
@@ -1568,16 +1565,13 @@
 
             <!-- TAB 2: Thông tin tài sản gốc -->
             <div class="tab-pane fade" id="content-ts-goc" role="tabpanel">
-                <div id="loadingTsGoc" class="text-center py-4 text-muted">
-                    <div class="spinner-border spinner-border-sm text-primary me-1" role="status"></div> Đang tải thông tin tài sản gốc...
-                </div>
                 <div id="containerTsGoc"></div>
             </div>
 
-            <!-- TAB 3: Tất cả lịch sử kiểm kê -->
+            <!-- TAB 3: Tất cả lịch sử kiểm kê liên quan đến TS này -->
             <div class="tab-pane fade" id="content-all-history" role="tabpanel">
                 <div id="loadingAllHistory" class="text-center py-4 text-muted">
-                    <div class="spinner-border spinner-border-sm text-primary me-1" role="status"></div> Đang tải lịch sử tất cả đợt kiểm kê...
+                    <div class="spinner-border spinner-border-sm text-primary me-1" role="status"></div> Đang tải lịch sử kiểm kê...
                 </div>
                 <div id="containerAllHistory"></div>
             </div>
@@ -1585,55 +1579,40 @@
     `;
 
     $('#historyDetailTableContainer').html(htmlLayout);
+
+    // 4. Gọi hàm viewAssetDetail để tải/hiển thị thông tin tài sản gốc vào TAB 2
+    if (typeof viewAssetDetail === 'function') {
+        // Chuẩn hóa object dòng tài sản gốc từ row kiểm kê hiện tại
+        let assetRow = {
+            ma_tai_san: row.tsId,
+            ten_tai_san: row.tsName,
+            phong_ban_quan_ly: row.phong_ban,
+            so_serial: row.so_serial,
+            can_bo_su_dung: row.can_bo_su_dung || row.canBo || '',
+            don_vi: row.don_vi || row.donVi || '',
+            nhom_tai_san: row.nhom_tai_san || row.nhomTS || '',
+            nguyen_gia: row.nguyen_gia || row.nguyenGia || '',
+            hao_mon_luy_ke: row.hao_mon_luy_ke || row.haoMon || '',
+            gia_tri_con_lai: row.gia_tri_con_lai || row.giaTriConLai || '',
+            ngay_dua_vao_sd: row.ngay_dua_vao_sd || row.ngaySD || '',
+            trang_thai_sd: row.trang_thai_sd || '',
+            trang_thai_qt: row.trang_thai_qt || '',
+            bo_so: row.bo_so || '',
+            hinh_anh: row.hinh_anh_goc || row.hinh_anh || ''
+        };
+
+        // Render bảng chi tiết tài sản gốc vào Tab 2
+        let tsGocHtml = getAssetDetailTableHtml(assetRow);
+        $('#containerTsGoc').html(tsGocHtml);
+    } else {
+        $('#containerTsGoc').html('<div class="alert alert-warning mb-0">Hàm viewAssetDetail chưa được khai báo.</div>');
+    }
+
     let modal = new bootstrap.Modal(document.getElementById('historyDetailModal'));
     modal.show();
 
-    // 3. Gọi API lấy thông tin Tài Sản Gốc
+    // 5. Tải danh sách tất cả lịch sử kiểm kê của Tài sản này
     if (row.tsId) {
-        $.ajax({
-            url: `${API_URL}?action=get_asset_by_code&ma_tai_san=${encodeURIComponent(row.tsId)}`,
-            type: 'GET',
-            dataType: 'json',
-            success: function (res) {
-                $('#loadingTsGoc').addClass('d-none');
-                let ts = res && (res.data || res);
-                if (ts && ts.ma_tai_san) {
-                    let tsGocFileHtml = buildFileListHtml(ts.hinh_anh);
-                    let tsTable = `
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-striped align-middle mb-0">
-                                <tbody>
-                                    <tr><th style="width: 35%;">Mã tài sản</th><td><span class="badge bg-secondary">${ts.ma_tai_san || '-'}</span></td></tr>
-                                    <tr><th>Tên tài sản</th><td class="fw-bold text-primary">${ts.ten_tai_san || '-'}</td></tr>
-                                    <tr><th>Đơn vị</th><td>${ts.don_vi || '-'}</td></tr>
-                                    <tr><th>Nhóm tài sản</th><td>${ts.nhom_tai_san || '-'}</td></tr>
-                                    <tr><th>Nguyên giá</th><td class="text-success fw-semibold">${fmtMoney(ts.nguyen_gia)}</td></tr>
-                                    <tr><th>Hao mòn lũy kế</th><td class="text-danger">${fmtMoney(ts.hao_mon_luy_ke)}</td></tr>
-                                    <tr><th>Giá trị còn lại</th><td class="text-primary fw-semibold">${fmtMoney(ts.gia_tri_con_lai)}</td></tr>
-                                    <tr><th>Ngày đưa vào SD</th><td>${fmtDate(ts.ngay_dua_vao_sd)}</td></tr>
-                                    <tr><th>Trạng thái sử dụng</th><td><span class="badge bg-success-subtle text-success border">${ts.trang_thai_sd || '-'}</span></td></tr>
-                                    <tr><th>Trạng thái quyết toán</th><td><span class="badge bg-primary-subtle text-primary border">${ts.trang_thai_qt || '-'}</span></td></tr>
-                                    <tr><th>Bộ sổ</th><td>${ts.bo_so || '-'}</td></tr>
-                                    <tr><th>Cán bộ sử dụng</th><td>${ts.can_bo_su_dung || '-'}</td></tr>
-                                    <tr><th>Phòng ban quản lý</th><td>${ts.phong_ban_quan_ly || '-'}</td></tr>
-                                    <tr><th>Số Serial</th><td><span class="badge bg-light text-dark border">${ts.so_serial || '-'}</span></td></tr>
-                                    <tr><th>Tệp/Hình ảnh gốc</th><td>${tsGocFileHtml}</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
-                    $('#containerTsGoc').html(tsTable);
-                } else {
-                    $('#containerTsGoc').html('<div class="alert alert-warning mb-0">Không tìm thấy thông tin tài sản gốc.</div>');
-                }
-            },
-            error: function () {
-                $('#loadingTsGoc').addClass('d-none');
-                $('#containerTsGoc').html('<div class="alert alert-danger mb-0">Lỗi khi tải thông tin tài sản gốc.</div>');
-            }
-        });
-
-        // 4. Gọi API lấy Tất Cả Lịch Sử Kiểm Kê của Mã Tài Sản này
         $.ajax({
             url: `${API_URL}?action=server_history&tsId=${encodeURIComponent(row.tsId)}&length=100`,
             type: 'GET',
@@ -1686,7 +1665,7 @@
                     `;
                     $('#containerAllHistory').html(historyTableHtml);
                 } else {
-                    $('#containerAllHistory').html('<div class="alert alert-info mb-0">Chưa có lịch sử kiểm kê nào khác.</div>');
+                    $('#containerAllHistory').html('<div class="alert alert-info mb-0">Chưa có lịch sử kiểm kê nào khác cho tài sản này.</div>');
                 }
             },
             error: function () {
