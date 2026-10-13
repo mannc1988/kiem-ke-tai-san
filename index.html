@@ -3245,7 +3245,7 @@
             let ketQuaList = ['Khớp danh mục', 'Thừa tài sản', 'Thiếu tài sản', 'Hỏng/Chờ thanh lý', 'Khác'];
             let ketQuaOptions = ketQuaList.map(kq => `<option value="${kq}" ${kq === item.ket_qua_kk ? 'selected' : ''}>${kq}</option>`).join('');
 
-            let phuongAnList = ['Giữ nguyên', 'Thu hồi', 'Điều chuyển', 'Thanh lý', 'Khác'];
+            let phuongAnList = ['Giữ nguyên', 'Thu hồi', 'Điều chuyển', 'Thanh lý', 'Cập nhật S/N', 'Khác'];
             let phuongAnOptions = phuongAnList.map(pa => `<option value="${pa}" ${pa === item.phuong_an_xl ? 'selected' : ''}>${pa}</option>`).join('');
 
             const { value: formValues } = await Swal.fire({
