@@ -2953,8 +2953,8 @@
             }
             return true;
         }
-        async function saveAsset(e) {
-            e.preventDefault();
+        async function saveAsset(event) {
+            event.preventDefault();
             const ma_tai_san = document.getElementById('ma_tai_san').value.trim();
             const rawDonVi = document.getElementById('don_vi').value.trim();
             const rawTen = document.getElementById('ten_tai_san').value.trim();
