@@ -151,7 +151,7 @@
                 </div>
             </div>
             <div class="card-body">
-                <form id="assetForm" onsubmit="saveAsset(e)" class="mb-4 pb-3 border-bottom">
+                <form id="assetForm" onsubmit="saveAsset(event)" class="mb-4 pb-3 border-bottom">
                     <div class="row g-3">
                         <div class="col-md-3">
                             <label class="form-label fw-semibold small">Mã Tài Sản <span class="text-danger">*</span>:</label>
@@ -2953,8 +2953,8 @@
             }
             return true;
         }
-        async function saveAsset(event) {
-            event.preventDefault();
+        async function saveAsset(e) {
+            e.preventDefault();
             const ma_tai_san = document.getElementById('ma_tai_san').value.trim();
             const rawDonVi = document.getElementById('don_vi').value.trim();
             const rawTen = document.getElementById('ten_tai_san').value.trim();
