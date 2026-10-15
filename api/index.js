@@ -460,7 +460,168 @@ if (action === 'get_asset_logs') {
         }
 // 2. PHÂN TRANG DATATABLE DANH MỤC TÀI SẢN (XỬ LÝ ĐẦY ĐỦ SEARCH & SORT)
 // 2. PHÂN TRANG DATATABLE DANH MỤC TÀI SẢN (SỬA LỖI SẮP XẾP / SORTING)
-if (action === 'server_assets') {
+        if (action === 'server_assets') {
+    try {
+        const draw = parseInt(req.query.draw) || 1;
+        const start = parseInt(req.query.start) || 0;
+        
+        // Bổ sung: Ép kiểu nguyên length, xử lý linh hoạt chuỗi '-1' hoặc số -1
+        const rawLength = req.query.length !== undefined ? parseInt(req.query.length) : 10;
+        const length = isNaN(rawLength) ? 10 : rawLength;
+
+        // A. Lấy từ khóa tìm kiếm (Search)
+        let rawSearch = '';
+        if (req.query.search) {
+            if (typeof req.query.search === 'object') {
+                rawSearch = req.query.search.value || '';
+            } else if (typeof req.query.search === 'string') {
+                rawSearch = req.query.search;
+            }
+        }
+        if (!rawSearch && req.query['search[value]']) {
+            rawSearch = req.query['search[value]'];
+        }
+        const searchValue = String(rawSearch).trim().toLowerCase();
+
+        // B. Lấy vị trí cột và hướng sắp xếp (Order / Sort)
+        let orderColIdx = 2; // Mặc định cột ma_tai_san
+        let orderDir = 'desc';
+
+        // Bóc tách linh hoạt các dạng query parameter mà Express parse
+        if (req.query.order && req.query.order[0]) {
+            orderColIdx = parseInt(req.query.order[0].column) || 0;
+            orderDir = (req.query.order[0].dir || 'asc').toLowerCase();
+        } else if (req.query['order[0][column]'] !== undefined) {
+            orderColIdx = parseInt(req.query['order[0][column]']) || 0;
+            orderDir = (req.query['order[0][dir]'] || 'asc').toLowerCase();
+        }
+
+        // Bản đồ ánh xạ Index cột sang tên trường Dữ liệu
+        const fieldMap = [
+            'stt',               // 0
+            'hinh_anh',          // 1
+            'ma_tai_san',        // 2
+            'don_vi',            // 3
+            'ten_tai_san',       // 4
+            'nhom_tai_san',      // 5
+            'nguyen_gia',        // 6
+            'hao_mon_luy_ke',    // 7
+            'gia_tri_con_lai',   // 8
+            'ngay_dua_vao_sd',   // 9
+            'trang_thai_sd',     // 10
+            'trang_thai_qt',     // 11
+            'bo_so',             // 12
+            'can_bo_su_dung',    // 13
+            'phong_ban_quan_ly', // 14
+            'so_serial',         // 15
+            'import_at'          // 16
+        ];
+
+        const sortField = fieldMap[orderColIdx] || 'ma_tai_san';
+
+        // Helper giải mã an toàn ở Server-side
+        const safeServerDecrypt = (val) => {
+            if (val === null || val === undefined) return '';
+            let str = String(val).trim();
+            if (!str) return '';
+
+            if (typeof decryptData === 'function') {
+                try {
+                    const decrypted = decryptData(str);
+                    if (decrypted !== null && decrypted !== undefined) {
+                        str = String(decrypted);
+                    }
+                } catch (e) {}
+            }
+            return str;
+        };
+
+        // 1. Lấy tổng số bản ghi từ CSDL
+        const [totalResult] = await connection.execute('SELECT COUNT(*) as total FROM danh_sach_tai_san');
+        const totalRecords = totalResult[0].total;
+
+        // 2. Lấy toàn bộ dữ liệu từ DB để giải mã
+        const [allRows] = await connection.execute('SELECT * FROM danh_sach_tai_san');
+
+        // 3. Giải mã toàn bộ bản ghi
+        const decryptedRows = allRows.map(item => ({
+            ma_tai_san: safeServerDecrypt(item.ma_tai_san),
+            don_vi: safeServerDecrypt(item.don_vi),
+            ten_tai_san: safeServerDecrypt(item.ten_tai_san),
+            nhom_tai_san: safeServerDecrypt(item.nhom_tai_san),
+            nguyen_gia: safeServerDecrypt(item.nguyen_gia),
+            hao_mon_luy_ke: safeServerDecrypt(item.hao_mon_luy_ke),
+            gia_tri_con_lai: safeServerDecrypt(item.gia_tri_con_lai),
+            ngay_dua_vao_sd: safeServerDecrypt(item.ngay_dua_vao_sd),
+            trang_thai_sd: safeServerDecrypt(item.trang_thai_sd),
+            trang_thai_qt: safeServerDecrypt(item.trang_thai_qt),
+            bo_so: safeServerDecrypt(item.bo_so),
+            can_bo_su_dung: safeServerDecrypt(item.can_bo_su_dung),
+            phong_ban_quan_ly: safeServerDecrypt(item.phong_ban_quan_ly),
+            so_serial: safeServerDecrypt(item.so_serial),
+            hinh_anh: safeServerDecrypt(item.hinh_anh),
+            import_at: safeServerDecrypt(item.import_at)
+        }));
+
+        // 4. LỌC DỮ LIỆU (SEARCH)
+        let filteredData = decryptedRows;
+        if (searchValue !== '') {
+            filteredData = decryptedRows.filter(row => {
+                return Object.values(row).some(val => 
+                    String(val || '').toLowerCase().includes(searchValue)
+                );
+            });
+        }
+
+        // 5. SẮP XẾP DỮ LIỆU (SORT)
+        filteredData.sort((a, b) => {
+            let valA = a[sortField] !== undefined ? a[sortField] : '';
+            let valB = b[sortField] !== undefined ? b[sortField] : '';
+
+            // Sắp xếp số cho các trường giá trị tiền
+            if (['nguyen_gia', 'hao_mon_luy_ke', 'gia_tri_con_lai'].includes(sortField)) {
+                valA = Number(valA) || 0;
+                valB = Number(valB) || 0;
+            } else {
+                valA = String(valA).toLowerCase();
+                valB = String(valB).toLowerCase();
+            }
+
+            if (valA < valB) return orderDir === 'asc' ? -1 : 1;
+            if (valA > valB) return orderDir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        const recordsFiltered = filteredData.length;
+
+        // 6. PHÂN TRANG (PAGINATION) - BỔ SUNG XỬ LÝ LỰA CHỌN "TẤT CẢ" (length = -1)
+        let pagedData = filteredData;
+
+        // Chỉ tiến hành cắt mảng slice() khi length > 0 (ví dụ: 10, 25, 50, 100).
+        // Ngược lại, nếu length === -1 ("Tất cả"), giữ nguyên toàn bộ mảng filteredData.
+        if (length > 0) {
+            const limitVal = parseInt(length);
+            const offsetVal = Math.max(0, parseInt(start));
+            pagedData = filteredData.slice(offsetVal, offsetVal + limitVal);
+        }
+
+        // 7. Trả kết quả JSON về cho Client
+        return res.json({
+            draw: draw,
+            recordsTotal: totalRecords,
+            recordsFiltered: recordsFiltered,
+            data: pagedData
+        });
+
+    } catch (err) {
+        console.error('Lỗi server_assets:', err);
+        return res.status(500).json({ 
+            success: false, 
+            error: err.message || 'Lỗi xử lý server_assets!' 
+        });
+    }
+}
+if (action === 'server_assets2') {
     try {
         const draw = parseInt(req.query.draw) || 1;
         const start = parseInt(req.query.start) || 0;
@@ -649,182 +810,6 @@ if (action === 'server_assets') {
             });
         }
         if (action === 'server_history') {
-    try {
-        const draw = parseInt(req.query.draw) || 1;
-        const start = parseInt(req.query.start) || 0;
-        
-        // Bổ sung: Ép kiểu nguyên length, chấp nhận cả string '-1' hoặc number -1
-        const rawLength = req.query.length !== undefined ? parseInt(req.query.length) : 10;
-        const length = isNaN(rawLength) ? 10 : rawLength;
-        
-        const selectedDotId = req.query.dot_id ? String(req.query.dot_id).trim() : '';
-
-        // A. Lấy từ khóa tìm kiếm (Search)
-        let rawSearch = '';
-        if (req.query.search) {
-            if (typeof req.query.search === 'object') {
-                rawSearch = req.query.search.value || '';
-            } else if (typeof req.query.search === 'string') {
-                rawSearch = req.query.search;
-            }
-        }
-        if (!rawSearch && req.query['search[value]']) {
-            rawSearch = req.query['search[value]'];
-        }
-        const searchValue = String(rawSearch).trim().toLowerCase();
-
-        // B. Lấy thông tin Cột và Hướng sắp xếp (Order / Sort)
-        let orderColIdx = 0;
-        let orderDir = 'desc';
-
-        if (req.query.order && req.query.order[0]) {
-            orderColIdx = parseInt(req.query.order[0].column) || 0;
-            orderDir = (req.query.order[0].dir || 'desc').toLowerCase();
-        } else if (req.query['order[0][column]'] !== undefined) {
-            orderColIdx = parseInt(req.query['order[0][column]']) || 0;
-            orderDir = (req.query['order[0][dir]'] || 'desc').toLowerCase();
-        }
-
-        const fieldMap = [
-            'id', 'dotName', 'tsId', 'tsName', 'phong_ban', 
-            'so_serial', 'nguoiKK', 'ket_qua_kk', 'phuong_an_xl', 
-            'tep_dinh_kem', 'thoiGian', 'ghiChu'
-        ];
-        const sortField = fieldMap[orderColIdx] || 'id';
-
-        // Helper giải mã an toàn ở Server-side
-        const safeServerDecrypt = (val) => {
-            if (val === null || val === undefined) return '';
-            let str = String(val).trim();
-            if (!str) return '';
-
-            if (typeof decryptData === 'function') {
-                try {
-                    const decrypted = decryptData(str);
-                    if (decrypted !== null && decrypted !== undefined) {
-                        str = String(decrypted);
-                    }
-                } catch (e) {}
-            }
-            return str;
-        };
-
-        // 1. Lấy dữ liệu từ DB
-        const [allRows] = await connection.execute('SELECT * FROM lich_su_kk ORDER BY id DESC');
-        const [allDots] = await connection.execute('SELECT id, name, active FROM dot_kiem_ke');
-
-        // 2. Tạo Map đợt kiểm kê - GIẢI MÃ CỘT d.name TẠI ĐÂY
-        const dotMap = new Map();
-        allDots.forEach(d => {
-            // Giải mã tên đợt kiểm kê
-            const decDotName = safeServerDecrypt(d.name) || d.name || '';
-            const cleanId = String(d.id).trim();
-            
-            dotMap.set(cleanId, { 
-                id: cleanId,
-                name: decDotName, 
-                active: d.active 
-            });
-        });
-
-        // 3. Giải mã toàn bộ bản ghi lịch sử
-        const decryptedRows = allRows.map(row => {
-            // Giải mã dotId bị mã hóa trong bảng lich_su_kk
-            const decDotId = safeServerDecrypt(row.dotId).toString().trim();
-            
-            // Lấy thông tin đợt kiểm kê từ Map
-            const dotInfo = dotMap.get(decDotId) || dotMap.get(String(row.dotId).trim());
-
-            // Tên đợt đã giải mã hoàn chỉnh
-            const finalDotName = dotInfo ? dotInfo.name : (decDotId ? `Đợt ${decDotId}` : 'Chưa xác định');
-
-            return {
-                id: row.id,
-                tsId: safeServerDecrypt(row.tsId),
-                tsName: safeServerDecrypt(row.tsName),
-                phong_ban: safeServerDecrypt(row.phong_ban),
-                so_serial: safeServerDecrypt(row.so_serial),
-                nguoiKK: safeServerDecrypt(row.nguoiKK),
-                ket_qua_kk: safeServerDecrypt(row.ket_qua_kk),
-                phuong_an_xl: safeServerDecrypt(row.phuong_an_xl),
-                ghiChu: safeServerDecrypt(row.ghiChu),
-                tep_dinh_kem: safeServerDecrypt(row.tep_dinh_kem),
-                thoiGian: safeServerDecrypt(row.thoiGian),
-                created_at: safeServerDecrypt(row.created_at),
-                dotId: decDotId,
-                realDotId: decDotId,
-                dotName: finalDotName, // <-- Hiển thị tên đợt tiếng Việt đã giải mã
-                dotActive: dotInfo ? dotInfo.active : null
-            };
-        });
-
-        const totalRecords = decryptedRows.length;
-
-        // 4. LỌC DỮ LIỆU (Filter theo dot_id & Search)
-        let filteredRows = decryptedRows;
-
-        if (selectedDotId) {
-            filteredRows = filteredRows.filter(row => 
-                String(row.realDotId) === selectedDotId || String(row.dotId) === selectedDotId
-            );
-        }
-
-        if (searchValue !== '') {
-            filteredRows = filteredRows.filter(row => {
-                return Object.values(row).some(val => 
-                    String(val || '').toLowerCase().includes(searchValue)
-                );
-            });
-        }
-
-        // 5. SẮP XẾP DỮ LIỆU
-        filteredRows.sort((a, b) => {
-            let valA = a[sortField] !== undefined ? a[sortField] : '';
-            let valB = b[sortField] !== undefined ? b[sortField] : '';
-
-            if (sortField === 'id') {
-                valA = Number(valA) || 0;
-                valB = Number(valB) || 0;
-            } else {
-                valA = String(valA).toLowerCase();
-                valB = String(valB).toLowerCase();
-            }
-
-            if (valA < valB) return orderDir === 'asc' ? -1 : 1;
-            if (valA > valB) return orderDir === 'asc' ? 1 : -1;
-            return 0;
-        });
-
-        const recordsFiltered = filteredRows.length;
-
-        // 6. PHÂN TRANG (PAGINATION) - BỔ SUNG XỬ LÝ LỰA CHỌN "TẤT CẢ" (length = -1)
-        let pagedData = filteredRows;
-        
-        // Chỉ tiến hành cắt mảng slice() nếu length > 0 (ví dụ: 10, 25, 50, 100).
-        // Ngược lại, nếu length === -1 ("Tất cả"), giữ nguyên toàn bộ mảng filteredRows.
-        if (length > 0) {
-            const limitVal = parseInt(length);
-            const offsetVal = Math.max(0, parseInt(start));
-            pagedData = filteredRows.slice(offsetVal, offsetVal + limitVal);
-        }
-
-        // 7. TRẢ KẾT QUẢ DATATABLES
-        return res.json({
-            draw: draw,
-            recordsTotal: totalRecords,
-            recordsFiltered: recordsFiltered,
-            data: pagedData
-        });
-
-    } catch (err) {
-        console.error('Lỗi server_history:', err);
-        return res.status(500).json({ 
-            success: false, 
-            error: err.message || 'Lỗi xử lý server_history!' 
-        });
-    }
-}
-        if (action === 'server_history3') {
     try {
         const draw = parseInt(req.query.draw) || 1;
         const start = parseInt(req.query.start) || 0;
