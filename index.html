@@ -736,8 +736,120 @@ const auditLogTable = $('#auditLogDataTable').DataTable({
                 return cipherText;
             }
         }
-        // Function gọi xuất báo cáo khi click nút trên giao diện
         async function exportExcelReport() {
+    if (!historyTable) {
+        Swal.fire('Lỗi', 'Bảng lịch sử kiểm kê chưa được khởi tạo!', 'error');
+        return;
+    }
+
+    // 1. Lấy trực tiếp toàn bộ dữ liệu đang có trên DataTables (kể cả đã qua filter/search)
+    let tableData = [];
+    try {
+        tableData = historyTable.rows({ search: 'applied' }).data().toArray();
+    } catch (e) {
+        tableData = historyTable.rows().data().toArray();
+    }
+
+    if (!tableData || tableData.length === 0) {
+        Swal.fire('Thông báo', 'Không có dữ liệu trong bảng để xuất báo cáo!', 'warning');
+        return;
+    }
+
+    Swal.fire({
+        title: 'Xuất Báo Cáo Kiểm Kê?',
+        text: `Hệ thống sẽ tải về file Excel chứa ${tableData.length} bản ghi hiện có trên bảng.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-file-excel me-1"></i> Tải Báo Cáo',
+        cancelButtonText: 'Hủy',
+        confirmButtonColor: '#198754'
+    }).then(async (result) => {
+        if (!result.isConfirmed) return;
+
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('BaoCaoKiemKe');
+
+            // 2. Cấu hình danh sách các cột trong file Excel
+            worksheet.columns = [
+                { header: 'STT', key: 'stt', width: 8 },
+                { header: 'Đợt Kiểm Kê', key: 'dotName', width: 25 },
+                { header: 'Mã Tài Sản', key: 'tsId', width: 18 },
+                { header: 'Tên Tài Sản', key: 'tsName', width: 32 },
+                { header: 'Phòng Ban', key: 'phongBan', width: 22 },
+                { header: 'Số Serial', key: 'soSerial', width: 18 },
+                { header: 'Cán Bộ KK', key: 'nguoiKK', width: 20 },
+                { header: 'Kết Quả KK', key: 'ketQua', width: 18 },
+                { header: 'Phương Án XL', key: 'phuongAn', width: 20 },
+                { header: 'Thời Gian', key: 'thoiGian', width: 22 },
+                { header: 'Ghi Chú', key: 'ghiChu', width: 25 }
+            ];
+
+            // 3. Đổ dữ liệu trực tiếp từ DataTable vào từng dòng Excel (Bắt song song cả 2 kiểu tên trường)
+            tableData.forEach((row, idx) => {
+                worksheet.addRow({
+                    stt: idx + 1,
+                    dotName: row.dotName || row.dot_name || row.dotId || 'Chưa xác định',
+                    tsId: row.tsId || row.ma_tai_san || '',
+                    tsName: row.tsName || row.ten_tai_san || '',
+                    phongBan: row.phong_ban || row.phongBan || '',
+                    soSerial: row.so_serial || row.soSerial || '',
+                    nguoiKK: row.nguoiKK || row.nguoi_kk || '',
+                    ketQua: row.ket_qua_kk || row.ketQua || '',
+                    phuongAn: row.phuong_an_xl || row.phuongAn || '',
+                    thoiGian: row.thoiGian || row.thoi_gian || '',
+                    ghiChu: row.ghiChu || row.ghi_chu || ''
+                });
+            });
+
+            // 4. Định dạng Header (Màu xanh Primary, chữ trắng đậm, căn giữa)
+            const headerRow = worksheet.getRow(1);
+            headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 11 };
+            headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0D6EFD' } };
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+            // 5. Kẻ ô Border và căn chỉnh dòng dữ liệu
+            worksheet.eachRow((row, rNum) => {
+                row.eachCell((cell) => {
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'D3D3D3' } },
+                        left: { style: 'thin', color: { argb: 'D3D3D3' } },
+                        bottom: { style: 'thin', color: { argb: 'D3D3D3' } },
+                        right: { style: 'thin', color: { argb: 'D3D3D3' } }
+                    };
+                    if (rNum > 1) cell.alignment = { vertical: 'middle', wrapText: true };
+                });
+            });
+
+            // 6. Tạo file và tải xuống trực tiếp bằng HTML5 Blob
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Bao_Cao_Kiem_Ke_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Thành công!',
+                text: 'Đã xuất file báo cáo Excel thành công.',
+                timer: 2000,
+                showConfirmButton: false
+            });
+
+        } catch (err) {
+            console.error('Lỗi exportExcelReport:', err);
+            Swal.fire('Lỗi', 'Không thể tạo file Excel: ' + err.message, 'error');
+        }
+    });
+}
+        // Function gọi xuất báo cáo khi click nút trên giao diện
+        async function exportExcelReport1() {
             if (!historyTable) return;
 
             // 1. Lấy trực tiếp toàn bộ dữ liệu đang có trong DataTables
