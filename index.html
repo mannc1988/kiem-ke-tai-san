@@ -2068,6 +2068,10 @@ const auditLogTable = $('#auditLogDataTable').DataTable({
                 searching: true,
                 ordering: true,
                 order: [[2, 'desc']], // Mặc định sắp xếp theo Mã tài sản (cột index 2) giảm dần
+                lengthMenu: [
+                            [10, 25, 50, 100, -1], 
+                            [10, 25, 50, 100, "Tất cả"]
+                ],
                 ajax: {
                     url: `${API_URL}?action=server_assets`,
                     type: 'GET'
