@@ -3707,7 +3707,7 @@ const auditLogTable = $('#auditLogDataTable').DataTable({
                 headerDrive.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i> Tệp trên Drive (' + editHistoryExistingDriveUrls.length + '):';
                 container.appendChild(headerDrive);
 
-                editHistoryExistingDriveUrls.forEach(function (url, index) {
+                editHistoryExistingDriveUrls.forEach(function (url, idx) {
                     var rawName = url.split("/").pop().split("?")[0] || ("Drive_File_" + (index + 1));
                     var fName = rawName;
                     try { fName = decodeURIComponent(rawName); } catch (e) { }
@@ -3762,7 +3762,7 @@ const auditLogTable = $('#auditLogDataTable').DataTable({
                     btnDelete.innerHTML = '**Xóa Drive';
                     btnDelete.onclick = function () {
                         if (typeof deleteDriveFileDirectly === "function") {
-                            deleteDriveFileDirectly(safeUrl, idx, 'history', historyId);
+                            deleteDriveFileDirectly(url, idx, 'history', historyId);
                         }
                     };
 
