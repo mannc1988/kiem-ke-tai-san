@@ -3762,7 +3762,7 @@ const auditLogTable = $('#auditLogDataTable').DataTable({
                     btnDelete.innerHTML = '**Xóa Drive';
                     btnDelete.onclick = function () {
                         if (typeof deleteDriveFileDirectly === "function") {
-                            deleteDriveFileDirectly(url, index, 'asset', null);
+                            deleteDriveFileDirectly(safeUrl, idx, 'history', historyId);
                         }
                     };
 
