@@ -2140,7 +2140,11 @@ const auditLogTable = $('#auditLogDataTable').DataTable({
                 scrollX: true,
                 searching: true,
                 ordering: true,
-                order: [[0, 'desc']], // Mặc định sắp xếp theo ID lịch sử giảm dần
+                order: [[0, 'desc']],
+                lengthMenu: [
+                            [10, 25, 50, 100, -1], 
+                            [10, 25, 50, 100, "Tất cả"]
+                ],
                 ajax: {
                     url: API_URL,
                     type: 'GET',
